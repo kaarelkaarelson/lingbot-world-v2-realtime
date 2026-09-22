@@ -1,0 +1,75 @@
+{
+ "candidate": "C5 fixed global max (FlashDecoding++ phi)",
+ "pod": "16 (xeq9a67r1mi0n0)",
+ "date": "2026-09-22",
+ "kernel_only_ms": {
+  "base": [
+   1.7282,
+   1.7304
+  ],
+  "phi0": 1.5676,
+  "phi8": 1.5742,
+  "phi10": 1.5769
+ },
+ "gain_vs_base_pct": -8.9,
+ "attn_pct_of_838_peak": 76.3,
+ "phi_sweep_whole_call": {
+  "3": [
+   1.9233,
+   0.982457
+  ],
+  "4": [
+   1.9275,
+   0.997098
+  ],
+  "4.5": [
+   1.9283,
+   0.998632
+  ],
+  "5": [
+   1.9284,
+   0.999088
+  ],
+  "6": [
+   1.9267,
+   0.999227
+  ],
+  "8": [
+   1.9221,
+   0.99923
+  ],
+  "10": [
+   1.9254,
+   0.999213
+  ],
+  "12": [
+   1.9143,
+   0.996504
+  ],
+  "14": [
+   1.9025,
+   0.895076
+  ],
+  "16": [
+   1.887,
+   0.408956
+  ],
+  "20": [
+   1.8762,
+   0.0
+  ]
+ },
+ "base_cosine": 0.999246,
+ "usable_phi_window": "[6,10] for a true max of ~6.5 log2 units; below -> e4m3 saturation, above -> resolution loss; both silent",
+ "sass": {
+  "base": {
+   "MUFU.EX2": 204,
+   "FFMA/FADD/FMUL": 1063
+  },
+  "fixedmax": {
+   "MUFU.EX2": 192,
+   "FFMA/FADD/FMUL": 1042
+  }
+ },
+ "open": "a dependency-control variant (same ALU savings, dependency artificially restored) is needed to attribute the 8.9 % to the dependency rather than the removed rescale work; reviewer also flags that the fp32 d vs e4m3 P asymmetry means 2^-phi does not fully cancel"
+}

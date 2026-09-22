@@ -1,0 +1,27 @@
+{
+ "candidate": "C2 conditional rescale tau=2",
+ "result_ms": {
+  "base": [
+   1.727,
+   1.7278
+  ],
+  "condrescale": 1.7195
+ },
+ "gain_pct": -0.4,
+ "sass_confirms_skip_is_a_real_branch": {
+  "VOTE": {
+   "base": 0,
+   "condrescale": 12
+  },
+  "BRA": {
+   "base": 10,
+   "condrescale": 22
+  },
+  "predicated_FMUL": 0
+ },
+ "cosine": {
+  "base": 0.999246,
+  "condrescale": 0.999234
+ },
+ "verdict": "null confirmed: the warp vote is a real branch, the rescale was skipped, and nothing moved"
+}

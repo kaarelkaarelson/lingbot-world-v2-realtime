@@ -1,0 +1,27 @@
+{
+ "candidate": "C1 emulated exp2",
+ "result_ms": {
+  "base": [
+   1.7261,
+   1.7259
+  ],
+  "expemu": 1.738
+ },
+ "gain_pct": 0.7,
+ "sass_confirms_path_ran": {
+  "MUFU.EX2": {
+   "base": 204,
+   "expemu": 156,
+   "drop_pct": 23.5
+  },
+  "FFMA/FADD/FMUL": {
+   "base": 1063,
+   "expemu": 1351
+  }
+ },
+ "cosine": {
+  "base": 0.999246,
+  "expemu": 0.999246
+ },
+ "verdict": "null confirmed: the emulated path executed (25 % fewer MUFU) and was still slower; SFU throughput is not the queue"
+}
