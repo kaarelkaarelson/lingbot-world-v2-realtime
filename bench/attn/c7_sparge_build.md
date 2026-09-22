@@ -62,7 +62,11 @@ nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader
 # Expected: NVIDIA RTX 5090, 12.0
 ```
 
-### Phase 1: Remove `-include,cassert` Unconditionally (Tests Suspect: cassert flag toxicity)
+### Phase 1: Build with the corrected patch (tests suspect: cassert flag toxicity)
+
+Set `REPO=~/lingbot-world-v2-realtime` (or wherever this repo is checked out on the pod) before any
+command below. Verified off-pod on 2026-09-22: `sm120.patch` applies cleanly to upstream `ae5b629`,
+leaves no `-include,cassert` in NVCC_FLAGS, and `setup.py` still parses.
 
 **Goal**: Test whether removing the `-include,cassert` flag (which SageAttention lacks) allows sm_120 to build.
 This is the fastest test; SageAttention is proof that absence of this flag works on the same machine.
@@ -73,7 +77,7 @@ git clone --depth=1 https://github.com/thu-ml/SpargeAttn.git sparge_nocassert
 cd sparge_nocassert
 
 # Apply our patch first
-patch -p1 < /path/to/bench/attn/sparge/sm120.patch
+git apply $REPO/bench/attn/sparge/sm120.patch
 
 # NOW: Remove the `-include,cassert` lines from NVCC_FLAGS entirely (not conditionally).
 # Edit setup.py around lines 106-109:
@@ -84,7 +88,9 @@ patch -p1 < /path/to/bench/attn/sparge/sm120.patch
 #   # cassert flag removed: SageAttention builds without it
 
 # Or use sed to remove it:
-sed -i.bak '106,109d' setup.py  # Delete lines 106-109
+# NOTHING TO EDIT: sm120.patch already drops -include,cassert unconditionally (fixed 2026-09-22).
+# Confirm it really is gone before building:
+grep -n cassert setup.py   # expect ONLY the explanatory comment, no NVCC_FLAGS line
 # Verify the deletion
 grep -n "include,cassert" setup.py && echo "✗ FAILED TO REMOVE CASSERT" || echo "✓ Cassert removed"
 
@@ -133,7 +139,7 @@ git clone --depth=1 https://github.com/thu-ml/SpargeAttn.git sparge_clean_venv
 cd sparge_clean_venv
 
 # Apply the patch
-patch -p1 < /path/to/bench/attn/sparge/sm120.patch
+git apply $REPO/bench/attn/sparge/sm120.patch
 
 # Build at arch 12.0
 export TORCH_CUDA_ARCH_LIST="12.0"
@@ -204,8 +210,8 @@ fi
 ```bash
 # Phase 1: Remove cassert and test
 cd /tmp/sparge-build/sparge_nocassert && \
-patch -p1 < /path/to/bench/attn/sparge/sm120.patch && \
-sed -i.bak '106,109d' setup.py && \
+git apply $REPO/bench/attn/sparge/sm120.patch && \
+grep -n cassert setup.py && \
 export TORCH_CUDA_ARCH_LIST="12.0" && \
 python setup.py build 2>&1 | tee build_nocassert.log && \
 tail -5 build_nocassert.log
@@ -218,7 +224,7 @@ source venv_test/bin/activate && \
 pip install -q pip setuptools wheel ninja torch peft einops packaging && \
 git clone --depth=1 https://github.com/thu-ml/SpargeAttn.git sparge_clean && \
 cd sparge_clean && \
-patch -p1 < /path/to/bench/attn/sparge/sm120.patch && \
+git apply $REPO/bench/attn/sparge/sm120.patch && \
 export TORCH_CUDA_ARCH_LIST="12.0" && \
 python setup.py build 2>&1 | tee build_clean.log && \
 tail -5 build_clean.log
@@ -257,17 +263,22 @@ tail -100 build_nocassert.log | grep -A 10 "error:\|redefinition" | head -20
 
 ## Stopping Condition
 
-- **Do not spend more than 90 minutes on this phase.**
-- If baseline 8.9 + clean venv + suspect B/C investigation do not resolve it, the candidate is blocked
-  and the effort is better spent on other optimizations.
+- **Do not spend more than 60 minutes on this debug.** Phases 0–3 are designed to fit this window.
+- If all three suspects (cassert flag, venv double-includes, broken toolchain) are ruled out,
+  the blocker requires either:
+  - Deep source-level debugging of the patch interaction with nvcc (outside pod time box)
+  - Escalation for technical support from NVIDIA or upstream SpargeAttn maintainers
+- The candidate's expected value (1.3× speedup) may not justify further investigation at that point.
 
 ---
 
 ## Summary Table: Verdict Path
 
-| Build Outcome | Suspect A | Suspect B | Suspect C | Verdict |
+Read as: "Phase outcomes" → "Suspect Status" → "Verdict"
+
+| Phase Outcomes | Cassert Flag | Venv Doubles | Toolchain | Verdict |
 |---|---|---|---|---|
-| ✓ Phase 1 sm_120 clean | ruled out | ruled out | ruled out | **BUILDABLE** — move to bench |
-| ✗ Phase 1; ✓ baseline 8.9; gencode error in Phase 2 | ruled out | ruled out | **CONFIRMED** | CUDA 12.9+ required; candidate viable if upgraded |
-| ✗ Phase 1; ✓ baseline 8.9; __terminate in Phase 2/3 | ruled out | ruled out | ruled out | Header conflict; may need upstream fix |
-| ✗ Phase 1 baseline 8.9 | — | **NOT ruled out** | — | Toolchain broken; cannot test |
+| ✓ Phase 1: removes cassert, sm_120 builds | **CULPRIT** | N/A | N/A | **BUILDABLE**. Remove cassert unconditionally. |
+| ✗ Phase 1 still fails; ✓ Phase 2 clean venv works | ruled out | **CULPRIT** | N/A | **BUILDABLE**. Use clean venv w/o --system-site-packages. |
+| ✗ Phases 1–2 both fail; ✓ Phase 3 baseline 8.9 works | ruled out | ruled out | N/A | Toolchain OK. Problem is in patch or sm_120 target. Deep debug needed. |
+| ✗ Phase 3 baseline 8.9 fails | N/A | N/A | **BROKEN** | Pod or compiler misconfigured. Cannot proceed; escalate. |
