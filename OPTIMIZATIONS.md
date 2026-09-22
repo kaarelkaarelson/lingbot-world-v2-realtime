@@ -644,3 +644,48 @@ Kernel-level roofline of the same chunk (peaks: RTX 5090 INT8 838 TOPS, FP8 dens
 | **Chunk** | **0.98** | | **~65 % of absolute peak** | **~0.70 s → 23 FPS** |
 
 Reading: every lever above the kernel is at its floor (each ≤ 1.3 % of the chunk). The remaining time is inside four kernels written by others, three of them at 83–90 % of peak. The only kernel with real headroom is attention (65 % of the INT8 peak): a hand-written sm_120 kernel reaching 90 % would take 0.278 → ~0.20 s, **+8 % on the chunk, 16.2 → ~17.5 FPS**. On consumer Blackwell (`mma.sync` only, no tcgen05/wgmma) that is a multi-week CUDA effort for about one frame per second, which is why this log ends at the kernel boundary without a custom kernel. What would move the number more is model-side: the fifth forward (0.12 s), the KV window (attention scales with it), and the 4-step schedule.
+
+
+## 18. Roofline of one chunk per operation, both stacks — pod 13 (2026-09-22)
+
+**Question.** The rooflines so far were per-kernel utilisations (§13, §17) with analytic FLOPs and, for the decoder only, traced bytes (§10). The scaling-book form (Austin et al. 2025, *How to Scale Your Model* §1) asks for every operation: bytes moved, FLOPs, arithmetic intensity against the hardware's ridge point, `T_math = FLOPs / peak`, `T_comms = bytes / bandwidth`, floor = max of the two, and measured time over the floor. This section fills that table for the shipped stack and for the original paper's code, so the speed of light in the write-up is measured rather than derived.
+
+**Method.** `tools/roofline.py` + an env-gated hook in `wan/image2video.py` (`LINGBOT_ROOFLINE=<dir>`): the existing `torch.profiler` window over chunks 8–10 (KV window full from chunk 6) with `record_shapes`, plus `key_averages(group_by_input_shape=True)` so every `aten::_scaled_mm` / `aten::mm` / `aten::linear` call has its M, K, N. `LINGBOT_ROOFLINE_TRACE=1` adds a `TorchDispatchMode` byte tracer over the same chunks and over the whole-clip decode (bytes of every CUDA tensor read or written by every aten op, bucketed into attention / matmul / decoder conv / elementwise / memcpy; views excluded) and a `FlopCounterMode` over the decode. The tracer only works on the eager stack: a dispatch mode under `torch.compile` changes what runs, and Inductor's own bandwidth profiler (`TORCHINDUCTOR_PROFILE=1`) hit an illegal memory access re-launching the Sage/FP8 graph, so the two fused elementwise rows of the fast stack carry estimated bytes (time at ~70 % of bandwidth, the §17 figure). Attention FLOPs and bytes are analytic from the shapes (q 6 032 × kv 27 144, 12 heads × 128, 30 layers × 5 forwards; the tracer's own count for the stock stack was 36.7 GB vs 30.6 analytic, the varlen buffers). Tracer bytes are an upper bound on DRAM traffic — an intermediate that stays in the 96 MB L2 is counted as if it went to memory — so intensities are lower bounds. Runs: `lingbot clip --frame_num 193 --bench` on the dragon example, `--preset fast` and `--preset stock`. Raw: `lingbot-world-v2-stream/bench_results/roofline/rl_fast`, `rl_stock` (kernel tables, per-shape records, byte and FLOP counts, `roofline.json`; traces not committed, 20 MB). Peaks: RTX 5090 dense with FP32 accumulate, INT8 838 TOPS, FP8 419, FP16/BF16 209.5, TF32 104.8 TFLOP/s, 1 792 GB/s (whitepaper App. A). Ridge = peak / bandwidth: 468, 234, 117, 58 FLOP/B.
+
+**The pod was power-capped, so its kernel times are not used.** Under load the card sat at 1 875 MHz drawing 314 W with `sw_power_cap` active (limit reads 510 W, `nvidia-smi -pl` refused), PCIe gen 4; a bf16 8192³ matmul ran at 132 TFLOP/s against ~199 on pod 10, and the fast stack's DiT took 1.15 s per chunk instead of 0.65, every kernel class 1.6–2.0× slower. FLOPs, bytes, shapes and launch counts do not depend on the clock and are taken from this pod; the measured times in the tables are the pod-10 profile of the same commit (§17) for the fast stack and the pod-3 profile (§13) for the stock DiT, with the stock decoder's 1.06 s split by this pod's conv : elementwise : other ratio (1.088 : 0.498 : 0.068). `tools/podcheck.sh` now runs this matmul test on any new pod before anything is installed.
+
+**Nsight Compute cannot run on RunPod.** `ncu` is on the image, but the counters need `NVreg_RestrictProfilingToAdminUsers=0` on the host driver or `--cap-add=SYS_ADMIN` on the container (`ERR_NVGPUCTRPERM`); RunPod grants neither on any tier (Discord, 2024–25, four threads, no success report). Per-kernel SM and DRAM throughput from hardware counters needs a full VM or bare metal with root (EC2, Crusoe have how-tos; Vast.ai VM offers unverified). Everything below is therefore `torch.profiler` time plus counted FLOPs and bytes, which is the scaling-book method, not Nsight's.
+
+### Ours (`--preset fast`), per 16-frame chunk
+
+| Operation | Precision | FLOP / chunk | Bytes / chunk | FLOP / B | Ridge | Bound | Floor | Measured | Of speed of light |
+|---|---|---|---|---|---|---|---|---|---|
+| Attention | INT8 | 151 T | 17 GB | 9,048 | 468 | compute | 0.180 s | 0.278 s | **65 %** |
+| DiT matmuls | FP8 | 79 T | 64 GB | 1,243 | 234 | compute | 0.188 s | 0.201 s | **94 %** |
+| Decoder convolutions | FP16 | 52 T | 39 GB | 1,332 | 117 | compute | 0.249 s | 0.301 s | **83 %** |
+| DiT elementwise, fused | FP16 | — | ~115 GB | — | 117 | memory | 0.064 s | 0.092 s | **70 %** |
+| Decoder elementwise, fused | FP16 | — | ~60 GB | — | 117 | memory | 0.033 s | 0.049 s | **68 %** |
+| Attention K/V re-quant | INT8 | — | 38 GB | — | 468 | memory | 0.021 s | 0.039 s | **54 %** |
+| **Chunk** | | | | | | | **0.74 s, 22 FPS** | **0.98 s, 16.1 FPS** | **75 %** |
+
+### Original paper's code (`--preset stock`), per chunk
+
+| Operation | Precision | FLOP / chunk | Bytes / chunk | FLOP / B | Ridge | Bound | Floor | Measured | Of speed of light |
+|---|---|---|---|---|---|---|---|---|---|
+| Attention | BF16 | 151 T | 31 GB | 4,935 | 117 | compute | 0.720 s | 0.823 s | **87 %** |
+| DiT matmuls | BF16 | 79 T | 112 GB | 704 | 117 | compute | 0.377 s | 0.472 s | **80 %** |
+| Decoder convolutions | TF32 | 51 T | 78 GB | 663 | 58 | compute | 0.490 s | 0.697 s | **70 %** |
+| DiT elementwise, one kernel per op | FP32 | — | 826 GB | — | 58 | memory | 0.263 s | 0.263 s | — |
+| Decoder elementwise, one kernel per op | FP32 | — | 516 GB | — | 58 | memory | 0.288 s | 0.319 s | **90 %** |
+| KV-cache shift, memcpy | FP32 | — | 28 GB | — | 58 | memory | 0.016 s | 0.053 s | **30 %** |
+| **Chunk** | | | | | | | **2.20 s, 7.3 FPS** | **2.68 s, 6.0 FPS** | **82 %** |
+
+**Reading.**
+
+1. *Nothing is on the wrong side of the ridge.* Every large operation is compute bound by a wide margin: attention at 9 048 FLOP/B against a ridge of 468, matmuls at 1 243 against 234, the decoder's convolutions at 1 332 against 117. Moving data is not what limits this model; the arithmetic itself is. The memory-bound rows (fused elementwise, K/V re-quant, memcpy) are 0.18 s of the 0.98 s chunk and are within 30–50 % of bandwidth.
+2. *The chunk is at 75 % of speed of light*, 0.74 s floor vs 0.98 s measured, 22 FPS ceiling vs 16.1. The 0.24 s gap is: attention 0.10 s (65 % of INT8 peak), decoder convolutions 0.05 s (83 %), fused elementwise 0.04 s, K/V re-quant 0.02 s, matmuls 0.01 s (94 %), the rest launch gaps and cross-attention. §17's 0.69 s floor counted the re-quant as "quant once" and folded the decoder's elementwise into one number; this table counts the work as the kernels do it.
+3. *The paper's code is at 82 % of its own speed of light*, 2.20 s floor vs 2.68 s, 7.3 FPS ceiling. Its floor is high not because its kernels are bad — FlashAttention-2 at 87 % and cuBLAS at 80 % of the BF16 peak are respectable — but because the peaks it runs against are 2–4× lower (BF16 209.5 vs FP8 419 and INT8 838; TF32 104.8 vs FP16 209.5) and because unfused fp32 elementwise work touches 1.3 TB per chunk (826 GB in the DiT, 516 GB in the decoder) where the fused stack touches ~175 GB. With perfect fusion at the paper's precisions the floor would be 1.68 s, 9.5 FPS: real time was unreachable at those precisions no matter the kernels. That is the whole argument for the precision moves in §4, §5 and §9.
+4. *The FP8 matmul row corrects the §17 figure* from 390 TFLOP/s / 90 % to 393 / 94 %: 78.9 TFLOP measured from the shapes over 0.201 s. The peaks table in the README and the write-up now say 94 %.
+5. *What the table says to do next*, in order of gap: attention (0.10 s; the kernel exists to try, comfy-kitchen's INT8-PV SDPA, TODO), FP8 convolutions for the decoder (moves its floor 0.249 → 0.125 s; no kernel exists for sm_120), K/V quantised once per chunk instead of per call (0.02 s; a change inside SageAttention's API). Everything else is under 0.05 s.
+
+**Not measured.** Per-kernel hardware counters (Nsight, see above); the fast stack's fused-kernel bytes (estimated); times on the profiled pod (throttled). Reference: Austin J. et al. (2025), *How to Scale Your Model*, Part 1: All About Rooflines, jax-ml.github.io/scaling-book.

@@ -90,3 +90,9 @@ Every route needs: public weights, the shipped compile cache, and an early hard 
   noise for the whole clip up front and normalises the camera path by its whole-trajectory maximum, so a 961-frame run cannot
   reproduce a 361-frame run's opening even with the same seed. The patch draws the first N latents' noise and the path
   normalisation as the N-frame run does. Only useful once determinism above holds.
+- **Per-kernel hardware counters (Nsight Compute).** Not possible on RunPod (any tier: `ERR_NVGPUCTRPERM`, host driver
+  setting, see OPTIMIZATIONS.md §18). Needs a full VM or bare metal with root (EC2, Crusoe; Vast.ai VM offers unverified).
+  Would settle whether SageAttention's 65 % is tensor-pipe or memory stalls before anyone writes a kernel.
+- **Fused-kernel bytes of the fast stack.** The dispatch tracer cannot see compiled kernels and Inductor's bandwidth profiler
+  crashes on the Sage/FP8 graph; the two fused elementwise rows of the roofline are estimates. Route: read the Triton kernel
+  argument sizes from Inductor's generated wrapper (`TORCH_COMPILE_DEBUG=1`) or profile the fused decoder in eager mode.

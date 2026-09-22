@@ -1111,8 +1111,12 @@ class WanI2VCausal:
                 t_loop0 = t_prev = time.perf_counter()
             # Optional torch.profiler window over steady-state chunks
             # (LINGBOT_PROFILE=<out_dir>, LINGBOT_PROFILE_CHUNKS=8-10).
+            if os.environ.get("LINGBOT_ROOFLINE"):
+                os.environ.setdefault("LINGBOT_PROFILE", os.environ["LINGBOT_ROOFLINE"])
+                os.environ.setdefault("LINGBOT_PROFILE_VAE", "1")
             prof_dir = os.environ.get("LINGBOT_PROFILE")
             prof, prof_lo, prof_hi = None, -1, -1
+            tracer = None
             if prof_dir:
                 lo, hi = os.environ.get("LINGBOT_PROFILE_CHUNKS", "8-10").split("-")
                 prof_lo, prof_hi = int(lo) - 1, int(hi) - 1  # 1-based in env, 0-based here
@@ -1123,6 +1127,10 @@ class WanI2VCausal:
                         activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
                         record_shapes=True, with_flops=True)
                     prof.__enter__()
+                    if os.environ.get("LINGBOT_ROOFLINE_TRACE") == "1":
+                        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+                        from roofline import ByteTracer
+                        tracer = ByteTracer(); tracer.__enter__()
                 _rf_chunk = torch.profiler.record_function(f"chunk{chunk_id}"); _rf_chunk.__enter__()
                 if (self.pose_provider is not None or late_sample == "force") and late_sample and chunk_id > 0:
                     # sample the input when the GPU can actually start this chunk: the host runs ~0.35 s ahead
@@ -1272,6 +1280,9 @@ class WanI2VCausal:
                 _rf_chunk.__exit__(None, None, None)
                 if prof is not None and chunk_id == prof_hi:
                     torch.cuda.synchronize()
+                    if tracer is not None:
+                        tracer.__exit__(None, None, None); os.makedirs(prof_dir, exist_ok=True)
+                        tracer.dump(os.path.join(prof_dir, "bytes.json")); tracer = None
                     prof.__exit__(None, None, None)
                     os.makedirs(prof_dir, exist_ok=True)
                     prof.export_chrome_trace(os.path.join(prof_dir, "trace.json.gz"))
@@ -1283,6 +1294,10 @@ class WanI2VCausal:
                              "shapes": str(getattr(e, "input_shapes", ""))[:200]} for e in ka]
                     with open(os.path.join(prof_dir, "kernels.json"), "w") as f:
                         json.dump({"chunks": [prof_lo + 1, prof_hi + 1], "events": rows}, f)
+                    kas = prof.key_averages(group_by_input_shape=True)
+                    with open(os.path.join(prof_dir, "kernels_shapes.json"), "w") as f:
+                        json.dump([{"name": e.key, "count": e.count, "cuda_us": e.device_time_total, "shapes": str(e.input_shapes)[:400]}
+                                   for e in kas if e.input_shapes], f)
                     logging.info(f"BENCH profile written to {prof_dir} (chunks {prof_lo + 1}-{prof_hi + 1})")
                     prof = None
 
@@ -1314,11 +1329,17 @@ class WanI2VCausal:
                 if bench_timing:
                     torch.cuda.synchronize()
                     t_dec0 = time.perf_counter()
-                vprof = None
-                if os.environ.get("LINGBOT_PROFILE") and os.environ.get("LINGBOT_PROFILE_VAE") == "1":
+                vprof = vtracer = vflops = None
+                if os.environ.get("LINGBOT_PROFILE") and os.environ.get("LINGBOT_PROFILE_VAE") == "1" and not vae_stream_on:
                     vprof = torch.profiler.profile(
                         activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA])
                     vprof.__enter__()
+                    if os.environ.get("LINGBOT_ROOFLINE_TRACE") == "1":
+                        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+                        from roofline import ByteTracer
+                        from torch.utils.flop_counter import FlopCounterMode
+                        vflops = FlopCounterMode(display=False); vflops.__enter__()
+                        vtracer = ByteTracer(); vtracer.__enter__()
                 if vae_stream_on:
                     with torch.no_grad():
                         vae_stream.wait_stream(torch.cuda.current_stream())
@@ -1354,8 +1375,14 @@ class WanI2VCausal:
                     videos = self.vae.decode([pred_latent_chunks])
                 if vprof is not None:
                     torch.cuda.synchronize()
-                    vprof.__exit__(None, None, None)
                     os.makedirs(os.environ["LINGBOT_PROFILE"], exist_ok=True)
+                    if vtracer is not None:
+                        vtracer.__exit__(None, None, None); vtracer.dump(os.path.join(os.environ["LINGBOT_PROFILE"], "bytes_vae.json"))
+                        vflops.__exit__(None, None, None)
+                        conv = sum(v for k, v in vflops.get_flop_counts()["Global"].items() if "conv" in str(k))
+                        json.dump({"conv_flops": conv, "total_flops": vflops.get_total_flops()}, open(os.path.join(os.environ["LINGBOT_PROFILE"], "flops_vae.json"), "w"))
+                    json.dump({"chunks": num_inference_chunk}, open(os.path.join(os.environ["LINGBOT_PROFILE"], "vae_meta.json"), "w"))
+                    vprof.__exit__(None, None, None)
                     vprof.export_chrome_trace(os.path.join(os.environ["LINGBOT_PROFILE"], "trace_vae.json.gz"))
                 if bench_timing:
                     torch.cuda.synchronize()

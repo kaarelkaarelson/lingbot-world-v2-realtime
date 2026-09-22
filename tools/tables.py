@@ -70,6 +70,54 @@ def md_peaks():
     return "\n".join(out)
 
 
+def md_sol():
+    out = ["| Precision | Peak on RTX 5090 | Original paper's code | Ours |", "|---|---|---|---|"]
+    for r in DATA["sol"]["rows"]:
+        out.append(f"| {r['precision']} | {r['peak']} | {r['paper']} | {r['ours']} |")
+    return "\n".join(out)
+
+
+def md_sol_chunk():
+    S = DATA["sol_chunk"]
+    out = ["| Component | Work per chunk | Original paper's code | Ours |", "|---|---|---|---|"]
+    for r in S["rows"]:
+        out.append(f"| {r['component']} | {r['work']} | {r['paper_peak']} → {r['paper_floor']:.2f} s | {r['ours_peak']} → {r['ours_floor']:.2f} s |")
+    P, O = S["paper"], S["ours"]
+    out.append(f"| **Speed of light** | | **{P['floor_s']:.2f} s, {P['ceiling_fps']} FPS** | **{O['floor_s']:.2f} s, {O['ceiling_fps']} FPS** |")
+    out.append(f"| Measured | | {P['measured_s']:.2f} s, {P['measured_fps']} FPS ({P['pct']} %) | {O['measured_s']:.2f} s, {O['measured_fps']} FPS ({O['pct']} %) |")
+    return "\n".join(out)
+
+
+def _rf(r):
+    f = f"{r['flops_t']:.0f} T" if r.get("flops_t") else "—"
+    b = f"{'~' if r.get('est') else ''}{r['bytes_gb']:.0f} GB"
+    i = f"{r['intensity']:,}" if r.get("intensity") else "—"
+    pct = f"**{r['pct']} %**" if r.get("pct") is not None else "—"
+    return f, b, i, pct
+
+
+def md_roofline(who="ours"):
+    R = DATA["roofline"][who]
+    out = ["| Operation | Precision | FLOP / chunk | Bytes / chunk | FLOP / B | Ridge | Bound | Floor | Measured | Of speed of light |",
+           "|---|---|---|---|---|---|---|---|---|---|"]
+    for r in R["rows"]:
+        f, b, i, pct = _rf(r)
+        out.append(f"| {r['op']} | {r['precision']} | {f} | {b} | {i} | {r['ridge']} | {r['bound']} | {r['floor_s']:.3f} s | {r['measured_s']:.3f} s | {pct} |")
+    out.append(f"| **Chunk** | | | | | | | **{R['floor_s']:.2f} s, {R['ceiling_fps']} FPS** | **{R['chunk_s']:.2f} s, {R['chunk_fps']} FPS** | **{R['pct']} %** |")
+    return "\n".join(out)
+
+
+def html_roofline(who="ours"):
+    R = DATA["roofline"][who]
+    out = []
+    for r in R["rows"]:
+        f, b, i, pct = _rf(r)
+        pct = pct.replace("**", "")
+        out.append(f'  <tr><td>{r["op"]}</td><td class="what">{r["precision"]}</td><td class="what">{f}</td><td class="what">{b}</td><td class="what">{i}</td><td class="what">{r["ridge"]}</td><td class="what">{r["bound"]}</td><td class="what">{r["floor_s"]:.3f} s</td><td class="what">{r["measured_s"]:.3f} s</td><td class="num hi">{pct}</td></tr>')
+    out.append(f'  <tr class="sum"><td>Chunk</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="what">{R["floor_s"]:.2f} s, {R["ceiling_fps"]} FPS</td><td class="what">{R["chunk_s"]:.2f} s, {R["chunk_fps"]} FPS</td><td class="num hi">{R["pct"]} %</td></tr>')
+    return "\n".join(out)
+
+
 def md_quality():
     out = ["| | Original paper's code | Ours |", "|---|---|---|"]
     for r in DATA["quality"]["rows"]:
@@ -125,6 +173,33 @@ def html_peaks():
     return "\n".join(f'  <tr><td>{r["kernel"]}</td><td class="what">{r["reached"]}</td><td class="what">{r["peak"]}</td><td class="num hi">{r["pct"]}</td></tr>' for r in DATA["peaks"]["rows"])
 
 
+def html_sol(who="both"):
+    """who: "both", "paper" or "ours"; a single-stack table keeps only the rows that stack uses."""
+    def cell(x, hi):
+        return f'<td class="{"hi" if hi else "dim"}">{x}</td>'
+    rows = []
+    for r in DATA["sol"]["rows"]:
+        if who != "both" and r[who] == "—":
+            continue
+        use = "".join(cell(r[k], r[k] != "—") for k in (["paper", "ours"] if who == "both" else [who]))
+        rows.append(f'  <tr><td>{r["precision"]}</td><td class="what">{r["peak"]}</td>{use}</tr>')
+    return "\n".join(rows)
+
+
+def html_sol_chunk(who="both"):
+    S = DATA["sol_chunk"]
+    stacks = ["paper", "ours"] if who == "both" else [who]
+    out = []
+    for r in S["rows"]:
+        use = "".join(f'<td><span class="b">{r[k + "_peak"]}</span> → {r[k + "_floor"]:.2f} s</td>' for k in stacks)
+        out.append(f'  <tr><td>{r["component"]}</td><td class="what">{r["work"]}</td>{use}</tr>')
+    use = "".join(f'<td class="hi">{S[k]["floor_s"]:.2f} s, {S[k]["ceiling_fps"]} FPS</td>' for k in stacks)
+    out.append(f'  <tr class="sum"><td>Speed of light</td><td></td>{use}</tr>')
+    use = "".join(f'<td>{S[k]["measured_s"]:.2f} s, {S[k]["measured_fps"]} FPS, {S[k]["pct"]} % of speed of light</td>' for k in stacks)
+    out.append(f'  <tr><td>Measured</td><td></td>{use}</tr>')
+    return "\n".join(out)
+
+
 def html_quality():
     out = []
     for r in DATA["quality"]["rows"]:
@@ -135,8 +210,8 @@ def html_quality():
     return "\n".join(out)
 
 
-MD = {"engines": md_engines, "baseline": md_baseline, "ladder": md_ladder, "peaks": md_peaks, "quality": md_quality}
-HTML = {"engines": html_engines, "baseline": html_baseline_small, "ladder": html_ladder, "peaks": html_peaks, "quality": html_quality}
+MD = {"engines": md_engines, "baseline": md_baseline, "ladder": md_ladder, "sol": md_sol, "sol_chunk": md_sol_chunk, "roofline": md_roofline, "roofline_paper": lambda: md_roofline("paper"), "peaks": md_peaks, "quality": md_quality}
+HTML = {"engines": html_engines, "baseline": html_baseline_small, "ladder": html_ladder, "sol_paper": lambda: html_sol("paper"), "sol_chunk_paper": lambda: html_sol_chunk("paper"), "sol_ours": lambda: html_sol("ours"), "sol_chunk_ours": lambda: html_sol_chunk("ours"), "roofline": html_roofline, "roofline_paper": lambda: html_roofline("paper"), "peaks": html_peaks, "quality": html_quality}
 
 
 def render(path, renderers, check):
