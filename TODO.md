@@ -119,3 +119,27 @@ host had no free 5090 when they were ready); `bench/attn/run_all.sh` runs them o
 What would move the number: 1 needs a kernel with softmax/mma overlap on `mma.sync` hardware (the comfy-kitchen INT8-PV
 SDPA is the one to try first, above); 2 and 5 are a rebuild of Sage; 3 and 4 are shape/scheduling changes inside the kernel.
 A hand-written sm_120 kernel at 90 % of peak would gain ~0.08 s per chunk, about one frame per second (§17).
+
+## Next round: attention at 63 % of the INT8 peak — seven hypotheses, one bench each (2026-09-22)
+
+The profiled kernel is SageAttention's Ada path, `sageattention_sm89::qk_int_sv_f8_attn_kernel<128,64,32,64,…>`, run on
+sm_120 because consumer Blackwell has no wgmma/tcgen05 and Sage's Hopper kernels need them. 150 calls per chunk, 1.80 ms
+each, 1.0 TFLOP per call → ~560 TOPS inside the kernel; FA2 reaches 88 % of *its* BF16 peak on the same shapes
+(`lingbot-world-v2-stream/bench_results/roofline/pod14/rl_fast/kernels_top.txt`, OPTIMIZATIONS.md §18). Each hypothesis
+has its own script under `bench/attn/`, dry-run on CPU on 2026-09-22 and **not yet run on a GPU** (pod 14's host had no free
+5090 when they were ready). `bench/attn/run_all.sh` runs them one at a time, each in its own process, and
+`bench/attn/summarize.py` tables the JSONs in `bench/attn/results/`. Measure each alone; do not stack them.
+
+| # | Hypothesis | Why plausible | Bench | Prior |
+|---|---|---|---|---|
+| 1 | **Softmax exposed.** The fp32 max / exp / sum / rescale per (q, k) pair costs the same at INT8 as at BF16, but the mma is 4× faster, so the tensor cores wait on it. FlashAttention-3 fixes this on Hopper with warp specialisation and softmax/mma ping-pong; the sm89 kernel has neither. | Predicts 60–70 % by itself and explains FA2's 88 % at BF16 (slow mma hides the same softmax). | `h1_softmax_exposed.py`: sageattn vs a pure INT8 QK GEMM (`torch._int_mm`) plus a pure FP8 PV GEMM (`torch._scaled_mm`) of the same shapes; the difference is the exposed non-mma time. Caveat: the K = 128 GEMM may itself sit below peak, which makes the estimate conservative. | strongest |
+| 2 | **Tiles tuned for Ada.** CTA_Q 128 / CTA_K 64 / WARP_Q 32 were chosen for sm_89's smem and register budget, never autotuned for sm_120 (170 SMs, 96 MB L2). | Compile-time template constants. | `h2_tiles/` (README with the constants and constraints from upstream `d1a57a5`, patches with alternative tiles, `build.sh` for a 26-min wheel build per config, `bench.py`). | medium; may not fit registers |
+| 3 | **L2 working set.** Each CTA streams the whole K/V: a 64-key tile is 16 KB for 4.2 MFLOP, ~256 FLOP/B, *below* the 468 FLOP/B INT8 ridge, so the kernel is compute-bound only if K/V comes from L2; 12 heads of quantised K/V ≈ 84 MB against a 96 MB L2. | Interleaved head order would thrash; a step in per-head time vs head count is the signature. | `h3_l2_working_set.py`: heads 1–24 at the model shapes, KV-length sweep at 12 and at 1 head, working set printed per row. | medium |
+| 4 | **Wave quantisation.** 48 query tiles × 12 heads = 576 CTAs on 170 SMs = 3.4 waves, the last 40 % full. | ~10 % of the call is the tail. | `h4_wave_quantization.py`: Lq sweep 4 096–12 288 (per-token cost; CTAs and waves from the device's SM count) at 1, 12 and 24 heads. | small, free |
+| 5 | **fp32+fp16 PV accumulate.** PV accumulates in fp16 and flushes to fp32 periodically, plus a fused per-block V scale: extra non-mma instructions in the inner loop (and why V is clamped to ±2.25 in `wan/modules/sage_kvq.py`). | Sage exposes the accumulate mode as an argument. | `h5_pv_accum.py`: `sageattn_qk_int8_pv_fp8_cuda` with pv_accum_dtype fp32 / fp32+fp16 / fp32+fp32 and the fp16-PV kernel's modes, per_warp and per_thread; time and error vs fp32 SDPA. | small |
+| 6 | **K/V re-quantised on every call** (0.039 s per chunk of `TransposePad` / `MeanScale` / `QuantInt8`, not overlapped). | — | Already measured, exp. 15d (`LINGBOT_ATTN=sage_kvq`, `wan/modules/sage_kvq.py`, `lingbot-world-v2-stream/probe_sage_kvq.py`, `bench_results/probe_sage_kvq_pod5.out`): **negative**, +0.015 s per chunk. Not repeated. | closed |
+| 7 | **Clock under sustained INT8 load.** The 838 TOPS figure assumes 2.41 GHz; dense tensor work is the highest-power state. | Pod 10 ran 2.75–2.89 GHz in the loop, so probably not, but it changes the denominator. | `h7_clock_sampler.py`: 100 ms `nvidia-smi` samples during a `lingbot bench` and during a standalone INT8 matmul load; effective peak = 838 × clock / 2 410. | weak |
+
+If 1 holds, the fix is a kernel with softmax/mma overlap on `mma.sync` hardware; comfy-kitchen's INT8-PV SDPA (above) is the
+existing candidate, a hand-written sm_120 kernel the expensive one (~0.08 s per chunk, one frame per second, §17). 2 and 5
+are a Sage rebuild; 3 and 4 are scheduling changes inside the kernel.
