@@ -159,6 +159,46 @@ wins; C1 (FMA-polynomial exp) and C2 (conditional rescale) are nulls confirmed i
 
 Open, in the order worth doing:
 
+**Run order for the next pod session** (nothing below has touched hardware; every figure is a prediction):
+1. `bench/window/window_sweep.py` - no build, largest predicted win, one variable.
+2. `build.sh cfg_depnull` then `bench_kernel_only.py` - one build, settles whether C5's 8.7 % is safely reachable.
+3. FP4 (SageAttention 3) - biggest ceiling, but a build plus two integration fixes plus its own quality run.
+4. `bench/attn/c7_sparge_build.md` phases 1-3 - build debug, modest payoff.
+
+- **Shorten the KV window. No kernel work, no new dependency, the cheapest large lever we have.**
+  `--local_attn_size` (default 18) and `--sink_size` (default 6) are plain runtime ints on the CLI
+  (`generate.py:203-210`), stored at `wan/image2video.py:245-246`, with the real-time engine's own defaults at
+  `lingbot/play/live.py:260-273`. **`local_attn_size` is the WHOLE kv buffer, sink included**:
+  `kv_size = frame_seqlen * local_attn_size` (`wan/image2video.py:568-573`), and 1508 x 18 = 27144 exactly matches the
+  measured shape, so the real rolling window is 12 latents, not 18. (Independently consistent with the exp-11 note at
+  OPTIMIZATIONS.md #423.) Safe to change without retraining: RoPE positions come from the absolute
+  `current_start_frame`, not a buffer offset, and `max_attention_size` auto-tracks `kv_size`. Do NOT try to shrink via
+  `max_attention_size` alone - it is a suffix slice and trims the sink first, the opposite of what is wanted.
+
+  | local_attn_size | rolling | kv | pred attn | pred chunk | pred FPS |
+  |---|---|---|---|---|---|
+  | 18 (baseline) | 12 | 27144 | 0.288 s | 0.980 s | 16.10 |
+  | 12 | 6 | 18096 | 0.192 s | 0.884 s | 17.85 |
+  | 10 | 4 | 15080 | 0.160 s | 0.852 s | 18.52 |
+  | 9 | 3 | 13572 | 0.144 s | 0.836 s | 18.87 (degenerate: rolling < chunk_size 4) |
+
+  Harness `bench/window/window_sweep.py`, protocol `bench/window/README.md`. This is the one candidate whose gate is a
+  rollout quality run, not a kernel cosine: a shorter window targets long-range coherence directly, so per-160-frame
+  drift bins matter more here than they did for FP8/Sage. Unverified without a GPU: torch.compile recompile behaviour
+  across kv shapes, and SageAttention at the new kv sizes.
+
+- **`cfg_depnull`: does C5's 8.7 % survive without phi?** C5 is dead (see below), but its saving is real and
+  unattributed. If the win comes from the loop restructuring rather than from deleting the online max, it is available
+  with no phi and no calibration risk. `bench/attn/h2_tiles/cfg_depnull.patch` computes the REAL row max (same
+  fragments, same ~20-deep chain, same two `__shfl_xor_sync`) and sinks it through `asm volatile("" : "+f"(m_temp))`
+  with no arithmetic edge back into exp2, fixing both flaws that got `cfg_fixedmax_dep` retracted. Verified off-pod:
+  applies clean at `d1a57a5`. Read: ~1.577 ms means the dependency edge was the whole story; ~1.73 ms means the ALU
+  work costs cycles even disconnected and no restructure recovers it; between the two is a defensible split.
+  **Known residual confound, stated by its author:** "not feeding the exp" forces two disjoint loop nests where the
+  baseline fuses them, giving ptxas scheduling freedom the real chain never has, so a "no slowdown" result is an UPPER
+  BOUND on what a dependency-preserving restructure could recover, not proof one would reach it. Design and SASS
+  checklist: `bench/attn/h2_tiles/cfg_depnull.md`.
+
 - **FP4 attention via SageAttention 3 (`sageattention3_blackwell`), the largest attention lever available.** Public,
   Apache-2.0, targets sm_120 via `mma.sync` (no tcgen05 needed), builds at `sm_120a` on CUDA 12.8 which is what we run.
   Claimed 1038 TOPS on a 5090 = 62 % of the 1676 TFLOP/s dense FP4 peak, the same utilisation our INT8 kernel already
@@ -209,8 +249,14 @@ Open, in the order worth doing:
 5. **`cfg_nosoftmax` as a bound** needs a dead-code check before 1.518 ms can be quoted.
 6. **One denominator**: state utilisation against 838 TOPS at the 2 407 MHz spec clock everywhere (the card delivers
    ~932 at its measured 2 677 MHz; mixing the two made two summaries inconsistent).
-7. **C7 SpargeAttn** is buildable on sm_120 with a 3-line setup.py change (PR #123), but expected to gain little: our
-   rolling window is already the pruned set. Harness ready at `bench/attn/c7_sparge.py`.
+7. **C7 SpargeAttn**: build unresolved, one verified fix ready. Upstream PR #123 is **closed, unmerged and abandoned
+   by its author**, so it is NOT evidence the approach works; an earlier note here citing it as a "3-line setup.py
+   change" was wrong. What is established: SageAttention carries no `-include,cassert` and builds clean on this
+   toolchain, SpargeAttn carries it at `setup.py:65` and fails with the `std::__terminate` redefinition, so the flag is
+   the prime suspect and `sm120.patch` now drops it unconditionally (verified off-pod against upstream `ae5b629`).
+   Recipe with three suspects in cost order: `bench/attn/c7_sparge_build.md`. Harness: `bench/attn/c7_sparge.py`.
+   Expected gain revised down to 1.2-1.4x, not the paper's 1.83x: our rolling window has already spent the structural
+   sparsity, leaving only content-dependent gains.
 8. **cfg_b** needs the `sage_kvq.py` work (128-key cache alignment, halved V-scale headroom) before its 6 % reaches the model.
 
 ### C7 SpargeAttn: unresolved, resumable (2026-09-22)
