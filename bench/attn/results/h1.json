@@ -1,0 +1,57 @@
+{
+  "shapes": {
+    "B": 1,
+    "SQ": 64,
+    "SK": 96,
+    "H": 2,
+    "D": 32
+  },
+  "warm": 20,
+  "iters": 50,
+  "dry": true,
+  "peaks_tops": {
+    "int8": 838.0,
+    "fp8_fp32acc": 419.0,
+    "fp8_fp16acc": 838.0,
+    "bf16": 209.5
+  },
+  "flops_attn_per_call": 1572864.0,
+  "rows": [
+    {
+      "name": "sageattn (INT8 QK + FP8 PV)",
+      "ms": 0.06287749973125756,
+      "flops": 1572864.0,
+      "tops": 0.025014735107510972,
+      "peak_key": "int8",
+      "peak": 838.0,
+      "pct_peak": 0.0029850519221373477,
+      "note": "quant + kernel"
+    },
+    {
+      "name": "INT8 QK^T  torch._int_mm x H",
+      "ms": 0.07043749967124313,
+      "flops": 786432.0,
+      "tops": 0.011164961897718657,
+      "peak_key": "int8",
+      "peak": 838.0,
+      "pct_peak": 0.0013323343553363553,
+      "note": "s32 out, no scaling"
+    },
+    {
+      "name": "FP8 P@V   torch._scaled_mm x H",
+      "ms": 0.0298024999210611,
+      "flops": 786432.0,
+      "tops": 0.026388121871757382,
+      "peak_key": "fp8_fp32acc",
+      "peak": 419.0,
+      "pct_peak": 0.006297881114977895,
+      "note": "K padded 96->96, fp32 acc"
+    }
+  ],
+  "qk_ms": 0.07043749967124313,
+  "pv_ms": 0.0298024999210611,
+  "sage_ms": 0.06287749973125756,
+  "exposed_softmax_ms": -0.03736249986104667,
+  "exposed_pct": -59.42109660965588,
+  "ideal_int8_peak_ms": 1.8769260143198093e-06
+}

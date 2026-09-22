@@ -1,0 +1,117 @@
+{
+  "shapes": {
+    "B": 1,
+    "SQ": 64,
+    "SK": 96,
+    "H": 2,
+    "D": 32
+  },
+  "warm": 20,
+  "iters": 50,
+  "dry": true,
+  "flops_per_call": 1572864.0,
+  "peak_int8_tops": 838.0,
+  "rows": [
+    {
+      "name": "sageattn() [prod: fp8, per_warp, fp32+fp16]",
+      "ok": true,
+      "ms": 0.08630333992186934,
+      "tops": 0.018224833493395716,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp8_cuda  per_warp   pv_accum=fp32",
+      "ok": true,
+      "ms": 0.0812616798793897,
+      "tops": 0.01935554374871991,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp8_cuda  per_warp   pv_accum=fp32+fp16",
+      "ok": true,
+      "ms": 0.07290499983355403,
+      "tops": 0.02157415820027339,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp8_cuda  per_warp   pv_accum=fp32+fp32",
+      "ok": true,
+      "ms": 0.07422499998938292,
+      "tops": 0.02119048838295697,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp8_cuda  per_thread pv_accum=fp32",
+      "ok": true,
+      "ms": 0.0911608396563679,
+      "tops": 0.017253724361567243,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp8_cuda  per_thread pv_accum=fp32+fp16",
+      "ok": true,
+      "ms": 0.179663339513354,
+      "tops": 0.0087545072036418,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp8_cuda  per_thread pv_accum=fp32+fp32",
+      "ok": true,
+      "ms": 0.07929165964014828,
+      "tops": 0.019836436860297485,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp16_cuda per_warp   pv_accum=fp16",
+      "ok": true,
+      "ms": 0.08017582003958523,
+      "tops": 0.01961768522259491,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp16_cuda per_warp   pv_accum=fp32",
+      "ok": true,
+      "ms": 0.0737916596699506,
+      "tops": 0.021314929180817715,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp16_cuda per_warp   pv_accum=fp16+fp32",
+      "ok": true,
+      "ms": 0.1178758405148983,
+      "tops": 0.013343395840313911,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp16_cuda per_thread pv_accum=fp16",
+      "ok": false,
+      "error": "RuntimeError: dry: simulated triton failure"
+    },
+    {
+      "name": "pv_fp16_cuda per_thread pv_accum=fp32",
+      "ok": true,
+      "ms": 0.08690749993547797,
+      "tops": 0.018098138839199477,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    },
+    {
+      "name": "pv_fp16_cuda per_thread pv_accum=fp16+fp32",
+      "ok": true,
+      "ms": 0.08430832007434219,
+      "tops": 0.01865609466080056,
+      "max_abs": 0.0018700957298278809,
+      "cos": 0.9999996423721313
+    }
+  ]
+}
