@@ -720,3 +720,78 @@ Reading: every lever above the kernel is at its floor (each ≤ 1.3 % of the chu
 **What is worth doing next, in order.** (1) `cfg_b` into the model: pad the K/V cache to 128-key tiles once per chunk, carry the tile constants into `sage_kvq.py`, halve `scale_max`; −0.02 s per chunk if the 6 % holds in the loop. (2) Build and bench C1 and C2 (τ = 0), 5 min each on the pod; keep whatever shows no spills and no quality change. (3) A KV-split (flash-decoding style) variant of the kernel for the wave tail, ~10 %: a kernel change, not a flag. (4) Nsight Compute on a machine that allows counters, to see where the last 21 % goes. The whole attention headroom, all of it taken, is about 0.06 s per chunk, one frame per second — consistent with §17's estimate, now measured.
 
 **Method notes.** Two `run_all.sh`-style waiters never fired because of a zsh quoting bug (`$S` with embedded spaces); every bench above was run by hand. The first candidate bench for H1 (`h1_softmax_exposed.py`) is kept in `bench/attn/` as a record of the invalid design. Pod 15's `/workspace` is a network filesystem shared with pod 14; the venv there corrupted twice under concurrent pip installs and now lives on local disk (`/root/venv15`, symlinked); `setup.sh` should do that by default when `/workspace` is a network mount.
+
+
+## 20. Attention: five candidate kernels built and measured, one win — pod 16 (2026-09-22)
+
+**Question.** §19 left attention at 63 % of the INT8 peak with a measured 13 % of the kernel in the online softmax
+(`cfg_nosoftmax`) and a literature review saying nobody beats ~70 % of the 8-bit peak with `mma.sync`. This section builds
+the candidates that review named, measures each alone, and red-teams each result with its own reviewer (plus one reviewer
+whose only job was contradictions between results).
+
+**Method.** Each candidate is a patch against upstream `d1a57a5` under `bench/attn/h2_tiles/`, built into its own wheel and
+venv (`build.sh`), and timed two ways: `bench.py` (whole `sageattn()` call, CUDA events, 20 warm + 50 timed) and
+`bench_kernel_only.py` (the attention kernel's self time under `torch.profiler`, 30 calls) with the base re-timed
+immediately before and after every candidate. Quality gate: cosine against an fp32 SDPA reference on the same inputs,
+baseline 0.999246. Shapes: q [1, 6032, 12, 128], k/v [1, 27144, 12, 128], bf16, NHD; 1.006 TFLOP per call. Pod 16
+(`xeq9a67r1mi0n0`), checked with `tools/podcheck.sh`: 240 TFLOP/s bf16, 2.66 GHz, no throttle, ncu blocked as always.
+SASS via `cuobjdump -sass` on the built wheels. Raw: `bench/attn/results/`.
+
+| Candidate | What it changes | Kernel only | vs base | Cosine | Verdict |
+|---|---|---|---|---|---|
+| base (7 runs, 2 pods) | — | 1.726–1.741 ms | — | 0.999246 | reference, 0.9 % spread |
+| **C5 `cfg_fixedmax`, φ = 8** | online row max → a constant φ (FlashDecoding++), so the max tree, its 2 shuffles, the `o_scale` exps and the 128-multiply rescale loop all go | **1.577 ms** | **−8.7 %** | 0.999230 | **the win**, with a calibration risk |
+| C5 control `cfg_fixedmax_dep` | same ALU removed, serial dependency artificially restored (real `__shfl_xor_sync` pair + volatile-asm barrier; SASS SHFL back to 32) | 1.627 ms | −5.8 % | — | splits the win: **2/3 ALU work, 1/3 dependency** |
+| **C6 `cfg_packedexp`** | 4 scalar `ptx_exp2` per fragment → 2 `ex2.approx.f16x2` (the overload upstream ships and never calls) | **1.677 ms** | **−3.1 %** | 0.999245 | **real gain, mechanism unexplained** |
+| cfg_b (from §19) | CTA_K 64 → 128: 213 K steps instead of 425 | 1.628 ms | −6 % (reviewer: ~5.6 %/MAC) | 0.999245 | stands; blocked on `sage_kvq.py` |
+| C1 `cfg_expemu` | 1 in 4 exps on an FMA degree-3 polynomial (FlashAttention-4) | 1.738 ms | +0.7 % | 0.999246 | null, confirmed by SASS |
+| C2 `cfg_condrescale`, τ = 2 | skip the O rescale unless the row max moves by τ (FlashAttention-4) | 1.720 ms | −0.4 % | 0.999234 | null, confirmed by SASS |
+| C3 `cfg_fusedsoftmax` | fuse the max reduction with the S→P conversion (SageAttention 3) | not built | — | — | dead end by review: a no-op after unrolling |
+| C7 SpargeAttn | block sparsity on top of Sage | not built | — | — | blocked: its `setup.py` refuses sm_120 |
+| `cfg_nosoftmax` (bound) | the whole softmax deleted | 1.518 ms | −13 % | n/a | the ceiling |
+
+**What the SASS says.** Every null was checked in the binary rather than assumed:
+
+- C1 ran: `MUFU.EX2` 204 → 156 (−23.5 %, the intended 1-in-4) with FFMA 1063 → 1351, and it was still slower. Trading one
+  MUFU op for ~6 FMA ops loses when the FMA pipe is also busy: **transcendental throughput is not the queue.**
+- C2 ran: `VOTE` 0 → 12 and `BRA` 10 → 22 with no predicated FMULs, so the rescale really was skipped ~94 % of the time,
+  and nothing moved. **The rescale is not on the critical path when it is skipped conditionally** — but deleting it
+  statically (C5) does pay, because the branch and the vote cost what the skip saves.
+- C5 removed only 12 `MUFU.EX2` (204 → 192, the `o_scale` ones) yet is 8.7 % faster. The control puts the shuffles back
+  (SHFL 8 → 32) and gives half the win back.
+- C6 emits 192 `MUFU.EX2.F16` + 12 scalar against base's 204 scalar — **the same 204 issue slots**, because sm_120 has no
+  packed MUFU unit and ptxas expands each `ex2.approx.f16x2` into two. So the −3.1 % is real but is *not* the
+  "half the transcendental slots" the patch claims; the candidates are `.F16` XU throughput or register-pressure relief at
+  the 255-register cap. The comments in `h2_tiles.h` and the cfg README assert hardware behaviour that does not exist on
+  sm_120 and must be corrected.
+
+**Decomposition of the softmax's 13 %** (kernel-only, φ = 8): base 1.727 → fixedmax 1.577 is 0.151 s per 1000 calls of
+saving, of which the dependency control attributes **0.050 ms to the serial chain** (the exp waiting on a warp-wide max
+reduction) and **0.100 ms to plain instruction count** (the max tree, the `o_scale` exps, the rescale multiplies). The
+remaining 0.059 ms to `cfg_nosoftmax`'s 1.518 is the exp and the row sum themselves. Read together with C1 and C6, the
+picture is: the softmax costs what it costs because of *how many instructions it puts in the inner loop*, a third of which
+is made worse by their being a dependency chain — not because the SFU cannot keep up.
+
+**The φ calibration risk, quantified.** φ must upper-bound `max(S · sm_scale)` for every row, layer and head. The usable
+window on the bench inputs (true max ≈ 6.5 log₂ units) is narrow and both failure modes are silent:
+
+| φ | 3 | 4 | 5 | 6 | **8** | 10 | 12 | 14 | 16 | 20 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| cosine | 0.982 | 0.997 | 0.9991 | 0.99923 | **0.99923** | 0.99921 | 0.9965 | 0.895 | 0.409 | **0.000** |
+
+Below the true max, P saturates e4m3 (clipping); above it, P falls off the bottom of the grid (resolution loss). No NaN,
+no error, no warning — a wrong φ silently returns a plausible but wrong video. Production use needs per-layer offline
+calibration, a saturation counter (the patch's `SAGE_H2_SAT_CHECK`, which the reviewer judged not yet adequate) and a
+fallback to the online max. The reviewer also notes that because `d` accumulates from fp32 P while the numerator comes
+from e4m3 P, the 2^-φ factor does not cancel exactly, which is why C5 never quite reaches the baseline cosine.
+
+**What is left open** (each named by its reviewer, none blocking the speed numbers): a spill-count and `ncu` stall-reason
+pass to explain C6; a bit-exact `cfg_nosoftmax` dead-code check so it can be quoted as a bound; re-stating every
+utilisation figure against one denominator (838 TOPS at the 2 407 MHz spec clock, not the 932 the card actually delivers);
+and, for cfg_b, the `sage_kvq.py` work (128-key cache alignment, halved V-scale headroom) before it can reach the model.
+
+**If all of this were taken into the model**, C5 and C6 do not simply add (both touch the same inner loop), but the
+attention block is 0.288 s of a 0.98 s chunk, so an 8–11 % kernel gain is 0.02–0.03 s per chunk, 16.1 → about 16.5 FPS.
+The honest summary remains §19's: at 8-bit, attention is instruction-bound in its softmax, the hardware has not raised
+transcendental throughput in eight generations (Volta 32 → 16 per SM per clock, flat since; tensor throughput 4–8× up),
+and 62–70 % of the 8-bit peak is where everyone in this hardware class sits.
