@@ -159,6 +159,29 @@ wins; C1 (FMA-polynomial exp) and C2 (conditional rescale) are nulls confirmed i
 
 Open, in the order worth doing:
 
+- **FP4 attention via SageAttention 3 (`sageattention3_blackwell`), the largest attention lever available.** Public,
+  Apache-2.0, targets sm_120 via `mma.sync` (no tcgen05 needed), builds at `sm_120a` on CUDA 12.8 which is what we run.
+  Claimed 1038 TOPS on a 5090 = 62 % of the 1676 TFLOP/s dense FP4 peak, the same utilisation our INT8 kernel already
+  gets, so the arithmetic is coherent: attention 0.288 s to ~0.16 s, chunk 0.98 to 0.85, about 16.3 to 18.8 FPS. This
+  matches the "-0.12 s" we had already scoped for it from a different direction.
+  - **The C5 calibration trap does NOT apply.** NVFP4 scales are computed online per 1x16 block from the data; there is
+    no offline constant, no per-layer and no per-head calibration. K/Q smoothing is a data-dependent per-layer mean.
+  - **Two integration landmines, both verified against the released `sageattn3/api.py` on 2026-09-22, neither obvious:**
+    1. **Layout.** `sageattn3_blackwell(q, k, v, attn_mask=None, is_causal=False, per_block_mean=True)` has NO
+       `tensor_layout` argument and hardcodes `QL = q.size(2)`, `pad_128` on dim 2, `k.mean(dim=-2)`. That is HND
+       `[B,H,L,D]`. We call Sage 2 with `tensor_layout="NHD"` `[B,L,H,D]` (`wan/modules/attention.py:165`). Passing our
+       tensors straight through would treat 12 heads as the sequence and pad it to 128, silently, with no error.
+       Transpose(1,2) in and back out, and count the permute in the timing.
+    2. **It mutates K in place.** `preprocess_qkv` begins `k -= k.mean(dim=-2, keepdim=True)`. Our call site passes
+       `k.to(dtype)`, and `.to()` returns the SAME tensor when the dtype already matches, so this would subtract the
+       mean from the live KV cache and corrupt every later chunk. Presents as gradual quality drift, not a crash.
+       Clone K before the call, or confirm a copy actually happens.
+  - Shape fit is otherwise fine: head_dim 128 is accepted (only >= 256 falls back to SDPA), `is_causal=False` is a real
+    parameter, `QL` and `KL` are read independently so our 6032-vs-27144 asymmetry is supported, and `pad_128` handles
+    kv 27144 not being a multiple of 128.
+  - Quality is unmeasured for us. The paper's 0.9952 is the attention map against NAIVE FP4 quantisation on CogVideoX,
+    not against fp32 SDPA at our shapes, so it is not comparable to our 0.999246 and must be measured here.
+
 - **Occupancy on the baseline tiling, unresolved and previously mis-reported.** The old "occupancy refuted" verdict
   compared a register-capped `cfg_a` against the *baseline*, which changes tiling and registers together. Against the
   right control, `cfg_a` at its own 182 registers, the cap is a 7.3 % win (1.881 to 1.743 ms), so occupancy does help.
