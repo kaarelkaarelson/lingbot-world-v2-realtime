@@ -1,4 +1,24 @@
 #!/usr/bin/env python3
+# DEPRECATED - DO NOT USE FOR NEW MEASUREMENTS (2026-09-22).
+#
+# This harness cannot reliably instrument the model: the DiT is torch.compiled and the compiled
+# graph binds the ORIGINAL wan.modules.attention.attention object, so patching module-level
+# references afterwards never reaches the calls that actually run. Across four runs it recorded
+# nothing at steady state and exited 0 each time (see bug 2 below).
+#
+# Use instead: the repo's own in-function hook, LINGBOT_DUMP_QKV=<path> (wan/modules/attention.py),
+# which saves a real steady-state q/k/v when k.shape[1] >= 27000, then analyse offline.
+# That is how bench/attn/results/phi_calib_steady.json was produced.
+#
+# Known remaining bugs, from the red-team of 2026-09-22 (kept for the record, not fixed):
+#   1. the `forward` counter is globally monotonic (it only resets when current_start changes, and
+#      current_start never changes), so --forwards 0 selects only the first sweep of the whole run;
+#   2. _flush() returns early when no rows were recorded, so a run that measures nothing writes NO
+#      FILE and exits 0 - silence looks like success;
+#   3. install() is not idempotent: a second call sets _orig_attention to the hook itself (recursion);
+#   4. --analyse does not filter by lk, so warm-up rows (lk=6032) and steady-state rows (lk=27144)
+#      are mixed and the spread statistics are meaningless;
+#   5. the compiled-graph binding above, which is not fixable from outside the model.
 """phi calibration for candidate C5 ("fixed global max") in the SageAttention kernel.
 
 Measures the real distribution of attention-logit row maxima in the 1.3B causal DiT,
