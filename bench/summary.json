@@ -158,9 +158,9 @@
       },
       {
         "kernel": "Decoder convolutions",
-        "reached": "173 TFLOP/s",
+        "reached": "176 TFLOP/s",
         "peak": "210 TFLOP/s FP16",
-        "pct": "83 %"
+        "pct": "84 %"
       },
       {
         "kernel": "Fused elementwise",
@@ -170,9 +170,9 @@
       },
       {
         "kernel": "SageAttention",
-        "reached": "543 TOPS",
+        "reached": "524 TOPS",
         "peak": "838 TOPS INT8",
-        "pct": "65 %"
+        "pct": "63 %"
       }
     ]
   },
@@ -306,7 +306,7 @@
     ]
   },
   "sol_chunk": {
-    "_note": "work per chunk from the §18 roofline (FLOPs and bytes measured on pod 13, times from the pod-10 and pod-3 profiles); the paper's elementwise floor is its measured time, since the tracer's byte count over-counts L2 hits",
+    "_note": "work per chunk from the §18 roofline, all measured on pod 14; the paper's elementwise floor is its measured time, since the tracer's byte count over-counts L2 hits",
     "rows": [
       {
         "component": "Attention",
@@ -336,28 +336,28 @@
         "component": "Elementwise",
         "work": "~1.3 TB / ~175 GB",
         "paper_peak": "1,792 GB/s",
-        "paper_floor": 0.58,
+        "paper_floor": 0.55,
         "ours_peak": "1,792 GB/s",
-        "ours_floor": 0.1
+        "ours_floor": 0.09
       }
     ],
     "paper": {
-      "floor_s": 2.2,
-      "ceiling_fps": 7.3,
+      "floor_s": 2.16,
+      "ceiling_fps": 7.4,
       "measured_s": 2.68,
       "measured_fps": 6.0,
-      "pct": 82
+      "pct": 80
     },
     "ours": {
-      "floor_s": 0.74,
+      "floor_s": 0.72,
       "ceiling_fps": 22,
       "measured_s": 0.98,
       "measured_fps": 16.1,
-      "pct": 75
+      "pct": 74
     }
   },
   "roofline": {
-    "_note": "Per-op roofline of one 16-frame chunk, the How to Scale Your Model form: floor = max(FLOPs/peak, bytes/bandwidth). FLOPs and bytes measured on pod 13 (2026-09-22: matmul shapes from the profiler, stock bytes from the dispatch tracer, decoder conv from the FLOP counter; attention analytic); kernel times from the pod-10 (§17) and pod-3 (§13) profiles because pod 13's card was power-capped at 1.9 GHz. Tracer bytes are an upper bound (L2-resident intermediates are counted), so intensities are lower bounds. See OPTIMIZATIONS.md §18.",
+    "_note": "Per-op roofline of one 16-frame chunk in the How to Scale Your Model form: floor = max(FLOPs/peak, bytes/bandwidth). Everything measured on pod 14 (2026-09-22, healthy RTX 5090: 235 TFLOP/s bf16 matmul, 2.48 GHz under load): kernel times from torch.profiler over chunks 8-10, matmul FLOPs and bytes from the profiler's per-shape records, stock bytes from the dispatch tracer, decoder conv FLOPs from the FLOP counter; attention analytic from the shapes. Tracer bytes are an upper bound (L2-resident intermediates are counted), so intensities are lower bounds; the fast stack's fused elementwise bytes are estimates (time at ~70 % of bandwidth). See OPTIMIZATIONS.md §18.",
     "peaks": {
       "INT8": 838,
       "FP8": 419,
@@ -368,9 +368,9 @@
     },
     "ours": {
       "chunk_s": 0.98,
-      "floor_s": 0.74,
+      "floor_s": 0.72,
       "ceiling_fps": 22,
-      "pct": 75,
+      "pct": 74,
       "rows": [
         {
           "op": "Attention",
@@ -381,8 +381,8 @@
           "ridge": 468,
           "bound": "compute",
           "floor_s": 0.18,
-          "measured_s": 0.278,
-          "pct": 65
+          "measured_s": 0.288,
+          "pct": 63
         },
         {
           "op": "DiT matmuls",
@@ -405,19 +405,19 @@
           "ridge": 117,
           "bound": "compute",
           "floor_s": 0.249,
-          "measured_s": 0.301,
-          "pct": 83
+          "measured_s": 0.296,
+          "pct": 84
         },
         {
           "op": "DiT elementwise, fused",
           "precision": "FP16",
           "flops_t": null,
-          "bytes_gb": 115,
+          "bytes_gb": 117,
           "intensity": null,
           "ridge": 117,
           "bound": "memory",
-          "floor_s": 0.064,
-          "measured_s": 0.092,
+          "floor_s": 0.065,
+          "measured_s": 0.093,
           "pct": 70,
           "est": true
         },
@@ -425,13 +425,13 @@
           "op": "Decoder elementwise, fused",
           "precision": "FP16",
           "flops_t": null,
-          "bytes_gb": 60,
+          "bytes_gb": 40,
           "intensity": null,
           "ridge": 117,
           "bound": "memory",
-          "floor_s": 0.033,
-          "measured_s": 0.049,
-          "pct": 68,
+          "floor_s": 0.022,
+          "measured_s": 0.032,
+          "pct": 70,
           "est": true
         },
         {
@@ -447,15 +447,16 @@
           "pct": 54
         }
       ],
-      "chunk_fps": 16.1
+      "chunk_fps": 16.1,
+      "kernel_s": 0.955
     },
     "paper": {
       "chunk_s": 2.68,
-      "floor_s": 2.2,
-      "ceiling_fps": 7.3,
-      "pct": 82,
-      "floor_fused_s": 1.68,
-      "ceiling_fused_fps": 9.5,
+      "floor_s": 2.16,
+      "ceiling_fps": 7.4,
+      "pct": 80,
+      "floor_fused_s": 1.67,
+      "ceiling_fused_fps": 9.6,
       "rows": [
         {
           "op": "Attention",
@@ -466,8 +467,8 @@
           "ridge": 117,
           "bound": "compute",
           "floor_s": 0.72,
-          "measured_s": 0.823,
-          "pct": 87
+          "measured_s": 0.82,
+          "pct": 88
         },
         {
           "op": "DiT matmuls",
@@ -478,7 +479,7 @@
           "ridge": 117,
           "bound": "compute",
           "floor_s": 0.377,
-          "measured_s": 0.472,
+          "measured_s": 0.471,
           "pct": 80
         },
         {
@@ -490,8 +491,8 @@
           "ridge": 58,
           "bound": "compute",
           "floor_s": 0.49,
-          "measured_s": 0.697,
-          "pct": 70
+          "measured_s": 0.621,
+          "pct": 79
         },
         {
           "op": "DiT elementwise, one kernel per op",
@@ -501,8 +502,8 @@
           "intensity": null,
           "ridge": 58,
           "bound": "memory",
-          "floor_s": 0.263,
-          "measured_s": 0.263,
+          "floor_s": 0.264,
+          "measured_s": 0.264,
           "pct": null,
           "note": "826 GB touched is an upper bound; at bandwidth it would take 0.46 s, so part of it hits L2"
         },
@@ -515,8 +516,8 @@
           "ridge": 58,
           "bound": "memory",
           "floor_s": 0.288,
-          "measured_s": 0.319,
-          "pct": 90
+          "measured_s": 0.393,
+          "pct": 73
         },
         {
           "op": "KV-cache shift, memcpy",
@@ -531,7 +532,8 @@
           "pct": 30
         }
       ],
-      "chunk_fps": 6.0
+      "chunk_fps": 6.0,
+      "kernel_s": 2.654
     }
   }
 }

@@ -108,23 +108,23 @@ What is left runs in four kernels written by others, and three of them are near 
 | Kernel | Reached | Peak on RTX 5090 | of peak |
 |---|---|---|---|
 | FP8 matmuls | 393 TFLOP/s | 419 TFLOP/s FP8 | **94 %** |
-| Decoder convolutions | 173 TFLOP/s | 210 TFLOP/s FP16 | **83 %** |
+| Decoder convolutions | 176 TFLOP/s | 210 TFLOP/s FP16 | **84 %** |
 | Fused elementwise | ~1.3 TB/s | 1.8 TB/s memory | **~70 %** |
-| SageAttention | 543 TOPS | 838 TOPS INT8 | **65 %** |
+| SageAttention | 524 TOPS | 838 TOPS INT8 | **63 %** |
 <!-- /table:peaks -->
 
-The same four kernels on a roofline, one chunk. Each operation's floor is its FLOPs over the peak of the precision it runs at, or its bytes over the memory bandwidth, whichever is larger. The sum of the floors is the chunk's speed of light, 0.74 s, and the chunk takes 0.98 s, 75 % of it. Every large operation is compute bound, well above the card's ridge point, so the remaining gap is inside the kernels, not in how data moves. FLOPs and bytes were measured with the profiler and a dispatch tracer; the two fused elementwise rows carry estimated bytes, since compiled kernels bypass the tracer. The original paper's code sits at 82 % of its own speed of light, 2.20 s; the numbers, the method and the profile of that stack are in `OPTIMIZATIONS.md` §18.
+The same four kernels on a roofline, one chunk. Each operation's floor is its FLOPs over the peak of the precision it runs at, or its bytes over the memory bandwidth, whichever is larger. The sum of the floors is the chunk's speed of light, 0.72 s, and the chunk takes 0.98 s, 74 % of it. Every large operation is compute bound, well above the card's ridge point, so the remaining gap is inside the kernels, not in how data moves. FLOPs and bytes were measured with the profiler and a dispatch tracer; the two fused elementwise rows carry estimated bytes, since compiled kernels bypass the tracer. The original paper's code sits at 80 % of its own speed of light, 2.16 s; the numbers, the method and the profile of that stack are in `OPTIMIZATIONS.md` §18.
 
 <!-- table:roofline -->
 | Operation | Precision | FLOP / chunk | Bytes / chunk | FLOP / B | Ridge | Bound | Floor | Measured | Of speed of light |
 |---|---|---|---|---|---|---|---|---|---|
-| Attention | INT8 | 151 T | 17 GB | 9,048 | 468 | compute | 0.180 s | 0.278 s | **65 %** |
+| Attention | INT8 | 151 T | 17 GB | 9,048 | 468 | compute | 0.180 s | 0.288 s | **63 %** |
 | DiT matmuls | FP8 | 79 T | 64 GB | 1,243 | 234 | compute | 0.188 s | 0.201 s | **94 %** |
-| Decoder convolutions | FP16 | 52 T | 39 GB | 1,332 | 117 | compute | 0.249 s | 0.301 s | **83 %** |
-| DiT elementwise, fused | FP16 | — | ~115 GB | — | 117 | memory | 0.064 s | 0.092 s | **70 %** |
-| Decoder elementwise, fused | FP16 | — | ~60 GB | — | 117 | memory | 0.033 s | 0.049 s | **68 %** |
+| Decoder convolutions | FP16 | 52 T | 39 GB | 1,332 | 117 | compute | 0.249 s | 0.296 s | **84 %** |
+| DiT elementwise, fused | FP16 | — | ~117 GB | — | 117 | memory | 0.065 s | 0.093 s | **70 %** |
+| Decoder elementwise, fused | FP16 | — | ~40 GB | — | 117 | memory | 0.022 s | 0.032 s | **70 %** |
 | Attention K/V re-quant | INT8 | — | 38 GB | — | 468 | memory | 0.021 s | 0.039 s | **54 %** |
-| **Chunk** | | | | | | | **0.74 s, 22 FPS** | **0.98 s, 16.1 FPS** | **75 %** |
+| **Chunk** | | | | | | | **0.72 s, 22 FPS** | **0.98 s, 16.1 FPS** | **74 %** |
 <!-- /table:roofline -->
 
 The result is lossless. Four of the six steps are bit identical to the paper's code, and FP8 and the attention kernel were checked on identical inputs. PSNR, SSIM and LPIPS compare the same latents decoded by the paper's fp32 decoder and by ours. The rest are no reference metrics on the generated clips, measured on the first and last second. The numbers are in `quality_summary.tsv` from experiment 15.
