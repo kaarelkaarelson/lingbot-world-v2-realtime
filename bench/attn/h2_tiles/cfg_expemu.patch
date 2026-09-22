@@ -1,7 +1,7 @@
 diff -ruN a/csrc/qattn/attn_utils.cuh b/csrc/qattn/attn_utils.cuh
 --- a/csrc/qattn/attn_utils.cuh	2026-09-22 01:17:29
 +++ b/csrc/qattn/attn_utils.cuh	2026-09-22 01:17:29
-@@ -24,7 +24,28 @@
+@@ -24,7 +24,30 @@
  #include "../mma.cuh"
  #include "../permuted_smem.cuh"
  #include "../numeric_conversion.cuh"
