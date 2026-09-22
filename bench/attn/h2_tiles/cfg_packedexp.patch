@@ -1,0 +1,505 @@
+cfg_packedexp -- C6: packed half-precision exponential (thu-ml/SageAttention @ d1a57a5)
+
+Contains all of cfg_base.patch unchanged (h2_tiles.h tile macros, the seven sm89_*.cu launchers,
+pybind_sm89.cpp h2_tile_config(), core.py tile/V-pad derivation, setup.py env-var overrides), so
+build.sh and bench.py work exactly as for the other cfgs:
+    bash bench/attn/h2_tiles/build.sh cfg_packedexp
+    /workspace/sage_h2/venv_cfg_packedexp/bin/python bench/attn/h2_tiles/bench.py --cfg cfg_packedexp
+Tiles stay at upstream 128/64/32/64.
+
+WHAT CHANGES
+  csrc/qattn/attn_utils.cuh, update_mdo(): the four scalar
+      RS[fq][fk][k*2 + {0,1,4,5}] = math::ptx_exp2(fmaf(RS, sm_scale, negative_m))
+  per (fragment, row-half) become two packed calls on the adjacent pairs {0,1} and {4,5}:
+      half2 e = math::ptx_exp2(__floats2half2_rn(x_a, x_b));   // ex2.approx.f16x2
+      RS[..a] = __low2float(e);  RS[..b] = __high2float(e);
+  math::ptx_exp2(half2) already exists in csrc/math.cuh (lines 59-68) and was dead code at d1a57a5 --
+  nothing called it. FlashInfer uses the same instruction in its FP16-QK prefill path
+  (include/flashinfer/attention/prefill.cuh ~L1805-1843); as far as we know nobody does it in an
+  FP8/INT8 kernel. One ex2.approx.f16x2 computes two exponentials in one SFU/MUFU slot, so the
+  softmax's transcendental issue slots per row-half per warp drop from 16 to 8.
+  RS keeps its fp32 storage type: accumulate_d (row sum d) and RS_32_to_8 (the e4m3 P conversion)
+  both read fp32, so only the exponential itself is packed.
+  o_scale = ptx_exp2(m_prev - m) is left scalar: one per row per K tile (1/16 of the exp2 traffic),
+  and it is not adjacent to anything packable.
+
+PRECISION -- NOT BIT-IDENTICAL, on purpose
+  fp16 has 10 stored mantissa bits vs fp32's 23, so P now carries ~3 decimal digits before the e4m3
+  conversion (which itself keeps 3 mantissa bits). Range is not the issue:
+    * argument x = S*sm_scale - m <= S_FP8_OFFSET = 8.807 (m carries the -S_FP8_OFFSET offset) and
+      >= about -20 in practice;  result P = 2^x in [0, 448].
+    * fp16 spans [6.1e-5 min normal .. 65504 max]: 448 is 146x below the top, and e4m3's smallest
+      representable magnitude (min subnormal 2^-9 = 1.95e-3) is 32x ABOVE fp16's min normal, i.e.
+      every P the very next step can represent at all is a normal fp16. No overflow, no flush.
+  The error is a rounding error, twice:
+    * argument rounded to fp16 first: near |x| = 8.8 the fp16 ulp is 2^3 * 2^-10 = 7.8e-3, half-ulp
+      3.9e-3, so relative error in P of 2^0.0039 - 1 = 0.27%. Near x = -20 it is 0.54%, but those P
+      are ~1e-6 and carry no weight in the row.
+    * result rounded to fp16: 2^-11 = 0.05% relative.
+  Both are small next to the e4m3 conversion immediately downstream (3 stored mantissa bits ->
+  6.25% half-ulp relative quantisation, ~128x coarser), and d is accumulated from the same perturbed
+  P, so numerator and denominator move together. Expected cosine effect: small but nonzero.
+  bench.py measures cosine against an fp32 SDPA reference; ACCEPTANCE GATE is
+  cosine >= the baseline's 0.999246 (and no spill stores in build.sh's cuobjdump output).
+
+TWO MACROS (both live in csrc/qattn/h2_tiles.h)
+  SAGE_H2_PACKED_EXP      default 1 -- the variant described above (fp32 argument, packed exp only).
+                          Build the scalar control from the same source with
+                          NVCC_APPEND_FLAGS="-DSAGE_H2_PACKED_EXP=0" (that is byte-identical to
+                          cfg_base's kernel).
+  SAGE_H2_PACKED_EXP_ARG  default 0 -- the fully packed variant: the fmaf is also done in half2
+                          (__hfma2 / __hadd2), so the whole exp path is packed and 2 FFMA + 1
+                          cvt.rn.f16x2.f32 per pair collapse to 1 cvt + 1 HFMA2. Enable with
+                          NVCC_APPEND_FLAGS="-DSAGE_H2_PACKED_EXP_ARG=1".
+                          RISK, stronger than "less precise": all three update_mdo call sites in
+                          qk_int_sv_f8_cuda_sm89.cuh pass fuse_scale = false, so RS here is the RAW
+                          int8 QK accumulator turned into float (__int2float_rz), bounded only by
+                          head_dim * 127 * 127 = 2.06e6. Converting that to fp16 BEFORE applying
+                          sm_scale overflows to +-inf whenever a row's peak accumulator exceeds
+                          65504, and exp2(+inf) = inf poisons the tile. So this variant is correct
+                          only on data whose int8 QK accumulators stay under 65504; bench it as an
+                          upper bound on what packing can save and let the cosine check reject it.
+                          Making it safe would mean folding a power-of-two shrink into the
+                          __int2float_rz in qk_int_sv_f8_cuda_sm89.cuh -- out of scope here.
+
+VERIFICATION DONE (CPU only, no GPU)
+  * source tree checked byte-identical to d1a57a5 before editing; patch generated with `git diff`.
+  * `git apply --check` (no --recount) clean on a fresh d1a57a5 checkout.
+  * update_mdo extracted into a stub TU and syntax-checked with clang++ -std=c++17 -fsyntax-only for
+    all three settings (packed default / PACKED_EXP_ARG=1 / PACKED_EXP=0) and for both DTypeSVAccum
+    instantiations (float and half). Not compiled by nvcc -- that happens on the pod.
+
+diff --git a/csrc/qattn/attn_utils.cuh b/csrc/qattn/attn_utils.cuh
+index 6f8b87c..ad47fdb 100644
+--- a/csrc/qattn/attn_utils.cuh
++++ b/csrc/qattn/attn_utils.cuh
+@@ -24,6 +24,7 @@
+ #include "../mma.cuh"
+ #include "../permuted_smem.cuh"
+ #include "../numeric_conversion.cuh"
++#include "h2_tiles.h"  // SAGE_H2_PACKED_EXP, SAGE_H2_PACKED_EXP_ARG
+ 
+ #define WARP_SIZE 32
+ 
+@@ -435,6 +436,60 @@ __device__ __forceinline__ void update_mdo(float RS[][num_tiles_k][8], DTypeSVAc
+ 
+       // raise RS to exponent
+       float negative_m = -m[fq][k];
++#if SAGE_H2_PACKED_EXP
++      // C6: one ex2.approx.f16x2 per adjacent pair instead of two ex2.approx.f32, halving the softmax's
++      // MUFU issue slots. The natural pairs are elements {0,1} and {4,5} of each fragment (the same four
++      // elements the scalar path below touches). Argument <= S_FP8_OFFSET = 8.807 and result in [0, 448],
++      // both far inside fp16; RS stays fp32 because accumulate_d and RS_32_to_8 read fp32. See h2_tiles.h
++      // for the range/precision analysis -- this is NOT bit-identical to the scalar path.
++#if SAGE_H2_PACKED_EXP_ARG
++      const half2 sm_scale_h2 = __float2half2_rn(sm_scale);
++      const half2 negative_m_h2 = __float2half2_rn(negative_m);
++#endif
++#pragma unroll
++      for (uint32_t fk = 0; fk < num_tiles_k; fk++)
++      {
++        half2 e01, e45;
++#if SAGE_H2_PACKED_EXP_ARG
++        // fully packed argument: see the WARNING in h2_tiles.h (raw RS can exceed fp16's range)
++        const half2 a01 = __floats2half2_rn(RS[fq][fk][k * 2 + 0], RS[fq][fk][k * 2 + 1]);
++        const half2 a45 = __floats2half2_rn(RS[fq][fk][k * 2 + 4], RS[fq][fk][k * 2 + 5]);
++        if constexpr (fuse_scale)
++        {
++          e01 = math::ptx_exp2(__hadd2(a01, negative_m_h2));
++          e45 = math::ptx_exp2(__hadd2(a45, negative_m_h2));
++        }
++        else
++        {
++          e01 = math::ptx_exp2(__hfma2(a01, sm_scale_h2, negative_m_h2));
++          e45 = math::ptx_exp2(__hfma2(a45, sm_scale_h2, negative_m_h2));
++        }
++#else
++        // argument in fp32 (exact as upstream), only the exponential is packed
++        float x0, x1, x4, x5;
++        if constexpr (fuse_scale)
++        {
++          x0 = RS[fq][fk][k * 2 + 0] + negative_m;
++          x1 = RS[fq][fk][k * 2 + 1] + negative_m;
++          x4 = RS[fq][fk][k * 2 + 4] + negative_m;
++          x5 = RS[fq][fk][k * 2 + 5] + negative_m;
++        }
++        else
++        {
++          x0 = fmaf(RS[fq][fk][k * 2 + 0], sm_scale, negative_m);
++          x1 = fmaf(RS[fq][fk][k * 2 + 1], sm_scale, negative_m);
++          x4 = fmaf(RS[fq][fk][k * 2 + 4], sm_scale, negative_m);
++          x5 = fmaf(RS[fq][fk][k * 2 + 5], sm_scale, negative_m);
++        }
++        e01 = math::ptx_exp2(__floats2half2_rn(x0, x1));
++        e45 = math::ptx_exp2(__floats2half2_rn(x4, x5));
++#endif
++        RS[fq][fk][k * 2 + 0] = __low2float(e01);
++        RS[fq][fk][k * 2 + 1] = __high2float(e01);
++        RS[fq][fk][k * 2 + 4] = __low2float(e45);
++        RS[fq][fk][k * 2 + 5] = __high2float(e45);
++      }
++#else
+ #pragma unroll
+       for (uint32_t fk = 0; fk < num_tiles_k; fk++)
+       {
+@@ -453,6 +508,7 @@ __device__ __forceinline__ void update_mdo(float RS[][num_tiles_k][8], DTypeSVAc
+           RS[fq][fk][k * 2 + 5] = math::ptx_exp2(fmaf(RS[fq][fk][k * 2 + 5], sm_scale, negative_m));
+         }
+       }
++#endif
+     }
+   }
+ }
+diff --git a/csrc/qattn/h2_tiles.h b/csrc/qattn/h2_tiles.h
+new file mode 100644
+index 0000000..0d7180f
+--- /dev/null
++++ b/csrc/qattn/h2_tiles.h
+@@ -0,0 +1,74 @@
++// H2 tile-size experiment: the sm89 FP8 launchers take their CTA/warp tiling from these macros.
++// Override at build time with NVCC_APPEND_FLAGS="-DSAGE_H2_CTA_Q=64 -DSAGE_H2_CTA_K=64 -DSAGE_H2_WARP_Q=16".
++// cfg_packedexp: upstream tiles (CTA_Q 128, CTA_K 64, WARP_Q 32, WARP_K 64) plus the packed half2
++// exponential in update_mdo (attn_utils.cuh): one ex2.approx.f16x2 for every two softmax exponentials
++// instead of two ex2.approx.f32, halving the SFU/MUFU issue slots of the softmax.
++#pragma once
++
++#ifndef SAGE_H2_CTA_Q
++#define SAGE_H2_CTA_Q 128
++#endif
++#ifndef SAGE_H2_CTA_K
++#define SAGE_H2_CTA_K 64
++#endif
++#ifndef SAGE_H2_WARP_Q
++#define SAGE_H2_WARP_Q 32
++#endif
++
++// Constraints taken from qk_int_sv_f8_cuda_sm89.cuh / attn_utils.cuh / fused.cu (see h2_tiles/README.md).
++static_assert(SAGE_H2_CTA_K == 64 || SAGE_H2_CTA_K == 128, "V smem row = CTA_K bytes must be 64 or 128 (swizzle modes k64B/k128B)");
++static_assert(SAGE_H2_CTA_Q / SAGE_H2_CTA_K <= 2, "kernel static_assert(CTA_Q / CTA_K <= 2)");
++static_assert(SAGE_H2_WARP_Q == 16 || SAGE_H2_WARP_Q == 32, "quant_per_warp_int8_cuda only dispatches WARP_BLOCK_SIZE 16 or 32");
++static_assert(SAGE_H2_CTA_Q == 64 || SAGE_H2_CTA_Q == 128, "quant_per_warp_int8_cuda only dispatches BLOCK_SIZE 64 or 128");
++static_assert(SAGE_H2_CTA_Q % SAGE_H2_WARP_Q == 0, "WARP_Q must divide CTA_Q");
++static_assert(SAGE_H2_CTA_K % (SAGE_H2_CTA_Q / SAGE_H2_WARP_Q) == 0, "K tile rows must split evenly across the loading warps");
++static_assert(128 % ((SAGE_H2_CTA_Q / SAGE_H2_WARP_Q) * 4) == 0, "head_dim 128 V rows must split evenly across warps (4 rows per warp per iter)");
++
++// ---------------------------------------------------------------------------------------------------
++// C6: packed half-precision exponential.
++//
++// SAGE_H2_PACKED_EXP (on by default in this cfg): in update_mdo the four scalar
++//   RS = ex2.approx.ftz.f32(fmaf(RS, sm_scale, -m))
++// per (fragment, row-half) become two
++//   half2 = ex2.approx.f16x2(cvt.rn.f16x2.f32(x_a, x_b))
++// The fmaf that builds the argument stays in fp32; only the exponential itself is packed. RS keeps its
++// fp32 storage type (accumulate_d and RS_32_to_8 downstream both read fp32), so the results are converted
++// back with __low2float/__high2float. Per row-half and per warp this turns 16 MUFU ops into 8.
++//
++// Range (all bounds from this kernel, head_dim 128, e4m3 P):
++//   argument x = S*sm_scale - m  <=  S_FP8_OFFSET = 8.807  (m carries the -S_FP8_OFFSET offset), and in
++//   practice x >= about -20; result P = 2^x in [0, 448]. fp16 holds [6.1e-5 (min normal) .. 65504], so
++//   both ends are comfortably inside: the largest P (448) is 146x below fp16's max, and the smallest P
++//   that survives the very next step is e4m3's min subnormal 2^-9 = 1.95e-3, which is 32x ABOVE fp16's
++//   min normal -- i.e. every P that the fp8 conversion can represent at all is a normal fp16.
++// Precision (this is NOT bit-identical to the baseline):
++//   fp16 has 10 stored mantissa bits vs fp32's 23. The argument is rounded to fp16 first: near |x| = 8.8
++//   the fp16 ulp is 2^3 * 2^-10 = 7.8e-3, so the half-ulp argument error <= 3.9e-3, i.e. a relative error
++//   in P of 2^0.0039 - 1 = 0.27%; near x = -20 it is 0.54%, but those P are ~1e-6 and carry no weight.
++//   The result is then rounded to fp16 again (2^-11 = 0.05% relative). Both are small next to the e4m3
++//   conversion that immediately follows (3 stored mantissa bits -> 6.25% half-ulp relative quantisation),
++//   and the row sum d is accumulated from the same perturbed P, so numerator and denominator move together.
++//   Expected effect on the harness cosine: small. Acceptance gate is cosine >= the baseline's 0.999246.
++//
++// SAGE_H2_PACKED_EXP_ARG (opt-in, NOT defined here -- build with
++//   NVCC_APPEND_FLAGS="-DSAGE_H2_PACKED_EXP_ARG=1"):
++// the riskier, fully packed variant -- the argument is built with __hfma2/__hadd2 in half2 as well, so
++// 2 FFMA + 1 cvt.rn.f16x2.f32 per pair collapse into 1 cvt + 1 HFMA2.
++// WARNING, read before benching: all three update_mdo call sites in qk_int_sv_f8_cuda_sm89.cuh pass
++// fuse_scale = false, so RS at this point is the RAW int8 QK accumulator turned into float
++// (__int2float_rz), whose magnitude is bounded only by head_dim * 127 * 127 = 2.06e6. Converting that to
++// fp16 before the scale overflows to +-inf whenever a row's peak accumulator exceeds 65504, and
++// exp2(+inf) = inf poisons the whole tile. It is therefore correct only on data whose int8 QK
++// accumulators stay under 65504; it is provided because it is the upper bound on what packing can save,
++// and the harness's cosine check will expose it immediately if the bound is violated. Making it safe
++// would require folding a power-of-two shrink into the __int2float_rz in qk_int_sv_f8_cuda_sm89.cuh,
++// which is deliberately out of scope for this patch.
++#ifndef SAGE_H2_PACKED_EXP
++#define SAGE_H2_PACKED_EXP 1
++#endif
++#ifndef SAGE_H2_PACKED_EXP_ARG
++#define SAGE_H2_PACKED_EXP_ARG 0
++#endif
++#if SAGE_H2_PACKED_EXP_ARG && !SAGE_H2_PACKED_EXP
++#error "SAGE_H2_PACKED_EXP_ARG=1 requires SAGE_H2_PACKED_EXP=1"
++#endif
+diff --git a/csrc/qattn/pybind_sm89.cpp b/csrc/qattn/pybind_sm89.cpp
+index 559179c..4ef6093 100644
+--- a/csrc/qattn/pybind_sm89.cpp
++++ b/csrc/qattn/pybind_sm89.cpp
+@@ -17,6 +17,7 @@
+ #include <pybind11/pybind11.h>
+ #include <torch/extension.h>
+ #include "attn_cuda_sm89.h"
++#include "h2_tiles.h"
+ 
+ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+ {
+@@ -28,4 +29,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+   m.def("qk_int8_sv_f8_accum_f16_attn_inst_buf", &qk_int8_sv_f8_accum_f16_attn_inst_buf, "QK int8 sv f8 accum f16 attn inst buf");
+   m.def("qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf", &qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf, "QK int8 sv f8 accum f32 fuse v scale attn inst buf");
+   m.def("qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf", &qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf, "QK int8 sv f8 accum f16 fuse v scale attn inst buf");
++
++  m.def("h2_tile_config", []() { return std::make_tuple(SAGE_H2_CTA_Q, SAGE_H2_WARP_Q, SAGE_H2_CTA_K); }, "(CTA_Q, WARP_Q, CTA_K) the sm89 kernels were compiled with");
+ }
+\ No newline at end of file
+diff --git a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_attn_inst_buf.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_attn_inst_buf.cu
+index c66a81f..d91684b 100644
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_attn_inst_buf.cu
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_attn_inst_buf.cu
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ 
+ torch::Tensor qk_int8_sv_f8_accum_f16_attn_inst_buf(torch::Tensor query,
+                     torch::Tensor key,
+@@ -116,10 +117,10 @@ torch::Tensor qk_int8_sv_f8_accum_f16_attn_inst_buf(torch::Tensor query,
+       DISPATCH_QK_QUANT_GRAN(qk_quant_gran, QK_QUANT_GRAN, {
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff --git a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf.cu
+index 727030f..755fe0e 100644
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf.cu
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf.cu
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -121,10 +122,10 @@ torch::Tensor qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf(torch::Tensor q
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {  
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+               
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff --git a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn.cu
+index d99d1aa..cd4c3f5 100644
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn.cu
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn.cu
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ 
+ torch::Tensor qk_int8_sv_f8_accum_f32_attn(torch::Tensor query,
+                     torch::Tensor key,
+@@ -116,10 +117,10 @@ torch::Tensor qk_int8_sv_f8_accum_f32_attn(torch::Tensor query,
+       DISPATCH_QK_QUANT_GRAN(qk_quant_gran, QK_QUANT_GRAN, {
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff --git a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn_inst_buf.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn_inst_buf.cu
+index 14b9b03..a1d44d3 100644
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn_inst_buf.cu
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn_inst_buf.cu
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f32_attn_inst_buf(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -115,10 +116,10 @@ torch::Tensor qk_int8_sv_f8_accum_f32_attn_inst_buf(torch::Tensor query,
+       DISPATCH_QK_QUANT_GRAN(qk_quant_gran, QK_QUANT_GRAN, {
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff --git a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn.cu
+index 918b156..72e01d8 100644
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn.cu
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn.cu
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f32_fuse_v_scale_attn(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -121,10 +122,10 @@ torch::Tensor qk_int8_sv_f8_accum_f32_fuse_v_scale_attn(torch::Tensor query,
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {  
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+               
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff --git a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf.cu
+index cc1a85c..2a48b42 100644
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf.cu
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf.cu
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -121,10 +122,10 @@ torch::Tensor qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf(torch::Tensor q
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {  
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+               
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff --git a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn.cu
+index fb3db8b..be25c19 100644
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn.cu
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn.cu
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -125,10 +126,10 @@ torch::Tensor qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn(torch::Tenso
+       DISPATCH_QK_QUANT_GRAN(qk_quant_gran, QK_QUANT_GRAN, {
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff --git a/sageattention/core.py b/sageattention/core.py
+index 96da4c0..bcac963 100644
+--- a/sageattention/core.py
++++ b/sageattention/core.py
+@@ -49,6 +49,15 @@ from .quant import per_warp_int8 as per_warp_int8_cuda
+ from .quant import sub_mean
+ from .quant import per_channel_fp8
+ 
++
++def _sm89_tile_config():
++    """(BLKQ, WARPQ, BLKK) the sm89 FP8 kernels were compiled with; upstream default if the module predates h2_tile_config."""
++    if SM89_ENABLED:
++        from . import _qattn_sm89
++        if hasattr(_qattn_sm89, "h2_tile_config"):
++            return tuple(int(x) for x in _qattn_sm89.h2_tile_config())
++    return (128, 32, 64)
++
+ from typing import Any, List, Literal, Optional, Tuple, Union
+ import warnings
+ 
+@@ -787,13 +796,21 @@ def sageattn_qk_int8_pv_fp8_cuda(
+     else:
+         km = None
+ 
++    BLKQ, WARPQ, BLKK = _sm89_tile_config()
+     if qk_quant_gran == "per_warp":
+-        q_int8, q_scale, k_int8, k_scale = per_warp_int8_cuda(q, k, km, tensor_layout=tensor_layout, BLKQ=128, WARPQ=32, BLKK=64)
++        q_int8, q_scale, k_int8, k_scale = per_warp_int8_cuda(q, k, km, tensor_layout=tensor_layout, BLKQ=BLKQ, WARPQ=WARPQ, BLKK=BLKK)
+     elif qk_quant_gran == "per_thread":
+-        q_int8, q_scale, k_int8, k_scale = per_thread_int8_triton(q, k, km, tensor_layout=tensor_layout, BLKQ=128, WARPQ=32, BLKK=64, WARPK=64)
++        q_int8, q_scale, k_int8, k_scale = per_thread_int8_triton(q, k, km, tensor_layout=tensor_layout, BLKQ=BLKQ, WARPQ=WARPQ, BLKK=BLKK, WARPK=BLKK)
+ 
+     o = torch.empty(q.size(), dtype=dtype, device=q.device)
+ 
++    # per_channel_fp8 pads V's sequence to a multiple of 64 (fused.cu transpose_pad_permute_cuda, CTA_SIZE 64);
++    # the kernel reads V in whole CTA_K tiles, so for CTA_K 128 pad V to a multiple of 128 first.
++    kv_len = v.size(seq_dim)
++    if kv_len % BLKK != 0 and BLKK > 64:
++        pad = BLKK - kv_len % BLKK
++        v = torch.nn.functional.pad(v, (0, 0, 0, 0, 0, pad) if seq_dim == 1 else (0, 0, 0, pad))
++
+     if pv_accum_dtype == 'fp32+fp32' and smooth_v:
+         warnings.warn("pv_accum_dtype is 'fp32+fp32', smooth_v will be ignored.")
+         smooth_v = False
+@@ -804,7 +821,8 @@ def sageattn_qk_int8_pv_fp8_cuda(
+ 
+     quant_v_scale_max = 448.0
+     if pv_accum_dtype == 'fp32+fp16':
+-        quant_v_scale_max = 2.25
++        # fp16 PV accumulates one K tile before the fp32 flush: CTA_K * 448 * scale_max must stay < 65504
++        quant_v_scale_max = 2.25 * 64 / BLKK
+ 
+     v_fp8, v_scale, vm = per_channel_fp8(v, tensor_layout=tensor_layout, scale_max=quant_v_scale_max, smooth_v=smooth_v)
+ 
+diff --git a/setup.py b/setup.py
+index 6b2c5b4..de7b7c7 100644
+--- a/setup.py
++++ b/setup.py
+@@ -67,6 +67,12 @@ if not SKIP_CUDA_BUILD:
+     nvcc_append = os.getenv("NVCC_APPEND_FLAGS", "").strip()
+     if nvcc_append:
+         NVCC_FLAGS += nvcc_append.split()
++    # H2 tile experiment: SAGE_H2_CTA_Q / SAGE_H2_CTA_K / SAGE_H2_WARP_Q (see csrc/qattn/h2_tiles.h)
++    for _h2 in ("SAGE_H2_CTA_Q", "SAGE_H2_CTA_K", "SAGE_H2_WARP_Q"):
++        _v = os.getenv(_h2, "").strip()
++        if _v:
++            NVCC_FLAGS.append(f"-D{_h2}={int(_v)}")
++            CXX_FLAGS.append(f"-D{_h2}={int(_v)}")
+ 
+     ABI = 1 if torch._C._GLIBCXX_USE_CXX11_ABI else 0
+     CXX_FLAGS += [f"-D_GLIBCXX_USE_CXX11_ABI={ABI}"]
