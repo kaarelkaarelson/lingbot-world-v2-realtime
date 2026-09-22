@@ -1,0 +1,30 @@
+{
+  "hypothesis": "H2 tile sizes",
+  "cfg": "cfg_base",
+  "tiles": [
+    128,
+    32,
+    64
+  ],
+  "dry": false,
+  "device": "cuda",
+  "shapes": {
+    "B": 1,
+    "SQ": 6032,
+    "SK": 27144,
+    "H": 12,
+    "D": 128
+  },
+  "warm": 20,
+  "iters": 50,
+  "flops_per_call": 1005973143552.0,
+  "peak_int8_tops": 838.0,
+  "ms": 2.089719696044922,
+  "tops": 481.3914255849437,
+  "pct_peak": 57.44527751610307,
+  "max_abs": 0.002348925918340683,
+  "cos": 0.9992457628250122,
+  "ctas": 576,
+  "warps_per_cta": 4,
+  "torch": "2.8.0+cu128"
+}
