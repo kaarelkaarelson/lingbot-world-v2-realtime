@@ -23,7 +23,9 @@ diff -ruN a/csrc/qattn/attn_utils.cuh b/csrc/qattn/attn_utils.cuh
 +  float p = fmaf(5.517166853e-02f, f, 2.426111251e-01f);
 +  p = fmaf(p, f, 6.932609677e-01f);
 +  p = fmaf(p, f, 9.999280572e-01f);
-+  return __int_as_float(__float_as_int(p) + (__float_as_int(t) << 23));
++  // t's low mantissa bits hold rint(x) in two's complement; shifting them into the exponent scales p by 2^n.
++  // Unsigned shift: a signed left shift of a negative value is UB (the red-team of this patch, §19).
++  return __int_as_float((int)(__float_as_uint(p) + (__float_as_uint(t) << 23)));
 +}
 +#endif
 +
