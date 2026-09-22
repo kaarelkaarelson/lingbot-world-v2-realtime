@@ -37,5 +37,53 @@
  "fp8_usable_window_log2": 3.5,
  "verdict": "C5 with a single global phi is DEAD, and so is per-layer phi: the spread is 29.6 log2 BETWEEN HEADS OF ONE LAYER, 8x the fp8 window. A phi set for the hottest head flushes the coldest heads' P to zero. C5 would need a per-(layer,head) phi tensor plus offline calibration and a saturation guard - far more than the 'one constant' the 8.7 % was measured with.",
  "caveat": "one layer, one forward, one scene. The per-head pattern may differ by layer and may drift across scenes/rollouts, which would make calibration harder still, not easier.",
- "instrumentation_note": "the phi_calib.py hook never fired because the DiT is torch.compiled and the compiled graph binds the original attention() object, so patching module references afterwards has no effect; the repo's own in-function dump hook works because it lives inside that original function. Any future in-model instrumentation must either live inside attention() itself or run with compilation genuinely off."
+ "instrumentation_note": "the phi_calib.py hook never fired because the DiT is torch.compiled and the compiled graph binds the original attention() object, so patching module references afterwards has no effect; the repo's own in-function dump hook works because it lives inside that original function. Any future in-model instrumentation must either live inside attention() itself or run with compilation genuinely off.",
+ "red_team": {
+  "verdict_challenged": "a reviewer called the 29.6 log2 spread implausible and suspected a permute/stride bug",
+  "validation_run": "pod 20, 2026-09-22: permute checked (q[0].permute(1,0,2) -> [12,6032,128] = [H,L,D], correct); per-head max raw logits checked against their Cauchy-Schwarz bounds",
+  "evidence": {
+   "head4": {
+    "max_raw_logit": 252.5,
+    "cauchy_schwarz_bound": 296.7,
+    "within_bound": true,
+    "log2": 32.2
+   },
+   "head3": {
+    "max_raw_logit": 20.1,
+    "cauchy_schwarz_bound": 44.7,
+    "within_bound": true,
+    "log2": 2.56
+   },
+   "per_head_mean_q_norm": [
+    10.0,
+    11.1,
+    8.2,
+    7.4,
+    15.2,
+    13.3,
+    13.0,
+    14.2,
+    7.3,
+    10.0,
+    13.2,
+    13.0
+   ],
+   "per_head_mean_k_norm": [
+    4.8,
+    17.4,
+    3.0,
+    2.8,
+    18.3,
+    18.3,
+    13.7,
+    10.9,
+    2.8,
+    3.8,
+    7.9,
+    19.1
+   ]
+  },
+  "outcome": "objection REFUTED. The layout is correct and every logit is inside its norm bound; the spread is caused by a ~7x range in per-head key norms (mean |k| 2.8 to 19.1), which RMSNorm's learned per-channel scale permits. The units convention is also correct: S*sm_scale*log2(e) converts the natural-log exponent to base 2, which is what the kernel uses.",
+  "remaining_caveat": "still one layer, one forward, one scene; the per-head pattern may vary by layer and drift across scenes, which would make calibration harder, not easier"
+ }
 }
