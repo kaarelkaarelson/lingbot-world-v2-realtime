@@ -1,0 +1,41 @@
+{
+ "experiment": "phi calibration, steady state, real model",
+ "pod": "20 (b57clgx8sa8gnc)",
+ "date": "2026-09-22",
+ "method": "the repo's own LINGBOT_DUMP_QKV hook saved a real steady-state q/k/v (fires at k.shape[1] >= 27000) during `lingbot clip --frame_num 193 --bench` (16.3 FPS); row maxima computed offline from it in fp32, tiled over keys",
+ "shapes": {
+  "q": [
+   1,
+   6032,
+   12,
+   128
+  ],
+  "k": [
+   1,
+   27144,
+   12,
+   128
+  ],
+  "dtype": "bfloat16"
+ },
+ "per_head_row_max_log2": [
+  5.6,
+  22.5,
+  3.2,
+  2.6,
+  32.2,
+  29.7,
+  20.1,
+  17.5,
+  2.6,
+  5.1,
+  13.1,
+  31.3
+ ],
+ "head_spread_log2": 29.633,
+ "p9999_head_spread_log2": 29.585,
+ "fp8_usable_window_log2": 3.5,
+ "verdict": "C5 with a single global phi is DEAD, and so is per-layer phi: the spread is 29.6 log2 BETWEEN HEADS OF ONE LAYER, 8x the fp8 window. A phi set for the hottest head flushes the coldest heads' P to zero. C5 would need a per-(layer,head) phi tensor plus offline calibration and a saturation guard - far more than the 'one constant' the 8.7 % was measured with.",
+ "caveat": "one layer, one forward, one scene. The per-head pattern may differ by layer and may drift across scenes/rollouts, which would make calibration harder still, not easier.",
+ "instrumentation_note": "the phi_calib.py hook never fired because the DiT is torch.compiled and the compiled graph binds the original attention() object, so patching module references afterwards has no effect; the repo's own in-function dump hook works because it lives inside that original function. Any future in-model instrumentation must either live inside attention() itself or run with compilation genuinely off."
+}

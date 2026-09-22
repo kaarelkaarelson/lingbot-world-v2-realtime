@@ -202,3 +202,21 @@ and the chunk gate, then rerun `--chunks 6-8 --forwards 0 --frame_num 193` over 
 truthy (unset it, or set it empty in the shell - `apply_preset` uses `setdefault`, so a shell value wins); the hook's
 wrapper must tolerate a list first argument (`WanModel.forward`); and `_flush()` silently writes nothing when no rows
 were recorded, so an empty TSV means the sampling gate never passed, not that the model has no logits.
+
+### phi calibration RESULT (2026-09-22, pod 20): C5's simple form is dead
+
+Measured on real steady-state tensors (q [1,6032,12,128], k [1,27144,12,128], captured with the repo's own
+`LINGBOT_DUMP_QKV` hook during a 16.3 FPS run): the per-head row maxima inside ONE layer are
+5.6, 22.5, 3.2, 2.6, 32.2, 29.7, 20.1, 17.5, 2.6, 5.1, 13.1, 31.3 log2 - a spread of **29.6 log2 against an fp8 usable
+window of ~3.5**. A single phi set for the hottest head flushes the coldest heads' probabilities to zero, so neither a
+global phi nor a per-layer phi is viable; C5 would need a per-(layer,head) phi tensor, offline calibration and a
+saturation guard. That is a different, much larger change than the constant the -8.7 % was measured with, and the
+failure mode stays silent. **Recommendation: do not pursue C5 in its current form.** Its measurement still stands as the
+evidence that the softmax's cost is instruction count rather than SFU throughput.
+
+Instrumentation lesson: `bench/attn/phi_calib.py`'s hook never fired, because the DiT is torch.compiled and the compiled
+graph binds the original `attention()` function object - patching module-level references afterwards cannot affect it
+(the repo's own dump hook works precisely because it lives inside that function). Future in-model instrumentation must
+live inside `attention()` or run with compilation genuinely disabled; and `@torch._dynamo.disable` is required on any
+sampling code that does run inside the graph (`torch.quantile` fails on fake tensors and the recording is skipped
+silently).
