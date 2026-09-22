@@ -148,16 +148,31 @@ are a Sage rebuild; 3 and 4 are scheduling changes inside the kernel.
 - `cfg_b` tiling (CTA_K 128) into the model: −6 % kernel-only measured; needs the K/V cache padded to 128-key tiles and `sage_kvq.py` updated. ~0.02 s per chunk.
 - Build and bench `cfg_expemu` (C1) and `cfg_condrescale` (C2, τ = 0 first): patches reviewed, unbuilt. Ceiling for both together is the measured 0.22 ms softmax (13 % of the kernel). C2 at τ = 2 needs the exp15 quality band.
 - KV-split kernel for the wave tail (576 → 1152 CTAs, 85 → 97 % wave efficiency, ~10 %): a kernel change.
-- Dead ends, do not repeat: alternative tilings other than cfg_b, register-capped occupancy (3 CTAs/SM = 2), L2 working set, PV accumulate modes, clock (the card runs above spec), K/V re-quant (§15d), fused max+quant (C3, no-op after unrolling).
+- Dead ends, do not repeat: alternative tilings other than cfg_b, L2 working set, PV accumulate modes, clock (the card runs above spec), K/V re-quant (§15d), fused max+quant (C3, no-op after unrolling).
 - Literature (2026-09-22 review): nobody beats ~70 % of the 8-bit peak with `mma.sync`; SageAttention 3 (arxiv 2505.11594) 62 % of FP4 peak on the 5090; FlashAttention-4 (arxiv 2603.05451) 71 % on B200; gau-nernst BF16 FA on the 5090 94 % (gau-nernst.github.io/fa-5090). Our 62 % is the state of the art for this hardware class.
 
 ### After §20 (2026-09-22): attention candidates, what is settled and what is open
 
-Settled by measurement (pod 16, kernel-only, red-teamed one reviewer per result): **C5 fixed max -8.7 %** (2/3 removed ALU
-work, 1/3 serial dependency, per the `cfg_fixedmax_dep` control) and **C6 packed exp -3.1 %** at parity quality are the only
+Settled by measurement (pod 16, kernel-only, red-teamed one reviewer per result): **C5 fixed max -8.7 %** (the 2/3 ALU, 1/3 dependency
+split is retracted, see OPTIMIZATIONS.md; the saving is real, its decomposition is not) and **C6 packed exp -3.1 %** at parity quality are the only
 wins; C1 (FMA-polynomial exp) and C2 (conditional rescale) are nulls confirmed in SASS; C3 is a no-op after unrolling.
 
 Open, in the order worth doing:
+
+- **Occupancy on the baseline tiling, unresolved and previously mis-reported.** The old "occupancy refuted" verdict
+  compared a register-capped `cfg_a` against the *baseline*, which changes tiling and registers together. Against the
+  right control, `cfg_a` at its own 182 registers, the cap is a 7.3 % win (1.881 to 1.743 ms), so occupancy does help.
+  Untested: whether the baseline tiling gains anything, since it wants 255 registers. One build, one bench:
+  `SAGE_H2_CTA_Q=128 SAGE_H2_WARP_Q=32 SAGE_H2_CTA_K=64 NVCC_APPEND_FLAGS="-maxrregcount=130" python setup.py bdist_wheel`,
+  then `bench_kernel_only.py` against the untouched baseline. Check the build log for spill stores first: if the
+  baseline cannot fit in 130 registers without spilling, the answer is that it is register-bound and this is closed.
+- **C5 is dead on the real model, confirmed twice.** A single global phi cannot work: per-head row maxima inside one
+  layer span 2.6 to 32.2 log2 (29.6) against a 3.5 log2 fp8 window (`bench/attn/results/phi_calib_steady.json`). The
+  synthetic-only window measurement was sound, the generalisation was not. Any revival needs per-(layer, head) phi plus
+  saturation guards, which is a different and much larger change.
+- `bench/attn/phi_calib.py` is deprecated and must not be used: torch.compile binds the original `attention()` object,
+  so an external monkey-patch never sees the real calls. Use `LINGBOT_DUMP_QKV=<path>` (in `wan/modules/attention.py`)
+  and analyse offline, which is how the phi numbers above were produced.
 1. **Why is C6 faster?** Its stated mechanism is false: sm_120 has no packed MUFU unit, so `ex2.approx.f16x2` expands to
    two `MUFU.EX2.F16` and the issue count is unchanged (204 either way). Candidates: `.F16` throughput or register
    pressure at the 255 cap. Fix the wrong comments in `h2_tiles.h` and the cfg README regardless.

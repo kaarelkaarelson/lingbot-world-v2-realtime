@@ -698,14 +698,43 @@ Reading: every lever above the kernel is at its floor (each ≤ 1.3 % of the chu
 | # | Hypothesis | Bench | Measured | Red-team | Verdict |
 |---|---|---|---|---|---|
 | 1 | The online softmax (fp32 max, exp2, sum, O rescale) is exposed: the same work at INT8 as at BF16 while the mma is 4× faster | `cfg_nosoftmax` kernel variant with the softmax arithmetic removed, S→P conversion and both mma phases kept (the first design, a standalone QK GEMM, was invalid: it has to write the 6032×27144 score matrix, 7.9 GB per call, that the fused kernel never materialises, and ran memory-bound at 74 TOPS) | kernel only: base 1.742 ms, no softmax **1.518 ms** → the softmax is **0.22 ms, 13 %** of the kernel; without it the kernel reaches 663 TOPS, 79 % of 838 | patch removes exactly the softmax; P still depends on every S element so nothing else was dead-code-eliminated; the remaining 21 % includes CUDA-core conversion and flush work, not only the mma/load pipeline | **partly confirmed: 13 %**, the ceiling for any softmax-hiding trick |
-| 2 | Tile constants (CTA_Q 128 / CTA_K 64 / WARP_Q 32) were chosen for Ada and are wrong for sm_120 | four rebuilt tilings (`cfg_a` 64/64/16, `cfg_b` 64/128/16, `cfg_c` 128/64/16, `cfg_d` 128/128/16) plus `cfg_a` with `-maxrregcount=168` for 3 CTAs/SM | whole call: every alternative slower (2.15–2.44 vs 2.09 ms). Kernel only: **cfg_b 1.628 ms, 6 % faster than base 1.738**; cfg_d 1.769, cfg_a 1.881, cfg_c 2.096; cfg_a at 168 registers, no spills, 3 CTAs/SM: 1.743, identical to base | review found that sm_120's per-SM budget (48 warps, 64 K registers, 100 KB smem) is identical to sm_89, that the whole-call numbers charged cfg_b for a V pad copy inside `sageattn()` (fixable outside the hot path, as `sage_kvq.py` already pads its cache), and that all first-round configs ran at the same 8 warps/SM, hence the capped rebuild | **one config wins 6 % kernel-only** (cfg_b: 213 K steps of 128 keys instead of 425 of 64); **occupancy refuted** (3 CTAs/SM = 2 CTAs/SM to the µs) |
+| 2 | Tile constants (CTA_Q 128 / CTA_K 64 / WARP_Q 32) were chosen for Ada and are wrong for sm_120 | four rebuilt tilings (`cfg_a` 64/64/16, `cfg_b` 64/128/16, `cfg_c` 128/64/16, `cfg_d` 128/128/16) plus `cfg_a` with `-maxrregcount=168` for 3 CTAs/SM | whole call: every alternative slower (2.15–2.44 vs 2.09 ms). Kernel only: **cfg_b 1.628 ms, 6 % faster than base 1.738**; cfg_d 1.769, cfg_a 1.881, cfg_c 2.096; cfg_a at 168 registers, no spills, 3 CTAs/SM: 1.743, identical to base | review found that sm_120's per-SM budget (48 warps, 64 K registers, 100 KB smem) is identical to sm_89, that the whole-call numbers charged cfg_b for a V pad copy inside `sageattn()` (fixable outside the hot path, as `sage_kvq.py` already pads its cache), and that all first-round configs ran at the same 8 warps/SM, hence the capped rebuild | **one config wins 6 % kernel-only** (cfg_b: 213 K steps of 128 keys instead of 425 of 64); ~~**occupancy refuted** (3 CTAs/SM = 2 CTAs/SM to the µs)~~ **retracted 2026-09-22, see the note below** |
 | 3 | The K/V working set (12 heads ≈ 84 MB quantised) sits at the edge of the 96 MB L2; each CTA re-reads all of K/V at ~256 FLOP/B, below the 468 FLOP/B INT8 ridge | heads 1–24 and Lk 4k–54k sweeps (`h3_l2_working_set.py`) | per-head, per-key cost flat: 6.5 ± 0.2 ns per key per head from 4k to 54k keys and from 6 to 24 heads, including working sets of 106 and 159 MB | stands; the 1→3-head plateau is SM occupancy (48 CTAs per head), not L2 | **refuted** |
 | 4 | Wave quantisation: 48 query tiles × 12 heads = 576 CTAs on 170 SMs | Lq sweep 4096–12288 at 1, 12, 24 heads (`h4_wave_quantization.py`) | whole-call utilisation follows the last wave's fill: Lq 6032 (39 % full) 56.8 %, 5120 (82 %) 59.9 %, 7168 (95 %) 64.5 %, 12288 66.1 %; at H = 1 the time is a flat 0.55 ms for 32–96 CTAs | the data fit one resident CTA per SM (~0.53 ms per wave), not the two the register count allows; effect ~9–11 points at our shape; a lone CTA already saturates its SM at ~65 % of the SM's peak | **confirmed, ~10 %**; in the model the shape is fixed (576 CTAs, 85 % wave efficiency), a KV-split kernel (1152 CTAs, 97 %) would be the lever |
 | 5 | The fp32+fp16 PV accumulate (fp16 mma accumulation flushed to fp32 once per 64-key tile, fused V scale) costs time | all 12 (kernel, granularity, accumulate) variants of `sageattn_qk_int8_pv_fp8_cuda` / `_pv_fp16_cuda` (`h5_pv_accum.py`) | the shipped mode is the fastest: pure fp32 accumulate +14 %, fp32+fp32 +15 %, the fp16-PV kernels +21–75 % (fp32 accumulate is half-rate FP8 on GeForce parts) | stands; note `pv_fp16 per_warp fp16` gives cos 0.99990 vs 0.99925 at +21 % time, an accuracy option, not a speed one | **refuted** |
 | 6 | K/V re-quantised on every call (`TransposePad` / `MeanScale` / `QuantInt8`, 0.039 s per chunk) | exp. 15d, `LINGBOT_ATTN=sage_kvq` | +0.015 s per chunk | — | **refuted** (§15d) |
 | 7 | The clock drops under sustained INT8 load below the 2 407 MHz the 838 TOPS figure assumes | `nvidia-smi` at 100 ms during 20 s of `sageattn()` (`h7_clock_sampler.py`, `results/h7_sage.json`) | at the 600 W power cap (588 W mean, `sw_power_cap` active in 194 of 197 busy samples) the card holds a median **2 677 MHz**, above spec; peak at that clock ≈ 932 TOPS | the first run (a `torch._int_mm` load at 28 % of peak) was not representative; the Sage-load sample is | **refuted as a cause; changes the denominator**: 578 TOPS is 62 % of what this card delivers, not 69 % |
 
-**Reading.** Nothing outside the kernel explains the gap: not occupancy, not L2, not the accumulate mode, not the clock. The gap is inside one CTA's instruction stream, and it splits into the softmax (13 %, measured by removal) and the rest of the non-mma work plus the last wave (~10 %). This agrees with the literature: nobody reports beating ~70 % of the INT8/FP8 peak with `mma.sync` — SageAttention's own best is ~71 % on a 4090, SageAttention 3 reports 62 % of the FP4 peak on the 5090, FlashAttention-4 reaches 71 % on a B200 even with wgmma/tcgen05 and exp emulation — while BF16 attention on the same 5090 reaches 94–97 % (gau-nernst's write-up, cuDNN, FA2). At BF16 the mma is slow enough to hide the fixed-cost softmax; at 8-bit it is not. Our 62 % is the state of the art for this hardware class, not a defect (`bench/attn/` literature review, 2026-09-22; sources in TODO.md).
+**Reading.** Nothing outside the kernel explains the gap: not L2, not the accumulate mode, not the clock (occupancy is unresolved, see the retraction below). The gap is inside one CTA's instruction stream, and it splits into the softmax (13 %, measured by removal) and the rest of the non-mma work plus the last wave (~10 %). This agrees with the literature: nobody reports beating ~70 % of the INT8/FP8 peak with `mma.sync` — SageAttention's own best is ~71 % on a 4090, SageAttention 3 reports 62 % of the FP4 peak on the 5090, FlashAttention-4 reaches 71 % on a B200 even with wgmma/tcgen05 and exp emulation — while BF16 attention on the same 5090 reaches 94–97 % (gau-nernst's write-up, cuDNN, FA2). At BF16 the mma is slow enough to hide the fixed-cost softmax; at 8-bit it is not. Our 62 % is the state of the art for this hardware class, not a defect (`bench/attn/` literature review, 2026-09-22; sources in TODO.md).
+
+**Retraction, 2026-09-22: the occupancy row above does not support its verdict.** The register cap was
+applied to `cfg_a`, which also changes the tiling (CTA_Q 128 to 64, WARP_Q 32 to 16), and the result was
+then compared against the *baseline* tiling. That comparison mixes two variables. Compared against the
+right control, the same tiling at its natural 182 registers, the cap is not neutral at all:
+
+| build | registers | CTAs/SM | kernel-only |
+|---|---|---|---|
+| base tiling, 128/64/32 | 255 | 2 | 1.738 ms |
+| cfg_a tiling, 64/64/16 | 182 | 2 | 1.881 ms |
+| cfg_a tiling, 64/64/16 | 168 (`-maxrregcount`) | 3 | 1.743 ms |
+
+Raising occupancy from 2 to 3 CTAs/SM is worth **7.3 %** within one tiling. It only looks like a wash
+against the baseline because `cfg_a`'s tiling doubles L2 to SM traffic (4.0 GB to 7.9 GB) and gives back
+almost exactly what the occupancy buys. So occupancy helps; what is untested is whether the *baseline*
+tiling has anything left to gain, since it needs 255 registers and a cap there may spill.
+
+The experiment that would settle it, one build and one bench:
+
+```
+SAGE_H2_CTA_Q=128 SAGE_H2_WARP_Q=32 SAGE_H2_CTA_K=64 \
+NVCC_APPEND_FLAGS="-maxrregcount=130" python setup.py bdist_wheel
+```
+
+then `bench_kernel_only.py` against the untouched baseline. Watch the build log for spill stores: at
+128 threads per CTA, 130 registers is the threshold for 3 CTAs/SM, and the baseline kernel may not fit
+without spilling, in which case the answer is that the baseline is register-bound and occupancy is
+genuinely unreachable for it.
+
 
 **Candidate patches** (`bench/attn/h2_tiles/`, one file each, each against the same base, built and measured alone; **written and reviewed on 2026-09-22, not yet built or run**: the pod was stopped before they were ready):
 
