@@ -150,3 +150,27 @@ are a Sage rebuild; 3 and 4 are scheduling changes inside the kernel.
 - KV-split kernel for the wave tail (576 → 1152 CTAs, 85 → 97 % wave efficiency, ~10 %): a kernel change.
 - Dead ends, do not repeat: alternative tilings other than cfg_b, register-capped occupancy (3 CTAs/SM = 2), L2 working set, PV accumulate modes, clock (the card runs above spec), K/V re-quant (§15d), fused max+quant (C3, no-op after unrolling).
 - Literature (2026-09-22 review): nobody beats ~70 % of the 8-bit peak with `mma.sync`; SageAttention 3 (arxiv 2505.11594) 62 % of FP4 peak on the 5090; FlashAttention-4 (arxiv 2603.05451) 71 % on B200; gau-nernst BF16 FA on the 5090 94 % (gau-nernst.github.io/fa-5090). Our 62 % is the state of the art for this hardware class.
+
+### After §20 (2026-09-22): attention candidates, what is settled and what is open
+
+Settled by measurement (pod 16, kernel-only, red-teamed one reviewer per result): **C5 fixed max -8.7 %** (2/3 removed ALU
+work, 1/3 serial dependency, per the `cfg_fixedmax_dep` control) and **C6 packed exp -3.1 %** at parity quality are the only
+wins; C1 (FMA-polynomial exp) and C2 (conditional rescale) are nulls confirmed in SASS; C3 is a no-op after unrolling.
+
+Open, in the order worth doing:
+1. **Why is C6 faster?** Its stated mechanism is false: sm_120 has no packed MUFU unit, so `ex2.approx.f16x2` expands to
+   two `MUFU.EX2.F16` and the issue count is unchanged (204 either way). Candidates: `.F16` throughput or register
+   pressure at the 255 cap. Fix the wrong comments in `h2_tiles.h` and the cfg README regardless.
+2. **Do C5 and C6 compose?** Both rewrite the same inner loop; never measured together, and that combination is what a
+   model patch would ship.
+3. **phi in the real model.** Measured only on randn. Needs per-layer/head calibration over a rollout, a saturation
+   counter and a fallback; the usable window is about +-2 log2 units and both failures are silent (cosine 0.000 at phi=20).
+   Transformer Engine's amax-history/delayed-scaling is the shape to copy.
+4. **Quality gates.** Every candidate was gated on cosine against fp32 SDPA on synthetic tensors. None has been through
+   the exp15 lossless band (PSNR/SSIM/LPIPS/MUSIQ on generated video), which is the bar that matters.
+5. **`cfg_nosoftmax` as a bound** needs a dead-code check before 1.518 ms can be quoted.
+6. **One denominator**: state utilisation against 838 TOPS at the 2 407 MHz spec clock everywhere (the card delivers
+   ~932 at its measured 2 677 MHz; mixing the two made two summaries inconsistent).
+7. **C7 SpargeAttn** is buildable on sm_120 with a 3-line setup.py change (PR #123), but expected to gain little: our
+   rolling window is already the pruned set. Harness ready at `bench/attn/c7_sparge.py`.
+8. **cfg_b** needs the `sage_kvq.py` work (128-key cache alignment, halved V-scale headroom) before its 6 % reaches the model.

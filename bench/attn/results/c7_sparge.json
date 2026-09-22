@@ -1,6 +1,8 @@
 {
- "candidate": "C7 SpargeAttn drop-in",
- "status": "blocked",
- "reason": "SpargeAttn's setup.py refuses TORCH_CUDA_ARCH_LIST=12.0 (sm_120 unsupported); porting is a project, not a bench",
- "harness": "bench/attn/c7_sparge.py written and dry-run clean, kept for a future port"
+ "candidate": "C7 SpargeAttn",
+ "status": "premature, not blocked (red-team)",
+ "build_recipe": "setup.py:51 add \"12.0\" to SUPPORTED_ARCHS; gencode loop map 120 -> 120a; keep HAS_SM90 False; CUDA >= 12.8. Upstream PR #123 reports a full sm_120 build, 26 tests passing, 1.44x sparse-vs-dense at seq >= 8192.",
+ "expected_value": "low for us: SpargeAttn skips blocks, but our 27k rolling window with a 6-latent sink is already the pruned set; all shipped evaluations are bidirectional diffusion, no causal AR video",
+ "landmine": "is_causal is hardcoded False in the sage2 fp8 path (core.py:88-91,154,221) while the sm80 path passes it through: silently wrong for causal users. Not a problem for us (our self-attention call is genuinely non-causal, cross-length, unmasked).",
+ "harness": "bench/attn/c7_sparge.py, dry-run clean, ready if we decide to build"
 }
