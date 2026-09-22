@@ -265,7 +265,9 @@ def run(rest, cfg: Config):
     # constant-fold the indices and try to trace the score tiling.
     if os.environ.get("LINGBOT_TORCH_COMPILE") not in (None, "0"):
         print("[phi_calib] forcing LINGBOT_TORCH_COMPILE=0 for the calibration run", flush=True)
-    os.environ["LINGBOT_TORCH_COMPILE"] = "0"
+    # LINGBOT_TORCH_COMPILE is a MODE STRING ("regional", "default", ...), not a flag: "0" is truthy
+    # and reaches torch.compile(mode="0"). Unset it to disable compilation (the hook needs eager anyway).
+    os.environ.pop("LINGBOT_TORCH_COMPILE", None)
     os.environ["LINGBOT_INDUCTOR_TUNE"] = "0"
     if os.environ.get("LINGBOT_ATTN") == "sage_kvq":
         raise SystemExit("phi_calib: LINGBOT_ATTN=sage_kvq bypasses attention(); use sage")
