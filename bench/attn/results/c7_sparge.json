@@ -1,0 +1,6 @@
+{
+ "candidate": "C7 SpargeAttn drop-in",
+ "status": "blocked",
+ "reason": "SpargeAttn's setup.py refuses TORCH_CUDA_ARCH_LIST=12.0 (sm_120 unsupported); porting is a project, not a bench",
+ "harness": "bench/attn/c7_sparge.py written and dry-run clean, kept for a future port"
+}

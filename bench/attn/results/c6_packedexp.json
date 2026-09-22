@@ -1,0 +1,30 @@
+{
+ "candidate": "C6 packed ex2.approx.f16x2",
+ "kernel_only_ms": {
+  "base": [
+   1.7299,
+   1.7324
+  ],
+  "packedexp": 1.6773
+ },
+ "gain_pct": -3.1,
+ "cosine": {
+  "base": 0.999246,
+  "packedexp": 0.999245
+ },
+ "max_abs_err": {
+  "base": 0.002349,
+  "packedexp": 0.002282
+ },
+ "sass": {
+  "base": {
+   "MUFU.EX2": 204
+  },
+  "packedexp": {
+   "MUFU.EX2.F16": 192,
+   "MUFU.EX2": 12
+  }
+ },
+ "mechanism": "NOT fewer transcendental slots: sm_120 has no packed MUFU unit, so ptxas expands each ex2.approx.f16x2 into 2 MUFU.EX2.F16 (204 slots either way). The gain is unexplained; candidates are .F16 XU throughput or register-pressure relief. The patch's own comments assert hardware behaviour that does not exist on sm_120 and must be corrected.",
+ "verdict": "real -3.1 % at parity quality; mechanism open"
+}

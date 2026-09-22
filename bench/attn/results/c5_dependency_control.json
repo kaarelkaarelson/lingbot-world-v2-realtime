@@ -1,0 +1,24 @@
+{
+ "candidate": "C5 dependency control (cfg_fixedmax_dep)",
+ "pod": "16",
+ "date": "2026-09-22",
+ "kernel_only_ms": {
+  "base": [
+   1.7272,
+   1.7282
+  ],
+  "fixedmax_phi8": 1.5767,
+  "dep_control_phi8": 1.6269
+ },
+ "sass_shfl": {
+  "base": 32,
+  "fixedmax": 8,
+  "dep_control": 32
+ },
+ "decomposition_ms": {
+  "total_saving": 0.151,
+  "serial_dependency": 0.05,
+  "alu_work_removed": 0.1
+ },
+ "verdict": "C5's 8.7 % is 2/3 removed ALU work (max tree, o_scale exps, 128-multiply rescale loop) and 1/3 the serial dependency; the earlier 'it is the dependency' framing was overstated"
+}
