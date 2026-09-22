@@ -159,6 +159,20 @@ not use it.
   (so one patch can build any cfg: `SAGE_H2_CTA_Q=64 SAGE_H2_WARP_Q=16 ... python setup.py bdist_wheel`).
   There is no runtime switch: the tiles are template arguments and each instantiation costs the full ~26 min
   build, so each cfg is a separate wheel.
+- `cfg_nosoftmax.patch` -- **timing-only** control, not a candidate: cfg_base (same 128/64/32 tiles, same
+  `h2_tiles.h`/pybind/launcher/`core.py`/`setup.py` edits, so `build.sh` and `bench.py` run unchanged) plus
+  `#define SAGE_H2_NO_SOFTMAX 1`, which compiles the online softmax out of `qk_int_sv_f8_cuda_sm89.cuh`:
+  in all three K-step bodies the `update_mdo` call (row max + shuffles, `exp2(S*scale - m)`, `exp2(m_old - m_new)`,
+  `d *= o_scale`, the 64-multiply `RO *= o_scale` rescale; kernel `#L305-#L312`, `#L413-#L420`, `#L520-#L527`)
+  and `accumulate_d` (row sum; `#L314-#L317`, `#L422-#L425`, `#L529-#L532`) are replaced by `RS_f32 *= sm_scale`,
+  and the unused tensor-core `accumulate_d_f8` branch (`#L322-#L325`, `#L430-#L433`, `#L537-#L540`) is guarded too. QK int8 MMA, `__int2float_rz`,
+  `RS_32_to_8` (S->fp8 P), PV fp8 MMA, loads/ldmatrix/cp.async, `__syncthreads` and the epilogue are untouched;
+  `d` stays at its init value 1 so `normalize_d` (`#L572`, once per CTA) still divides O but by a constant.
+  Output is garbage (`bench.py` will report cos ~0 or NaN; ignore it). Read: `ms(cfg_base) - ms(cfg_nosoftmax)`
+  = softmax time that is *exposed* (not hidden behind the MMAs/loads), i.e. an upper bound on what a cheaper
+  softmax could recover. It cannot separate the softmax arithmetic from the int32->fp32->fp8 P conversion, which
+  is kept in both builds; and the fp16 PV accumulator will overflow with unnormalised P, which does not change
+  the instruction stream but means the output must not be used for anything.
 - `build.sh <cfg>` -- clone at `d1a57a5` into `/workspace/sage_h2/<cfg>`, apply the patch, build a wheel with
   `TORCH_CUDA_ARCH_LIST=12.0 MAX_JOBS=16`, install it into `/workspace/sage_h2/venv_<cfg>` (a
   `--system-site-packages` venv, so the pod's torch and the shipped sageattention stay untouched), print the

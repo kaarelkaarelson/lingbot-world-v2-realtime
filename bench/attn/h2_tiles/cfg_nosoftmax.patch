@@ -1,0 +1,430 @@
+diff -ruN a/csrc/qattn/h2_tiles.h b/csrc/qattn/h2_tiles.h
+--- a/csrc/qattn/h2_tiles.h	1969-12-31 16:00:00
++++ b/csrc/qattn/h2_tiles.h	2026-09-22 00:55:03
+@@ -0,0 +1,29 @@
++// H2 tile-size experiment: the sm89 FP8 launchers take their CTA/warp tiling from these macros.
++// Override at build time with NVCC_APPEND_FLAGS="-DSAGE_H2_CTA_Q=64 -DSAGE_H2_CTA_K=64 -DSAGE_H2_WARP_Q=16".
++// cfg_nosoftmax: upstream tiles (CTA_Q 128, CTA_K 64, WARP_Q 32, WARP_K 64) with the online softmax compiled out.
++// TIMING ONLY -- the output is garbage. Measures how much kernel time the non-MMA softmax work exposes.
++#pragma once
++
++#ifndef SAGE_H2_CTA_Q
++#define SAGE_H2_CTA_Q 128
++#endif
++#ifndef SAGE_H2_CTA_K
++#define SAGE_H2_CTA_K 64
++#endif
++#ifndef SAGE_H2_WARP_Q
++#define SAGE_H2_WARP_Q 32
++#endif
++
++// When defined, qk_int_sv_f8_cuda_sm89.cuh skips update_mdo (row max, exp2, O rescale) and accumulate_d
++// (row sum) in every K step; P = fp8(S * sm_scale) feeds the PV MMA unchanged, d stays 1, the epilogue
++// normalize_d still runs. Loads, ldmatrix, cp.async, both MMA phases and the S->fp8 conversion are untouched.
++#define SAGE_H2_NO_SOFTMAX 1
++
++// Constraints taken from qk_int_sv_f8_cuda_sm89.cuh / attn_utils.cuh / fused.cu (see h2_tiles/README.md).
++static_assert(SAGE_H2_CTA_K == 64 || SAGE_H2_CTA_K == 128, "V smem row = CTA_K bytes must be 64 or 128 (swizzle modes k64B/k128B)");
++static_assert(SAGE_H2_CTA_Q / SAGE_H2_CTA_K <= 2, "kernel static_assert(CTA_Q / CTA_K <= 2)");
++static_assert(SAGE_H2_WARP_Q == 16 || SAGE_H2_WARP_Q == 32, "quant_per_warp_int8_cuda only dispatches WARP_BLOCK_SIZE 16 or 32");
++static_assert(SAGE_H2_CTA_Q == 64 || SAGE_H2_CTA_Q == 128, "quant_per_warp_int8_cuda only dispatches BLOCK_SIZE 64 or 128");
++static_assert(SAGE_H2_CTA_Q % SAGE_H2_WARP_Q == 0, "WARP_Q must divide CTA_Q");
++static_assert(SAGE_H2_CTA_K % (SAGE_H2_CTA_Q / SAGE_H2_WARP_Q) == 0, "K tile rows must split evenly across the loading warps");
++static_assert(128 % ((SAGE_H2_CTA_Q / SAGE_H2_WARP_Q) * 4) == 0, "head_dim 128 V rows must split evenly across warps (4 rows per warp per iter)");
+diff -ruN a/csrc/qattn/pybind_sm89.cpp b/csrc/qattn/pybind_sm89.cpp
+--- a/csrc/qattn/pybind_sm89.cpp	2026-09-22 00:54:36
++++ b/csrc/qattn/pybind_sm89.cpp	2026-09-22 00:54:40
+@@ -17,6 +17,7 @@
+ #include <pybind11/pybind11.h>
+ #include <torch/extension.h>
+ #include "attn_cuda_sm89.h"
++#include "h2_tiles.h"
+ 
+ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+ {
+@@ -28,4 +29,6 @@
+   m.def("qk_int8_sv_f8_accum_f16_attn_inst_buf", &qk_int8_sv_f8_accum_f16_attn_inst_buf, "QK int8 sv f8 accum f16 attn inst buf");
+   m.def("qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf", &qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf, "QK int8 sv f8 accum f32 fuse v scale attn inst buf");
+   m.def("qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf", &qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf, "QK int8 sv f8 accum f16 fuse v scale attn inst buf");
++
++  m.def("h2_tile_config", []() { return std::make_tuple(SAGE_H2_CTA_Q, SAGE_H2_WARP_Q, SAGE_H2_CTA_K); }, "(CTA_Q, WARP_Q, CTA_K) the sm89 kernels were compiled with");
+ }
+\ No newline at end of file
+diff -ruN a/csrc/qattn/qk_int_sv_f8_cuda_sm89.cuh b/csrc/qattn/qk_int_sv_f8_cuda_sm89.cuh
+--- a/csrc/qattn/qk_int_sv_f8_cuda_sm89.cuh	2026-09-22 00:54:40
++++ b/csrc/qattn/qk_int_sv_f8_cuda_sm89.cuh	2026-09-22 00:55:03
+@@ -26,6 +26,7 @@
+ #include "../dispatch_utils.h"
+ 
+ #include "attn_utils.cuh"
++#include "h2_tiles.h"  // SAGE_H2_NO_SOFTMAX (timing-only variant)
+ 
+ #define PACK_SIZE_QK 16 // as if it is int8
+ #define PACK_SIZE_V 16  // fp8
+@@ -302,6 +303,7 @@
+ 
+     K_idx_lane_base += CTA_K;
+ 
++#ifndef SAGE_H2_NO_SOFTMAX
+     if constexpr (std::is_same<DTypeSVAccum, float>::value)
+     {
+       update_mdo<num_tiles_q, num_tiles_k, num_tiles_v, false, true, false>(RS_f32, RO, m, d, sm_scale);
+@@ -315,14 +317,32 @@
+     {
+       accumulate_d<num_tiles_q, num_tiles_k, ComputeUnit::kCudaCore>(RS_f32, d);
+     }
++#else
++    // no softmax: P = S * scale straight to fp8 (no max subtraction, no exp2, no row sum, no O rescale)
++#pragma unroll
++    for (uint32_t fq = 0; fq < num_tiles_q; fq++)
++    {
++#pragma unroll
++      for (uint32_t fk = 0; fk < num_tiles_k; fk++)
++      {
++#pragma unroll
++        for (uint32_t k = 0; k < 8; k++)
++        {
++          RS_f32[fq][fk][k] *= sm_scale;
++        }
++      }
++    }
++#endif
+ 
+     uint32_t RS_f8[num_tiles_q][num_tiles_k / 2][4];
+     RS_32_to_8<num_tiles_q, num_tiles_k>(RS_f32, RS_f8);
+ 
++#ifndef SAGE_H2_NO_SOFTMAX
+     if constexpr (DenominatorAccumUnit == ComputeUnit::kTensorCore)
+     {
+       accumulate_d_f8<num_tiles_q, num_tiles_k>(RS_f8, d);
+     }
++#endif
+ 
+     __syncthreads();
+ 
+@@ -410,6 +430,7 @@
+     // apply_out_of_bound_mask<num_tiles_q, num_tiles_k>(K_idx_lane_base, RS_f32, kv_len);
+     K_idx_lane_base += CTA_K;
+ 
++#ifndef SAGE_H2_NO_SOFTMAX
+     if constexpr (std::is_same<DTypeSVAccum, float>::value)
+     {
+       update_mdo<num_tiles_q, num_tiles_k, num_tiles_v, false, true, false>(RS_f32, RO, m, d, original_sm_scale);
+@@ -423,14 +444,32 @@
+     {
+       accumulate_d<num_tiles_q, num_tiles_k, ComputeUnit::kCudaCore>(RS_f32, d);
+     }
++#else
++    // no softmax: P = S * scale straight to fp8 (no max subtraction, no exp2, no row sum, no O rescale)
++#pragma unroll
++    for (uint32_t fq = 0; fq < num_tiles_q; fq++)
++    {
++#pragma unroll
++      for (uint32_t fk = 0; fk < num_tiles_k; fk++)
++      {
++#pragma unroll
++        for (uint32_t k = 0; k < 8; k++)
++        {
++          RS_f32[fq][fk][k] *= original_sm_scale;
++        }
++      }
++    }
++#endif
+ 
+     uint32_t RS_f8[num_tiles_q][num_tiles_k / 2][4];
+     RS_32_to_8<num_tiles_q, num_tiles_k>(RS_f32, RS_f8);
+ 
++#ifndef SAGE_H2_NO_SOFTMAX
+     if constexpr (DenominatorAccumUnit == ComputeUnit::kTensorCore)
+     {
+       accumulate_d_f8<num_tiles_q, num_tiles_k>(RS_f8, d);
+     }
++#endif
+ 
+     __syncthreads();
+ 
+@@ -517,6 +556,7 @@
+     apply_out_of_bound_mask<num_tiles_q, num_tiles_k>(K_idx_lane_base, RS_f32, kv_len);
+     K_idx_lane_base += CTA_K;
+ 
++#ifndef SAGE_H2_NO_SOFTMAX
+     if constexpr (std::is_same<DTypeSVAccum, float>::value)
+     {
+       update_mdo<num_tiles_q, num_tiles_k, num_tiles_v, false, true, false>(RS_f32, RO, m, d, original_sm_scale);
+@@ -530,14 +570,32 @@
+     {
+       accumulate_d<num_tiles_q, num_tiles_k, ComputeUnit::kCudaCore>(RS_f32, d);
+     }
++#else
++    // no softmax: P = S * scale straight to fp8 (no max subtraction, no exp2, no row sum, no O rescale)
++#pragma unroll
++    for (uint32_t fq = 0; fq < num_tiles_q; fq++)
++    {
++#pragma unroll
++      for (uint32_t fk = 0; fk < num_tiles_k; fk++)
++      {
++#pragma unroll
++        for (uint32_t k = 0; k < 8; k++)
++        {
++          RS_f32[fq][fk][k] *= original_sm_scale;
++        }
++      }
++    }
++#endif
+ 
+     uint32_t RS_f8[num_tiles_q][num_tiles_k / 2][4];
+     RS_32_to_8<num_tiles_q, num_tiles_k>(RS_f32, RS_f8);
+ 
++#ifndef SAGE_H2_NO_SOFTMAX
+     if constexpr (DenominatorAccumUnit == ComputeUnit::kTensorCore)
+     {
+       accumulate_d_f8<num_tiles_q, num_tiles_k>(RS_f8, d);
+     }
++#endif
+ 
+     // ensure V is ready
+     cp_async::wait_group<0>();
+diff -ruN a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_attn_inst_buf.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_attn_inst_buf.cu
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_attn_inst_buf.cu	2026-09-22 00:54:36
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_attn_inst_buf.cu	2026-09-22 00:54:40
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ 
+ torch::Tensor qk_int8_sv_f8_accum_f16_attn_inst_buf(torch::Tensor query,
+                     torch::Tensor key,
+@@ -116,10 +117,10 @@
+       DISPATCH_QK_QUANT_GRAN(qk_quant_gran, QK_QUANT_GRAN, {
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff -ruN a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf.cu
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf.cu	2026-09-22 00:54:37
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf.cu	2026-09-22 00:54:40
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -121,10 +122,10 @@
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {  
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+               
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff -ruN a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn.cu
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn.cu	2026-09-22 00:54:37
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn.cu	2026-09-22 00:54:40
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ 
+ torch::Tensor qk_int8_sv_f8_accum_f32_attn(torch::Tensor query,
+                     torch::Tensor key,
+@@ -116,10 +117,10 @@
+       DISPATCH_QK_QUANT_GRAN(qk_quant_gran, QK_QUANT_GRAN, {
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff -ruN a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn_inst_buf.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn_inst_buf.cu
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn_inst_buf.cu	2026-09-22 00:54:37
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_attn_inst_buf.cu	2026-09-22 00:54:40
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f32_attn_inst_buf(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -115,10 +116,10 @@
+       DISPATCH_QK_QUANT_GRAN(qk_quant_gran, QK_QUANT_GRAN, {
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff -ruN a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn.cu
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn.cu	2026-09-22 00:54:38
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn.cu	2026-09-22 00:54:40
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f32_fuse_v_scale_attn(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -121,10 +122,10 @@
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {  
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+               
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff -ruN a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf.cu
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf.cu	2026-09-22 00:54:38
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf.cu	2026-09-22 00:54:40
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -121,10 +122,10 @@
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {  
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+               
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff -ruN a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn.cu b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn.cu
+--- a/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn.cu	2026-09-22 00:54:38
++++ b/csrc/qattn/sm89_qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn.cu	2026-09-22 00:54:40
+@@ -1,5 +1,6 @@
+ #include "attn_cuda_sm89.h"
+ #include "qk_int_sv_f8_cuda_sm89.cuh"
++#include "h2_tiles.h"
+ torch::Tensor qk_int8_sv_f8_accum_f32_fuse_v_scale_fuse_v_mean_attn(torch::Tensor query,
+                     torch::Tensor key,
+                     torch::Tensor value,
+@@ -125,10 +126,10 @@
+       DISPATCH_QK_QUANT_GRAN(qk_quant_gran, QK_QUANT_GRAN, {
+         DISPATCH_RETURN_LSE(return_lse, RETURN_LSE, {
+           DISPATCH_PYTORCH_DTYPE_TO_CTYPE_FP16(output_dtype, DTypeOut, {
+-            constexpr int CTA_Q = 128;
+-            constexpr int CTA_K = 64;
+-            constexpr int WARP_Q = 32;
+-            constexpr int WARP_K = 64;
++            constexpr int CTA_Q = SAGE_H2_CTA_Q;
++            constexpr int CTA_K = SAGE_H2_CTA_K;
++            constexpr int WARP_Q = SAGE_H2_WARP_Q;
++            constexpr int WARP_K = SAGE_H2_CTA_K;  // PV routine assumes one warp spans the whole K tile
+ 
+             assert(value.size(0) == batch_size);
+             assert(value.size(3) >= div_ceil(kv_len, CTA_K) * CTA_K);
+diff -ruN a/sageattention/core.py b/sageattention/core.py
+--- a/sageattention/core.py	2026-09-22 00:54:39
++++ b/sageattention/core.py	2026-09-22 00:54:40
+@@ -49,6 +49,15 @@
+ from .quant import sub_mean
+ from .quant import per_channel_fp8
+ 
++
++def _sm89_tile_config():
++    """(BLKQ, WARPQ, BLKK) the sm89 FP8 kernels were compiled with; upstream default if the module predates h2_tile_config."""
++    if SM89_ENABLED:
++        from . import _qattn_sm89
++        if hasattr(_qattn_sm89, "h2_tile_config"):
++            return tuple(int(x) for x in _qattn_sm89.h2_tile_config())
++    return (128, 32, 64)
++
+ from typing import Any, List, Literal, Optional, Tuple, Union
+ import warnings
+ 
+@@ -787,13 +796,21 @@
+     else:
+         km = None
+ 
++    BLKQ, WARPQ, BLKK = _sm89_tile_config()
+     if qk_quant_gran == "per_warp":
+-        q_int8, q_scale, k_int8, k_scale = per_warp_int8_cuda(q, k, km, tensor_layout=tensor_layout, BLKQ=128, WARPQ=32, BLKK=64)
++        q_int8, q_scale, k_int8, k_scale = per_warp_int8_cuda(q, k, km, tensor_layout=tensor_layout, BLKQ=BLKQ, WARPQ=WARPQ, BLKK=BLKK)
+     elif qk_quant_gran == "per_thread":
+-        q_int8, q_scale, k_int8, k_scale = per_thread_int8_triton(q, k, km, tensor_layout=tensor_layout, BLKQ=128, WARPQ=32, BLKK=64, WARPK=64)
++        q_int8, q_scale, k_int8, k_scale = per_thread_int8_triton(q, k, km, tensor_layout=tensor_layout, BLKQ=BLKQ, WARPQ=WARPQ, BLKK=BLKK, WARPK=BLKK)
+ 
+     o = torch.empty(q.size(), dtype=dtype, device=q.device)
+ 
++    # per_channel_fp8 pads V's sequence to a multiple of 64 (fused.cu transpose_pad_permute_cuda, CTA_SIZE 64);
++    # the kernel reads V in whole CTA_K tiles, so for CTA_K 128 pad V to a multiple of 128 first.
++    kv_len = v.size(seq_dim)
++    if kv_len % BLKK != 0 and BLKK > 64:
++        pad = BLKK - kv_len % BLKK
++        v = torch.nn.functional.pad(v, (0, 0, 0, 0, 0, pad) if seq_dim == 1 else (0, 0, 0, pad))
++
+     if pv_accum_dtype == 'fp32+fp32' and smooth_v:
+         warnings.warn("pv_accum_dtype is 'fp32+fp32', smooth_v will be ignored.")
+         smooth_v = False
+@@ -804,7 +821,8 @@
+ 
+     quant_v_scale_max = 448.0
+     if pv_accum_dtype == 'fp32+fp16':
+-        quant_v_scale_max = 2.25
++        # fp16 PV accumulates one K tile before the fp32 flush: CTA_K * 448 * scale_max must stay < 65504
++        quant_v_scale_max = 2.25 * 64 / BLKK
+ 
+     v_fp8, v_scale, vm = per_channel_fp8(v, tensor_layout=tensor_layout, scale_max=quant_v_scale_max, smooth_v=smooth_v)
+ 
+diff -ruN a/setup.py b/setup.py
+--- a/setup.py	2026-09-22 00:54:39
++++ b/setup.py	2026-09-22 00:54:40
+@@ -67,6 +67,12 @@
+     nvcc_append = os.getenv("NVCC_APPEND_FLAGS", "").strip()
+     if nvcc_append:
+         NVCC_FLAGS += nvcc_append.split()
++    # H2 tile experiment: SAGE_H2_CTA_Q / SAGE_H2_CTA_K / SAGE_H2_WARP_Q (see csrc/qattn/h2_tiles.h)
++    for _h2 in ("SAGE_H2_CTA_Q", "SAGE_H2_CTA_K", "SAGE_H2_WARP_Q"):
++        _v = os.getenv(_h2, "").strip()
++        if _v:
++            NVCC_FLAGS.append(f"-D{_h2}={int(_v)}")
++            CXX_FLAGS.append(f"-D{_h2}={int(_v)}")
+ 
+     ABI = 1 if torch._C._GLIBCXX_USE_CXX11_ABI else 0
+     CXX_FLAGS += [f"-D_GLIBCXX_USE_CXX11_ABI={ABI}"]
