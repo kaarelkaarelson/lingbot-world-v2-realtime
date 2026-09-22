@@ -741,7 +741,7 @@ SASS via `cuobjdump -sass` on the built wheels. Raw: `bench/attn/results/`.
 |---|---|---|---|---|---|
 | base (7 runs, 2 pods) | — | 1.726–1.741 ms | — | 0.999246 | reference, 0.9 % spread |
 | **C5 `cfg_fixedmax`, φ = 8** | online row max → a constant φ (FlashDecoding++), so the max tree, its 2 shuffles, the `o_scale` exps and the 128-multiply rescale loop all go | **1.577 ms** | **−8.7 %** | 0.999230 | **the win**, with a calibration risk |
-| C5 control `cfg_fixedmax_dep` | same ALU removed, serial dependency artificially restored (real `__shfl_xor_sync` pair + volatile-asm barrier; SASS SHFL back to 32) | 1.627 ms | −5.8 % | — | splits the win: **2/3 ALU work, 1/3 dependency** |
+| C5 control `cfg_fixedmax_dep` | same ALU removed, serial dependency artificially restored (real `__shfl_xor_sync` pair + volatile-asm barrier; SASS SHFL back to 32) | 1.627 ms | −5.8 % | — | **attribution retracted, see below** |
 | **C6 `cfg_packedexp`** | 4 scalar `ptx_exp2` per fragment → 2 `ex2.approx.f16x2` (the overload upstream ships and never calls) | **1.677 ms** | **−3.1 %** | 0.999245 | **real gain, mechanism unexplained** |
 | cfg_b (from §19) | CTA_K 64 → 128: 213 K steps instead of 425 | 1.628 ms | −6 % (reviewer: ~5.6 %/MAC) | 0.999245 | stands; blocked on `sage_kvq.py` |
 | C1 `cfg_expemu` | 1 in 4 exps on an FMA degree-3 polynomial (FlashAttention-4) | 1.738 ms | +0.7 % | 0.999246 | null, confirmed by SASS |
@@ -760,17 +760,22 @@ SASS via `cuobjdump -sass` on the built wheels. Raw: `bench/attn/results/`.
 - C5 removed only 12 `MUFU.EX2` (204 → 192, the `o_scale` ones) yet is 8.7 % faster. The control puts the shuffles back
   (SHFL 8 → 32) and gives half the win back.
 - C6 emits 192 `MUFU.EX2.F16` + 12 scalar against base's 204 scalar — **the same 204 issue slots**, because sm_120 has no
-  packed MUFU unit and ptxas expands each `ex2.approx.f16x2` into two. So the −3.1 % is real but is *not* the
-  "half the transcendental slots" the patch claims; the candidates are `.F16` XU throughput or register-pressure relief at
-  the 255-register cap. The comments in `h2_tiles.h` and the cfg README assert hardware behaviour that does not exist on
+  packed MUFU unit and ptxas expands each `ex2.approx.f16x2` into two (plus a `PRMT` to pack the halves). So the −3.1 % is
+  real but is *not* the "half the transcendental slots" the patch claims. A literature pass found no published
+  microbenchmark that measures the `.F16` MUFU variants separately (the Blackwell microbenchmarking paper does not cover
+  the SFU at all), and NVIDIA's arithmetic-throughput table for CC 12.0 could not be retrieved; the most probable cause
+  on the evidence is downstream register and instruction savings around the packed form rather than MUFU issue cost. The comments in `h2_tiles.h` and the cfg README assert hardware behaviour that does not exist on
   sm_120 and must be corrected.
 
-**Decomposition of the softmax's 13 %** (kernel-only, φ = 8): base 1.727 → fixedmax 1.577 is 0.151 s per 1000 calls of
-saving, of which the dependency control attributes **0.050 ms to the serial chain** (the exp waiting on a warp-wide max
-reduction) and **0.100 ms to plain instruction count** (the max tree, the `o_scale` exps, the rescale multiplies). The
-remaining 0.059 ms to `cfg_nosoftmax`'s 1.518 is the exp and the row sum themselves. Read together with C1 and C6, the
-picture is: the softmax costs what it costs because of *how many instructions it puts in the inner loop*, a third of which
-is made worse by their being a dependency chain — not because the SFU cannot keep up.
+**Decomposition of the softmax's 13 %: attempted, and retracted.** The control was built to split C5's 0.151 ms saving
+into "serial dependency" and "removed ALU work", and on its face gave 0.050 / 0.100 ms (33 / 67 %). Its reviewer rejected
+that split: the dummy chain roots in a different S fragment than the real one and is a different number of dependent
+instructions deep (~6 against ~20), and the control also changes the loop nest, so `SAGE_H2_DEP_CONTROL=0` does not
+isolate the dependency from the restructuring. **What is safe to say: C5 saves 0.151 ms reproducibly; the cause is not yet
+attributed.** A `dep_null` variant (the same restructuring with the dummy chain present but not feeding the exp) is the
+cheapest decisive follow-up. What the other experiments do establish is narrower and still useful: the cost is not
+transcendental throughput (C1 cut MUFU ops by a quarter and got slower) and not the rescale multiply when it is skipped
+conditionally (C2 skipped ~94 % of them, confirmed by SASS, and gained nothing).
 
 **The φ calibration risk, quantified.** φ must upper-bound `max(S · sm_scale)` for every row, layer and head. The usable
 window on the bench inputs (true max ≈ 6.5 log₂ units) is narrow and both failure modes are silent:
