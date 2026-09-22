@@ -1,0 +1,32 @@
+{
+ "experiment": "phi calibration for C5 on the real model",
+ "pod": "18 (vlhohabm0ts0y7)",
+ "date": "2026-09-22",
+ "status": "FIRST DATA, NOT TRUSTWORTHY YET - rerun needed in steady state",
+ "raw": "bench/attn/results/phi_calib_pod18.tsv (120 rows)",
+ "what_ran": "python bench/attn/phi_calib.py --run --out /root/phi.tsv --chunks 0-11 --forwards 0-4 --layers 0,10,20,29 --frame_num 97 --bench, with LINGBOT_TORCH_COMPILE= LINGBOT_INDUCTOR_TUNE=0 in the shell",
+ "result_as_measured": {
+  "global_max_log2": 74.9802,
+  "per_layer_max": {
+   "10": 74.9802,
+   "20": 40.2955
+  },
+  "per_layer_spread_log2": 34.6847,
+  "global_minus_smallest_pair_log2": 63.7587,
+  "pairs_more_than_3.5_below_global": "23/24",
+  "verdict_line": "needs per-layer-per-head phi"
+ },
+ "why_not_trustworthy": [
+  "lk=6032 in every row: this is CHUNK 0 with an unfilled KV cache, not the steady state (lk=27144) the kernel runs in",
+  "only layers 10 and 20 were captured although 0,10,20,29 were requested: the layer-index derivation in the hook is suspect",
+  "only chunk 0 appears although --chunks 0-11 was passed: the chunk gate or the chunk-index derivation is also suspect",
+  "the run was in EAGER mode (compile disabled for the hook), which is not how the kernel runs in production"
+ ],
+ "fixes_needed_before_the_rerun": [
+  "make the layer index reliable (enumerate(self.blocks) order) and assert that all requested layers appear",
+  "verify the chunk index derivation; require lk==27144 rows (steady state) or filter to them in the analysis",
+  "sample forward 0 only, chunks 6-8, all 30 layers, frame_num 193 (12 chunks) so the window is full"
+ ],
+ "if_the_spread_holds": "a single global phi is unusable; C5 would need per-layer-per-head phi passed as a tensor, which changes the kernel's argument handling and part of its saving. If it does NOT hold in steady state, a single phi may still work.",
+ "next_command": "LINGBOT_TORCH_COMPILE= LINGBOT_INDUCTOR_TUNE=0 python bench/attn/phi_calib.py --run --out phi_steady.tsv --chunks 6-8 --forwards 0 --frame_num 193 --bench   (after fixing the layer/chunk indexing)"
+}

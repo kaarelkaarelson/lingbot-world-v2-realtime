@@ -187,3 +187,18 @@ venv layering two torch include trees, which matches the double-parse signature 
 (g++-12 12.4.0 was installed on the lost pod; gcc 13.3 exceeds CUDA 12.8's documented max of 13.2).
 Excluding `instantiations_sm80` is NOT an option: the bf16 kernels live there.
 Expected value remains low - our rolling window is already the pruned set - so this is worth at most one more session.
+
+### phi calibration: first data, rerun needed (2026-09-22, pod 18)
+
+`bench/attn/phi_calib.py` runs and produces data (`bench/attn/results/phi_calib_pod18.tsv`, 120 rows), but the first
+result is NOT usable: every row has `lk=6032`, i.e. chunk 0 with an unfilled KV cache rather than the steady state
+(`lk=27144`), only 2 of 4 requested layers appear, and only chunk 0 appears despite `--chunks 0-11`. As measured it says
+the (layer, head) row maxima span 63.8 log2 units against a 3.5 log2 fp8 window - "needs per-layer-per-head phi" - which
+would make C5 much less attractive, but the data does not yet support that conclusion.
+
+Before trusting it: fix the layer index (must be `enumerate(self.blocks)` order, and assert every requested layer appears)
+and the chunk gate, then rerun `--chunks 6-8 --forwards 0 --frame_num 193` over all 30 layers and filter the analysis to
+`lk == 27144`. Three harness bugs were already fixed today and pushed: `LINGBOT_TORCH_COMPILE` is a MODE STRING so "0" is
+truthy (unset it, or set it empty in the shell - `apply_preset` uses `setdefault`, so a shell value wins); the hook's
+wrapper must tolerate a list first argument (`WanModel.forward`); and `_flush()` silently writes nothing when no rows
+were recorded, so an empty TSV means the sampling gate never passed, not that the model has no logits.
