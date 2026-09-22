@@ -1,0 +1,9 @@
+{
+ "cfg": "cfg_a_r168",
+ "attn_kernel_ms": 1.7431,
+ "other_kernels_ms": 0.3176,
+ "total_ms": 2.0607,
+ "attn_tops": 577.1,
+ "attn_pct_of_838": 68.9,
+ "source": "pod 15 (5p629028bpcomb) 2026-09-22, bench_kernel_only.py, torch.profiler over 30 calls; transcribed from the run output (pod stopped before the files were pulled)"
+}

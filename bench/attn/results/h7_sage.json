@@ -1,0 +1,18 @@
+{
+ "load": "sageattn() cfg_base, ~20 s",
+ "samples": 267,
+ "busy_samples": 197,
+ "sm_clock_mhz": {
+  "median": 2677,
+  "min": 2662,
+  "max": 2977
+ },
+ "power_w": {
+  "mean": 588,
+  "max": 601
+ },
+ "sw_power_cap_active": "194/197",
+ "temp_max_c": 56,
+ "effective_int8_peak_tops_at_median": 932,
+ "source": "pod 15, nvidia-smi -lms 100 during bench.py --warm 200 --iters 9000; transcribed"
+}
