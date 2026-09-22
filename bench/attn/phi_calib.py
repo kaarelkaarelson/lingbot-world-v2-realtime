@@ -192,6 +192,10 @@ def _selfattn_hook(orig, pos):
             _state.forward = 0
             _state.seen = set()
         mid = id(self)
+        # Only SELF-attention modules define the layer index: the hook also wraps cross-attention
+        # classes, and mixing them made order.index() skip real layers (pod 18, 2026-09-22).
+        if "SelfAttention" not in type(self).__name__:
+            return orig(self, x, *args, **kwargs)
         if mid in _state.seen:
             _state.forward += 1
             _state.seen = set()
