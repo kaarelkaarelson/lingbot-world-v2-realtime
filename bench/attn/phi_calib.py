@@ -182,7 +182,10 @@ def _selfattn_hook(orig, pos):
     def wrapper(self, x, *args, **kwargs):
         # the block passes current_start positionally; `pos` is its index in *args
         cs = args[pos] if len(args) > pos >= 0 else kwargs.get("current_start", 0)
-        lq = x.shape[1]
+        xt = x[0] if isinstance(x, (list, tuple)) and x else x   # WanModel.forward takes a list of latents
+        if not hasattr(xt, "shape"):
+            return orig(self, x, *args, **kwargs)
+        lq = xt.shape[1]
         if cs != _state.current_start:
             _state.current_start = cs
             _state.chunk = int(cs // lq) if lq else 0
