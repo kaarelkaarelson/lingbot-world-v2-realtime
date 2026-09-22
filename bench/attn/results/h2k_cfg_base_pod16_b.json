@@ -1,0 +1,12 @@
+{
+ "cfg": "cfg_base_pod16_b",
+ "attn_kernel_ms": 1.7259,
+ "other_kernels_ms": 0.3173,
+ "total_ms": 2.0432,
+ "attn_tops": 582.9,
+ "attn_pct_of_838": 69.6,
+ "cos_vs_fp32_sdpa": 0.999246,
+ "registers": 255,
+ "stack_bytes": null,
+ "source": "pod 16 (xeq9a67r1mi0n0) 2026-09-22, bench_kernel_only.py + bench.py; base re-timed before and after each candidate"
+}
