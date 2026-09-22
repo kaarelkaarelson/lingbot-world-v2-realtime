@@ -130,7 +130,20 @@ def _row_max_log2(q, k, sm_scale, keys_tile, budget):
     return out.mul_(sm_scale * LOG2E)
 
 
+def _dynamo_disable(fn):
+    """Never let Dynamo trace the sampling: attention() runs inside the compiled DiT graph."""
+    try:
+        import torch._dynamo as _d
+        return _d.disable(fn)
+    except Exception:
+        return fn
+
+
+@_dynamo_disable
 def _record(q, k, sm_scale):
+    # attention() is called from inside the compiled DiT graph, so anything we do here would be
+    # traced by Dynamo (torch.quantile then fails on fake tensors and the sampling silently records
+    # nothing). Run the whole measurement eagerly. (pods 18-20, 2026-09-22)
     import torch
 
     m = _row_max_log2(q, k, sm_scale, _cfg.keys_tile, _cfg.budget)          # [H, Lq]
