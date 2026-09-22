@@ -126,8 +126,7 @@ The profiled kernel is SageAttention's Ada path, `sageattention_sm89::qk_int_sv_
 sm_120 because consumer Blackwell has no wgmma/tcgen05 and Sage's Hopper kernels need them. 150 calls per chunk, 1.80 ms
 each, 1.0 TFLOP per call → ~560 TOPS inside the kernel; FA2 reaches 88 % of *its* BF16 peak on the same shapes
 (`lingbot-world-v2-stream/bench_results/roofline/pod14/rl_fast/kernels_top.txt`, OPTIMIZATIONS.md §18). Each hypothesis
-has its own script under `bench/attn/`, dry-run on CPU on 2026-09-22 and **not yet run on a GPU** (pod 14's host had no free
-5090 when they were ready). `bench/attn/run_all.sh` runs them one at a time, each in its own process, and
+has its own script under `bench/attn/`; **all measured on pod 15 on 2026-09-22, results and verdicts in OPTIMIZATIONS.md §19**. `bench/attn/run_all.sh` runs them one at a time, each in its own process, and
 `bench/attn/summarize.py` tables the JSONs in `bench/attn/results/`. Measure each alone; do not stack them.
 
 | # | Hypothesis | Why plausible | Bench | Prior |
@@ -143,3 +142,11 @@ has its own script under `bench/attn/`, dry-run on CPU on 2026-09-22 and **not y
 If 1 holds, the fix is a kernel with softmax/mma overlap on `mma.sync` hardware; comfy-kitchen's INT8-PV SDPA (above) is the
 existing candidate, a hand-written sm_120 kernel the expensive one (~0.08 s per chunk, one frame per second, §17). 2 and 5
 are a Sage rebuild; 3 and 4 are scheduling changes inside the kernel.
+
+### After §19 (2026-09-22): what is left on attention
+
+- `cfg_b` tiling (CTA_K 128) into the model: −6 % kernel-only measured; needs the K/V cache padded to 128-key tiles and `sage_kvq.py` updated. ~0.02 s per chunk.
+- Build and bench `cfg_expemu` (C1) and `cfg_condrescale` (C2, τ = 0 first): patches reviewed, unbuilt. Ceiling for both together is the measured 0.22 ms softmax (13 % of the kernel). C2 at τ = 2 needs the exp15 quality band.
+- KV-split kernel for the wave tail (576 → 1152 CTAs, 85 → 97 % wave efficiency, ~10 %): a kernel change.
+- Dead ends, do not repeat: alternative tilings other than cfg_b, register-capped occupancy (3 CTAs/SM = 2), L2 working set, PV accumulate modes, clock (the card runs above spec), K/V re-quant (§15d), fused max+quant (C3, no-op after unrolling).
+- Literature (2026-09-22 review): nobody beats ~70 % of the 8-bit peak with `mma.sync`; SageAttention 3 (arxiv 2505.11594) 62 % of FP4 peak on the 5090; FlashAttention-4 (arxiv 2603.05451) 71 % on B200; gau-nernst BF16 FA on the 5090 94 % (gau-nernst.github.io/fa-5090). Our 62 % is the state of the art for this hardware class.
