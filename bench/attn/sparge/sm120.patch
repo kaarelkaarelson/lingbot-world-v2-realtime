@@ -1,0 +1,186 @@
+diff --git a/csrc/cp_async.cuh b/csrc/cp_async.cuh
+index c877c16..2ae1b5a 100644
+--- a/csrc/cp_async.cuh
++++ b/csrc/cp_async.cuh
+@@ -19,6 +19,8 @@
+  */
+ 
+ #pragma once
++#include <cstdint>  // not transitively included by newer CUDA toolkits
++#include <cstddef>
+ #include <cuda_runtime.h>
+ 
+ namespace cp_async {
+diff --git a/csrc/mma.cuh b/csrc/mma.cuh
+index 61a252c..5f36376 100644
+--- a/csrc/mma.cuh
++++ b/csrc/mma.cuh
+@@ -18,6 +18,7 @@
+  */
+ 
+ #pragma once
++#include <cstdint>  // not transitively included by newer CUDA toolkits; uint32_t used throughout
+ #include <cuda_bf16.h>
+ #include <cuda_fp16.h>
+ #include <cuda_runtime.h>
+diff --git a/csrc/numeric_conversion.cuh b/csrc/numeric_conversion.cuh
+index 6c9d343..2699a03 100644
+--- a/csrc/numeric_conversion.cuh
++++ b/csrc/numeric_conversion.cuh
+@@ -17,6 +17,7 @@
+  */
+ 
+ #pragma once
++#include <cstdint>  // not transitively included by newer CUDA toolkits
+ #include <cuda_bf16.h>
+ #include <cuda_fp16.h>
+ #include <cuda_fp8.h>
+diff --git a/csrc/qattn/qk_int_sv_f8_cuda_sm90.cuh b/csrc/qattn/qk_int_sv_f8_cuda_sm90.cuh
+index ace019e..3ad5e14 100644
+--- a/csrc/qattn/qk_int_sv_f8_cuda_sm90.cuh
++++ b/csrc/qattn/qk_int_sv_f8_cuda_sm90.cuh
+@@ -25,7 +25,7 @@
+ #include "attn_utils.cuh"
+ #include <assert.h>
+ 
+-#if (!defined(__CUDA_ARCH__) || (__CUDA_ARCH__ >= 900))
++#if (!defined(__CUDA_ARCH__) || (__CUDA_ARCH__ >= 900 && __CUDA_ARCH__ < 1000)) // clamp: wgmma is sm_90-family only; do not admit sm_100+/sm_120
+ #define SM90_ENABLED
+ #endif
+ 
+diff --git a/csrc/wgmma.cuh b/csrc/wgmma.cuh
+index be363b8..5db16f5 100644
+--- a/csrc/wgmma.cuh
++++ b/csrc/wgmma.cuh
+@@ -19,7 +19,7 @@
+ #include <assert.h>
+ 
+ namespace wgmma{
+-#if (!defined(__CUDA_ARCH__) || (__CUDA_ARCH__ >= 900))
++#if (!defined(__CUDA_ARCH__) || (__CUDA_ARCH__ >= 900 && __CUDA_ARCH__ < 1000)) // clamp: wgmma is sm_90-family only; do not admit sm_100+/sm_120
+ #define SM90_ENABLED
+ #endif
+ 
+diff --git a/setup.py b/setup.py
+index 3e6b13b..b0d13a1 100644
+--- a/setup.py
++++ b/setup.py
+@@ -15,6 +15,7 @@ limitations under the License.
+ """
+ 
+ import os
++import sys
+ from pathlib import Path
+ import subprocess
+ from packaging.version import parse, Version
+@@ -37,7 +38,7 @@ def run_instantiations(src_dir: str):
+ 
+     for py_file in py_files:
+         print(f"Running: {py_file}")
+-        os.system(f"python {py_file}")
++        os.system(f"{sys.executable} {py_file}")
+ 
+ def get_instantiations(src_dir: str):
+     # get all .cu files under src_dir
+@@ -49,7 +50,7 @@ def get_instantiations(src_dir: str):
+     ]
+ 
+ # Supported NVIDIA GPU architectures.
+-SUPPORTED_ARCHS = {"8.0", "8.6", "8.7", "8.9", "9.0"}
++SUPPORTED_ARCHS = {"8.0", "8.6", "8.7", "8.9", "9.0", "12.0", "12.1"}
+ 
+ # Compiler flags.
+ CXX_FLAGS = ["-g", "-O3", "-fopenmp", "-lgomp", "-std=c++17", "-DENABLE_BF16"]
+@@ -62,7 +63,6 @@ NVCC_FLAGS = [
+     "--threads=8",
+     "-Xptxas=-v",
+     "-diag-suppress=174", # suppress the specific warning
+-    "-Xcompiler", "-include,cassert", # fix error occurs when compiling for SM90+ with newer CUDA toolkits
+ ]
+ 
+ ABI = 1 if torch._C._GLIBCXX_USE_CXX11_ABI else 0
+@@ -136,6 +136,11 @@ nvcc_cuda_version = get_nvcc_cuda_version(CUDA_HOME)
+ if not compute_capabilities:
+     raise RuntimeError("No GPUs found. Please specify the target GPU architectures or build on a machine with GPUs.")
+ 
++# The -include,cassert workaround predates CUDA 13; with CUDA 13 it double-includes
++# c++config.h on the host pass (redefinition errors). The csrc headers are self-contained now.
++if nvcc_cuda_version < Version("13"):
++    NVCC_FLAGS += ["-Xcompiler", "-include,cassert"] # fix error occurs when compiling for SM90+ with CUDA 11/12 toolkits
++
+ # Validate the NVCC CUDA version.
+ if nvcc_cuda_version < Version("12.0"):
+     raise RuntimeError("CUDA 12.0 or higher is required to build the package.")
+@@ -147,6 +152,9 @@ if nvcc_cuda_version < Version("12.4"):
+         raise RuntimeError(
+             "CUDA 12.4 or higher is required for compute capability 9.0.")
+ if nvcc_cuda_version < Version("12.8"):
++    if any(cc.startswith("12.0") or cc.startswith("12.1") for cc in compute_capabilities):
++        raise RuntimeError(
++            "CUDA 12.8 or higher is required for compute capability 12.0/12.1.")
+     warnings.warn("CUDA 12.8 or higher is required for Sage2++")
+     SAGE2PP_ENABLED = False
+ 
+@@ -157,6 +165,10 @@ for capability in compute_capabilities:
+         num = '90a'
+         HAS_SM90 = True
+         CXX_FLAGS += ["-DHAS_SM90"]
++    if num == '120':
++        num = '120a'  # arch-accelerated target; enables the full sm_120 instruction set
++    if num == '121':
++        num = '121a'
+     if num == '80' or num == '86' or num == '87':
+         SAGE2PP_ENABLED = False
+     
+diff --git a/spas_sage_attn/core.py b/spas_sage_attn/core.py
+index 01eda7a..62cefcd 100644
+--- a/spas_sage_attn/core.py
++++ b/spas_sage_attn/core.py
+@@ -71,7 +71,7 @@ def spas_sage2_attn_meansim_cuda(q, k, v, attn_mask=None, dropout_p=0.0, is_caus
+ 
+     if arch in ("sm80", "sm86", "sm87"):
+         qattn.qk_int8_sv_f16_accum_f16_block_sparse_attn_inst_buf_with_pv_threshold(
+-            q_int8, k_int8, v, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, 1, False, 1, scale, 0
++            q_int8, k_int8, v, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, 1, int(is_causal), 1, scale, 0
+         )
+     else:
+         ## quant v
+@@ -85,11 +85,11 @@ def spas_sage2_attn_meansim_cuda(q, k, v, attn_mask=None, dropout_p=0.0, is_caus
+         fused.scale_fuse_quant_cuda(v_transposed_permutted, v_fp8, v_scale, kv_len, 2.25, 1)
+        
+         if arch == "sm90":
+-            qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold_sm90(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, False, 1, scale, 0)
++            qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold_sm90(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, int(is_causal), 1, scale, 0)
+         elif SAGE2PP_ENABLED:
+-            qk_int8_sv_f8_accum_f16_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, False, 1, scale, 0)
++            qk_int8_sv_f8_accum_f16_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, int(is_causal), 1, scale, 0)
+         else:
+-            qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, False, 1, scale, 0)
++            qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, int(is_causal), 1, scale, 0)
+     
+     if tensor_layout == 'NHD':
+         o = rearrange(o, '... H L D -> ... L H D')
+@@ -137,7 +137,7 @@ def spas_sage2_attn_meansim_topk_cuda(q, k, v, attn_mask=None, dropout_p=0.0, is
+ 
+     if arch in ("sm80", "sm86", "sm87"):
+         qattn.qk_int8_sv_f16_accum_f16_block_sparse_attn_inst_buf_with_pv_threshold(
+-            q_int8, k_int8, v, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, 1, False, 1, scale, 0
++            q_int8, k_int8, v, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, 1, int(is_causal), 1, scale, 0
+         )
+     else:
+         ## quant v
+@@ -151,11 +151,11 @@ def spas_sage2_attn_meansim_topk_cuda(q, k, v, attn_mask=None, dropout_p=0.0, is
+         fused.scale_fuse_quant_cuda(v_transposed_permutted, v_fp8, v_scale, kv_len, 2.25, 1)
+         
+         if arch == "sm90":
+-            qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold_sm90(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, False, 1, scale, 0)
++            qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold_sm90(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, int(is_causal), 1, scale, 0)
+         elif SAGE2PP_ENABLED:
+-            qk_int8_sv_f8_accum_f16_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, False, 1, scale, 0)
++            qk_int8_sv_f8_accum_f16_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, int(is_causal), 1, scale, 0)
+         else:
+-            qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, False, 1, scale, 0)
++            qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(q_int8, k_int8, v_fp8, o, lut, valid_block_num, pvthreshd, q_scale, k_scale, v_scale, 1, int(is_causal), 1, scale, 0)
+     
+     if tensor_layout == 'NHD':
+         o = rearrange(o, '... H L D -> ... L H D')
