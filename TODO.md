@@ -174,3 +174,16 @@ Open, in the order worth doing:
 7. **C7 SpargeAttn** is buildable on sm_120 with a 3-line setup.py change (PR #123), but expected to gain little: our
    rolling window is already the pruned set. Harness ready at `bench/attn/c7_sparge.py`.
 8. **cfg_b** needs the `sage_kvq.py` work (128-key cache alignment, halved V-scale headroom) before its 6 % reaches the model.
+
+### C7 SpargeAttn: unresolved, resumable (2026-09-22)
+
+The sm_120 arch gate is fixed (`bench/attn/sparge/sm120.patch`, applies on `ae5b629`), but the build dies in the host pass
+of the 73 generated `instantiations_sm80/*.cu` with `redefinition of std::__terminate` in gcc 13's `c++config.h`.
+Ruled out: our extra `<cstddef>`, build parallelism, and a globally broken toolchain (SageAttention builds clean on the
+same gcc 13.3 + CUDA 12.8). NOT ruled out, in the order to test: (1) a baseline build of UNPATCHED upstream at arch 8.9
+in a clean venv, which is what actually exonerates or implicates our patch; (2) `build.sh`'s `--system-site-packages`
+venv layering two torch include trees, which matches the double-parse signature and is the red-team's strongest suspect;
+(3) `120a` gencode possibly needing CUDA 12.9+ (we are on 12.8; upstream PR #123 uses `12.0a/12.1a`); (4) `-ccbin g++-12`
+(g++-12 12.4.0 was installed on the lost pod; gcc 13.3 exceeds CUDA 12.8's documented max of 13.2).
+Excluding `instantiations_sm80` is NOT an option: the bf16 kernels live there.
+Expected value remains low - our rolling window is already the pruned set - so this is worth at most one more session.

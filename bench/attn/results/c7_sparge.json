@@ -1,8 +1,29 @@
 {
- "candidate": "C7 SpargeAttn",
- "status": "premature, not blocked (red-team)",
- "build_recipe": "setup.py:51 add \"12.0\" to SUPPORTED_ARCHS; gencode loop map 120 -> 120a; keep HAS_SM90 False; CUDA >= 12.8. Upstream PR #123 reports a full sm_120 build, 26 tests passing, 1.44x sparse-vs-dense at seq >= 8192.",
- "expected_value": "low for us: SpargeAttn skips blocks, but our 27k rolling window with a 6-latent sink is already the pruned set; all shipped evaluations are bidirectional diffusion, no causal AR video",
- "landmine": "is_causal is hardcoded False in the sage2 fp8 path (core.py:88-91,154,221) while the sm80 path passes it through: silently wrong for causal users. Not a problem for us (our self-attention call is genuinely non-causal, cross-length, unmasked).",
- "harness": "bench/attn/c7_sparge.py, dry-run clean, ready if we decide to build"
+ "candidate": "C7 SpargeAttn on sm_120",
+ "date": "2026-09-22",
+ "status": "UNRESOLVED - build blocked, pod lost mid-investigation",
+ "progress": "sm120.patch applies on ae5b629; SUPPORTED_ARCHS gate passes; one kernel compiles (ptxas: 254 registers on qk_int_sv_f16_block_sparse_attn_kernel)",
+ "failure": "HOST pass of csrc/qattn/instantiations_sm80/*.cu dies with 'redefinition of std::__terminate' in /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h (and std::__is_constant_evaluated). 73 such files.",
+ "ruled_out": [
+  "not the <cstddef> include (fails without it)",
+  "not a parallel-build temp race (fails at MAX_JOBS=96 and 16)",
+  "toolchain is not globally broken: SageAttention builds with zero such errors on the same gcc 13.3 + CUDA 12.8"
+ ],
+ "NOT_ruled_out_per_red_team": [
+  "our patch is not exonerated: the baseline test (unpatched upstream at TORCH_CUDA_ARCH_LIST=8.9) was never run",
+  "the 120a gencode mapping may require CUDA 12.9+; we are on 12.8. Invalid arch strings can surface as host-pass errors",
+  "STRONGEST SUSPECT: build.sh creates venv_sparge with --system-site-packages over another venv, so two torch include trees can be on the include path at once, giving two routes to the same libstdc++ headers and defeating the include guards - exactly the observed signature"
+ ],
+ "research": {
+  "gcc": "gcc 13.3 exceeds CUDA 12.8's supported window (max 13.2); gcc-12 is the documented remedy. g++-12 12.4.0 was installed on the pod but the rebuild never completed.",
+  "upstream": "PR #123 (unmerged) reports a working sm_120 build using gencode 12.0a/12.1a; forks with wheels exist (qwer654/SpargeAttn-sm75, mobcat40/sageattention-blackwell)",
+  "sm80_exclusion": "NOT viable - the bf16 kernels we would use live in instantiations_sm80"
+ },
+ "next_steps_in_order": [
+  "1. baseline: unpatched ae5b629 at TORCH_CUDA_ARCH_LIST=8.9 in a CLEAN venv -> exonerates or implicates the patch",
+  "2. clean venv (no --system-site-packages) with its own torch -> tests the duplicate-include-tree theory",
+  "3. gencode 120 instead of 120a on CUDA 12.8",
+  "4. -ccbin g++-12 (installed, untested)"
+ ],
+ "expected_value": "still low: our 27k rolling window with a 6-latent sink is already the pruned set, and every SpargeAttn evaluation is bidirectional diffusion"
 }
