@@ -103,10 +103,10 @@ index 3e6b13b..b0d13a1 100644
  if not compute_capabilities:
      raise RuntimeError("No GPUs found. Please specify the target GPU architectures or build on a machine with GPUs.")
  
-+# The -include,cassert workaround predates CUDA 13; with CUDA 13 it double-includes
-+# c++config.h on the host pass (redefinition errors). The csrc headers are self-contained now.
-+if nvcc_cuda_version < Version("13"):
-+    NVCC_FLAGS += ["-Xcompiler", "-include,cassert"] # fix error occurs when compiling for SM90+ with CUDA 11/12 toolkits
++# Do NOT re-add -include,cassert. SageAttention carries no such flag and builds clean on this
++# box (gcc 13.3, CUDA 12.8, sm_120); SpargeAttn carries it at setup.py:65 and fails with a
++# redefinition of std::__terminate in c++config.h. It is the only setup.py flag difference
++# between them, so it is the prime suspect and stays off for every CUDA version here.
 +
  # Validate the NVCC CUDA version.
  if nvcc_cuda_version < Version("12.0"):
