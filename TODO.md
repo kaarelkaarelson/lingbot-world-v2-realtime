@@ -159,6 +159,17 @@ wins; C1 (FMA-polynomial exp) and C2 (conditional rescale) are nulls confirmed i
 
 Open, in the order worth doing:
 
+**Status 2026-09-23: every large lever is now closed with a measurement. See OPTIMIZATIONS.md 24 for
+the full table.** Rejected this round: the KV window (+12.9 % but a 13 % output perturbation, 21c),
+block sparsity and C7 (+3 % at a 1 % error budget, 21d), decoder fp16-accumulate (unreachable from
+PyTorch, 14b), FP4 DiT weights (W4A8 buys no speed on a compute-bound DiT, W4A4 needs distillation),
+and **FP4 attention (built and measured at 0.97x on our shape, 23)**. Confirmed good and kept:
+SageAttention INT8 is lossless per call (cosine 0.999969 at latent 0, 22), and the default
+`local_attn_size=18` is validated rather than arbitrary (21b).
+
+What remains is small and does not compose cleanly, since these all touch the same inner loop:
+
+
 **Run order for the next pod session** (nothing below has touched hardware; every figure is a prediction):
 1. `bench/window/window_sweep.py` - no build, largest predicted win, one variable.
 2. `build.sh cfg_depnull` then `bench_kernel_only.py` - one build, settles whether C5's 8.7 % is safely reachable.
@@ -189,29 +200,16 @@ Open, in the order worth doing:
   BOUND on what a dependency-preserving restructure could recover, not proof one would reach it. Design and SASS
   checklist: `bench/attn/h2_tiles/cfg_depnull.md`.
 
-- **FP4 attention via SageAttention 3 (`sageattention3_blackwell`), the largest attention lever available.** Public,
-  Apache-2.0, targets sm_120 via `mma.sync` (no tcgen05 needed), builds at `sm_120a` on CUDA 12.8 which is what we run.
-  Claimed 1038 TOPS on a 5090 = 62 % of the 1676 TFLOP/s dense FP4 peak, the same utilisation our INT8 kernel already
-  gets, so the arithmetic is coherent: attention 0.288 s to ~0.16 s, chunk 0.98 to 0.85, about 16.3 to 18.8 FPS. This
-  matches the "-0.12 s" we had already scoped for it from a different direction.
-  - **The C5 calibration trap does NOT apply.** NVFP4 scales are computed online per 1x16 block from the data; there is
-    no offline constant, no per-layer and no per-head calibration. K/Q smoothing is a data-dependent per-layer mean.
-  - **Two integration landmines, both verified against the released `sageattn3/api.py` on 2026-09-22, neither obvious:**
-    1. **Layout.** `sageattn3_blackwell(q, k, v, attn_mask=None, is_causal=False, per_block_mean=True)` has NO
-       `tensor_layout` argument and hardcodes `QL = q.size(2)`, `pad_128` on dim 2, `k.mean(dim=-2)`. That is HND
-       `[B,H,L,D]`. We call Sage 2 with `tensor_layout="NHD"` `[B,L,H,D]` (`wan/modules/attention.py:165`). Passing our
-       tensors straight through would treat 12 heads as the sequence and pad it to 128, silently, with no error.
-       Transpose(1,2) in and back out, and count the permute in the timing.
-    2. **It mutates K in place.** `preprocess_qkv` begins `k -= k.mean(dim=-2, keepdim=True)`. Our call site passes
-       `k.to(dtype)`, and `.to()` returns the SAME tensor when the dtype already matches, so this would subtract the
-       mean from the live KV cache and corrupt every later chunk. Presents as gradual quality drift, not a crash.
-       Clone K before the call, or confirm a copy actually happens.
-  - Shape fit is otherwise fine: head_dim 128 is accepted (only >= 256 falls back to SDPA), `is_causal=False` is a real
-    parameter, `QL` and `KL` are read independently so our 6032-vs-27144 asymmetry is supported, and `pad_128` handles
-    kv 27144 not being a multiple of 128.
-  - Quality is unmeasured for us. The paper's 0.9952 is the attention map against NAIVE FP4 quantisation on CogVideoX,
-    not against fp32 SDPA at our shapes, so it is not comparable to our 0.999246 and must be measured here.
-
+- **~~FP4 attention via SageAttention 3~~ MEASURED AND REJECTED 2026-09-23, see OPTIMIZATIONS.md 23.**
+  Builds and runs correctly on sm_120 (package `sageattn3`, `arch=compute_120a`, coexists with our
+  Sage 2 install, verified). At our production shape it is **0.97x — slower than the INT8 we ship** —
+  and 24x more error per call (cosine 0.981890 vs 0.999246). The layout conversion we impose is only
+  0.029 ms, 1 % of the call, so overhead is not the cause. A shape sweep shows FP4 wins 1.13-1.24x on
+  large SQUARE attention and loses only on our asymmetric 6032-query case: LQ is fixed at 6032 by the
+  4-latent chunk, about 47 query tiles, too few to amortise NVFP4's per-16-element scales. Consistent
+  with 19/20: the kernel is instruction-bound in the inner loop, not tensor-bound, so doubling the
+  tensor peak cannot help. Integration kept behind `LINGBOT_ATTN=sage3`, default off, in case the
+  chunk ever grows. Raw: `bench/attn/results/fp4_sage3.json`.
 - **Occupancy on the baseline tiling, unresolved and previously mis-reported.** The old "occupancy refuted" verdict
   compared a register-capped `cfg_a` against the *baseline*, which changes tiling and registers together. Against the
   right control, `cfg_a` at its own 182 registers, the cap is a 7.3 % win (1.881 to 1.743 ms), so occupancy does help.
