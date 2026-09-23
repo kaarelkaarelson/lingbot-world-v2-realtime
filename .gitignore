@@ -6,3 +6,6 @@ outputs/
 __pycache__/
 *.pyc
 *.egg-info/
+
+# large local artefacts from the KV-window quality runs (regenerate with bench/window/)
+bench/window/clips_*/
