@@ -1157,3 +1157,67 @@ reaches the paper's 62 % at any shape we tried: its best is 699 TOPS, 42 % of pe
 **Verdict: not shipped.** Keep the integration (`LINGBOT_ATTN=sage3`, default off) and this record,
 because the picture changes if the chunk ever grows or if a future kernel amortises the scales
 better. The sm_120 FP4 path itself is proven working on this card.
+
+## 24. Results of the 2026-09-22/23 round, all of it
+
+Sections 19-23 in one table. Everything below was measured on a healthy RTX 5090 (231 TFLOP/s bf16,
+no throttle) unless marked otherwise. Baseline throughout: **0.980 s per 16-frame chunk, 16.3 FPS**,
+reproduced on two scenes and three repeat runs.
+
+### Candidates that were measured and rejected
+
+| candidate | speed | what killed it | where |
+|---|---|---|---|
+| KV window 12 | **+12.9 %** (18.4 FPS) | 13.3 % mean / 30.1 % worst-layer change in attention output; no plateau in the ablation curve | 21b, 21c |
+| KV window 10 | +18.4 % (19.3 FPS) | same, worse: 34.6 % mean; and `num_rolled_tokens` = 0, no cross-chunk memory | 21c |
+| KV window 9 | — | **silently corrupts the cache**: `num_rolled_tokens` goes negative, the shift becomes a no-op | 21c |
+| LongLive 9-local + 3-sink | +12.9 % | did not transfer; worst sharpness measured; they train for it, we cannot | 21c |
+| Per-layer windows | — | layers are uniform (all want 15-20 latents), saves 8 % | 21c |
+| Block sparsity / C7 | +3.0 % at a 1 % error budget | our window is already local, the structural sparsity is spent; needs a per-step mask (Jaccard 0.43) | 21d |
+| Decoder fp16 accumulate | −0.13 s estimated | **unreachable**: PyTorch hardcodes `CUDNN_DATA_FLOAT` for half conv | 14b |
+| FP4 DiT weights | −0.126 s | W4A8 gives no speed (we are compute-bound at 94 % of the FP8 peak); W4A4 needs distillation | TODO.md |
+| **FP4 attention (Sage 3)** | **0.97x, slower** | wrong shape: wins 1.13-1.24x on large square attention, loses at our 6032-query asymmetric case | 23 |
+| C5 fixed max | −8.7 % kernel | per-head row maxima span 29.6 log2 against a 3.5 log2 fp8 window | 20 |
+| C1 exp emulation, C2 conditional rescale, C3 fused softmax | — | nulls, confirmed in SASS | 20 |
+
+### Confirmed good, kept
+
+| | result | where |
+|---|---|---|
+| **SageAttention INT8** | **lossless per call**: cosine 0.999969 at latent 0 vs FA2 bf16 on a deterministic loop; 27 % faster than FA2 in eager | 22 |
+| Default `local_attn_size=18` | validated, not arbitrary: 2.5 % output change against a 20-latent window | 21b |
+| C6 packed exp | −3.1 % kernel, parity quality, mechanism still unexplained | 20 |
+
+### What is left, and it is small
+
+`cfg_b` tiling (−6 % kernel-only, blocked on `sage_kvq` 128-key alignment), `cfg_depnull` (decides
+whether C5's 8.7 % is reachable without phi), occupancy at `-maxrregcount=130` (<=7 %), the KV-split
+wave tail (~10 %). All touch the same inner loop, so they do not compose cleanly. **16.3 FPS is
+close to the practical ceiling for this model on this card without a model change.**
+
+### Why so many big levers failed, in one sentence each
+
+- **Semantic levers fail** because the model uses its whole context: the window ablation shows a
+  smooth error curve with no redundant region (21b).
+- **Tensor-precision levers fail** because the kernel is bound by instruction count in the inner
+  loop, not tensor throughput: we sit at 56 % of the INT8 peak with the gap being non-mma work, so
+  doubling the tensor peak cannot help and FP4 adds scaling instructions to that same loop (19, 23).
+- **The decoder is simply closed**: 84 % of the fp16 peak with fp32 accumulate hardcoded (14b).
+
+### Methods this round produced, which outlast the results
+
+1. **Compare quantisation at latent 0.** Autoregressive rollouts amplify any perturbation, so
+   end-of-clip metrics cannot separate "worse" from "different". Determinism removes run-to-run
+   noise but not config-to-config divergence. Latent 0 isolates the kernel's own per-call error
+   (22). Raw: `bench/attn/results/int8_lossless.json`.
+2. **Ablate on a frozen forward pass** for anything that changes what the model attends to.
+   Deterministic, per-layer, no noise band, one run plus offline analysis instead of 25-40 sampled
+   rollouts. This is the published CAOTE idea; attention WEIGHTS are not a valid proxy
+   (Jain & Wallace). `bench/window/attn_ablate.py`, `bench/window/block_sparsity.py`.
+3. **The stack's first noise band** (`bench/window/README.md`): three identical runs differ by 18 %
+   on whole-clip sharpness and 33 % in the last bin. Before this, every "neutral" verdict on this
+   stack was n = 1 against nothing.
+4. **Metric policy, now in the `bench-world-model-quality` skill**: prefer LPIPS, never gate on
+   Laplacian sharpness, run the band before the candidate.
+5. **A working sm_120 FP4 path**, proven to build and run, kept behind `LINGBOT_ATTN=sage3` in case
+   the chunk ever grows.
