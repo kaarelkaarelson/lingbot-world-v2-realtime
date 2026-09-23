@@ -829,3 +829,48 @@ attention block is 0.288 s of a 0.98 s chunk, so an 8–11 % kernel gain is 0.02
 The honest summary remains §19's: at 8-bit, attention is instruction-bound in its softmax, the hardware has not raised
 transcendental throughput in eight generations (Volta 32 → 16 per SM per clock, flat since; tensor throughput 4–8× up),
 and 62–70 % of the 8-bit peak is where everyone in this hardware class sits.
+
+## 21. The KV window: a measured +18 % from one flag — pod 20 (2026-09-23)
+
+**Question.** §18 put attention at 0.288 s of a 0.98 s chunk, and §19/§20 established that every
+kernel-efficiency lever left is capped at about +12 % end to end, because attention's own roofline floor is
+0.18 s. The only way past that is to do less work. Attention cost is linear in the key count, and the key
+count is a runtime flag nobody had ever swept.
+
+**What the flag actually means, corrected.** `--local_attn_size` (default 18) is the WHOLE attended buffer,
+sink included: `kv_size = frame_seqlen * local_attn_size` (`wan/image2video.py:568-573`, and again at
+`:1081-1085`), and 1508 x 18 = 27144 matches the measured shape exactly, where an additive reading
+(6 + 18 = 24) would give 36192. So the rolling window is `local_attn_size - sink_size` = 12 latents, not 18.
+This agrees with the independent correction recorded in §11 during the KV-ring work.
+
+**Method.** `bench/window/window_sweep.py`, `generate.py --bench`, example 03 lakeside, seed 42, 193 frames,
+12 chunks, steady median over chunks 7+. Baseline re-measured first on the same pod in the same sweep, so the
+deltas are same-pod. Pod 20 (`b57clgx8sa8gnc`) checked with `tools/podcheck.sh`: 231 TFLOP/s bf16, no throttle,
+ncu blocked as always. Raw logs `/workspace/sweep_logs/w{18,12,10}.log`.
+
+| `local_attn_size` | rolling | kv tokens | DiT s/chunk | decode s/chunk | chunk | as-played FPS | vs base | predicted |
+|---|---|---|---|---|---|---|---|---|
+| **18 (baseline)** | 12 | 27 144 | 0.643 | 0.337 | 0.980 | **16.3** | — | 16.10 |
+| **12** | 6 | 18 096 | 0.532 | 0.337 | 0.869 | **18.4** | **+12.9 %** | 17.85 |
+| **10** | 4 | 15 080 | 0.493 | 0.338 | 0.831 | **19.3** | **+18.4 %** | 18.52 |
+
+**The baseline reproduces §18 exactly** (0.980 s, 16.3 FPS), which is what makes the deltas trustworthy.
+
+**Both candidates beat their predictions**, and consistently. The prediction scaled only attention's 0.288 s
+linearly in kv; at window 12 that is a 0.096 s saving, but the DiT actually dropped 0.111 s. The extra ~0.015 s
+is the K/V re-quant term (0.039 s per chunk, §18) shrinking with the window too, which the prediction omitted.
+The decoder is unchanged to the millisecond in all three rows, exactly as it should be.
+
+**A configuration below this range is silently broken, not merely degenerate.** In
+`wan/modules/model_fast.py:196-206`, `num_rolled_tokens = local_end - num_evicted_tokens - sink_tokens` goes
+NEGATIVE once the rolling window is smaller than `chunk_size`. The slice `[sink : sink + negative]` is empty, so
+the cache shift becomes a no-op, stale keys survive and attention runs on a corrupted cache with no exception
+raised. At `local_attn_size=9` with `sink_size=6` (rolling 3 < chunk 4) this triggers once the buffer fills.
+**Do not run 9.** At 10, `num_rolled_tokens` is exactly 0: legal, but no cross-chunk memory beyond the sink
+survives, so 10 is expected to fail on quality even though its timing is valid.
+
+**Status: speed measured, quality NOT yet measured.** This is a class-C change under the
+`bench-world-model-quality` skill: the attended context changes, so the rollout diverges from the baseline and
+per-frame identity is not the test. The gate is a 30 s clip with per-160-frame drift bins against a
+three-run noise band on the same stack, which had never been recorded for this stack before. Nothing here
+ships until that is in.
