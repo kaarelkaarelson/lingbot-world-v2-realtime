@@ -1017,3 +1017,44 @@ window-vs-quality ablation for this model family at all.
 
 **Do not reopen** unless the model is retrained with a short window (the LongLive route), or unless
 someone wants the +12.9 % knowingly as a quality trade rather than as a lossless win.
+
+### 21d. Block sparsity, certified and rejected (pod 20, 2026-09-23)
+
+The counterpart to 21b. Truncating the window fails because it removes information the model uses;
+sparsity keeps the whole window and skips only key blocks that contribute nothing, so in principle
+it can be lossless where truncation cannot. Measured the same way: one frozen forward pass, the real
+dumped activations, deterministic, no rollout noise.
+
+**Method.** `bench/window/block_sparsity.py` on the same 30-layer dump at 20 latents. For each layer
+and each of 6 query-block positions: compute the real dense softmax, read each 64-key block's actual
+mass off it, drop the lowest-mass fraction, **renormalise the softmax over the survivors** (what a
+block-sparse kernel really does) and measure the relative output change. Raw:
+`bench/window/block_sparsity_64.json`.
+
+| blocks dropped | mean output change | worst layer | theoretical FPS |
+|---|---|---|---|
+| 10 % | 0.0069 | 0.039 | +3.0 % |
+| 20 % | 0.0152 | 0.073 | +6.2 % |
+| 40 % | 0.0377 | 0.134 | +13.3 % |
+| 50 % | 0.0536 | 0.172 | +17.2 % |
+
+Largest sparsity inside an error budget: **10 % at 1 %, 20 % at 2 %, 40 % at 5 %.**
+
+**Verdict: not worth building.** At a 1 % budget sparsity buys +3.0 % *theoretically*, and a real
+kernel pays per-block mask, gather/scatter and reduced tile occupancy on top, so the realised number
+is lower still. This confirms the prior reasoning that our rolling window has already spent the
+structural sparsity: there is little left to skip inside an already-local 12-latent window. **C7
+SpargeAttn is therefore not worth its build cost either** — its 1.3 % expected-value line assumed
+sparsity our workload does not have.
+
+**Two structural findings worth keeping.** Within a layer, the kept-block sets of different query
+blocks overlap with a Jaccard of only **0.43**, so a cheap static mask would miss most of the
+available sparsity and it would have to be recomputed per step, as SpargeAttn does — more overhead,
+on top of an already thin win. Across layers the overlap is 0.76, i.e. layers agree with each other
+more than queries within a layer do.
+
+**And an unexpected one: the sink blocks are dropped FIRST at every fraction.** The 6 pinned sink
+latents (141 of ~471 blocks, 30 % of the buffer) hold low attention mass in this model. That is
+consistent with 21b's finding that recency dominates, and with StreamingLLM's own position that
+sinks are a numerical stabiliser rather than a memory. Whether a 6-latent sink earns 30 % of the KV
+buffer here is an open question, but it is not pursued: the window work is closed (21c).
