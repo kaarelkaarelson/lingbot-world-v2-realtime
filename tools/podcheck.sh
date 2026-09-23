@@ -66,7 +66,16 @@ fi
 echo "== disk"
 df -h /workspace 2>/dev/null | tail -1 || df -h / | tail -1
 free_gb=$(df -BG /workspace 2>/dev/null | awk 'NR==2{gsub("G","",$4); print $4}')
-if [ -n "${free_gb:-}" ] && [ "$free_gb" -lt 30 ]; then echo "LOW DISK: ${free_gb} GB free, need ~30"; ok=0; fi
+# The ~30 GB rule is for a FRESH setup (18 GB weights + venv + compile cache). On an already-provisioned
+# pod the weights are on disk already and a smaller margin is fine, so warn instead of failing: on
+# 2026-09-22 a healthy 5090 (231 TFLOP/s, no throttle) was reported "red" purely on 13 GB free.
+if [ -n "${free_gb:-}" ] && [ "$free_gb" -lt 30 ]; then
+  if [ -d /workspace/lingbot-world-v2-realtime ]; then
+    echo "NOTE: ${free_gb} GB free, under the 30 GB fresh-setup rule, but the repo is already provisioned - not a blocker"
+  else
+    echo "LOW DISK: ${free_gb} GB free, need ~30 for a fresh setup"; ok=0
+  fi
+fi
 
 echo "== existing state"
 ls -d /workspace/lingbot-world-v2-realtime 2>/dev/null && echo "repo present: skip setup.sh" || echo "empty: full setup (~15 min)"
