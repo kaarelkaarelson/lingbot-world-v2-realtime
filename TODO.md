@@ -294,3 +294,41 @@ graph binds the original `attention()` function object - patching module-level r
 live inside `attention()` or run with compilation genuinely disabled; and `@torch._dynamo.disable` is required on any
 sampling code that does run inside the graph (`torch.quantile` fails on fake tensors and the recording is skipped
 silently).
+
+### 4-bit precision: what INT4 and FP4 actually are, and what each costs (research, 2026-09-23)
+
+**Why FP4 and not INT4: there is no INT4 on this card.** The RTX 5090 spec table (whitepaper
+Appendix A) lists tensor peaks for FP4, FP8 (FP16 and FP32 accumulate), FP16 (both), BF16, TF32 and
+INT8, and **no INT4 row at all**; the text says Blackwell "adds new support for FP4 and FP6 Tensor
+Core operations". History: Turing and Ampere DID have INT4 tensor cores; Hopper deprecated them
+(INT4 mma lowers to IMAD on CUDA cores, wgmma has no INT4 path); Blackwell skipped INT4 entirely.
+So INT4 here would run unaccelerated.
+
+**The formats differ in kind, not just in name.** INT4 is 16 evenly spaced levels. FP4 is E2M1
+(1 sign, 2 exponent, 1 mantissa), representing +-{0.5, 1, 1.5, 2, 3, 4, 6} — levels clustered near
+zero with a wider dynamic range, which suits tensors with outliers. Two block-scaled variants:
+**NVFP4** (per-16 block scales in E4M3, what Blackwell implements natively) and **MXFP4** (OCP,
+per-32 scales in E8M0, coarser and cheaper but higher perplexity).
+
+**Is 4-bit attention lossless? No, and nobody claims it is.** SageAttention2 (arXiv 2411.10958,
+INT4 QK + FP8 PV) reports "negligible end-to-end metrics loss", not zero. The field's standard is
+managing quantisation loss, not eliminating it. Our shipped kernel is SageAttention 2.2.0 =
+SageAttention2++ (arXiv 2505.21136), which we run as INT8 QK / FP8 PV.
+
+**4-bit WEIGHTS for diffusion, with the training requirement that decides usability for us:**
+
+| method | precision | measured | needs |
+|---|---|---|---|
+| Q-DiT (arXiv 2406.17343) | W4A8 | FID 6.40 vs 5.31 baseline, +1.09 | calibration pass |
+| ViDiT-Q (arXiv 2406.02540) | W4A8 | "negligible" visual degradation, 2.5x memory, 1.5x latency | calibration pass |
+| SVDQuant (Wan2.2 variant, arXiv 2605.27003) | W4A4 | low-rank outlier branch | calibration pass |
+| NVFP4 diffusion (arXiv 2601.20088) | W4A4 | FID on par with FP16 on SDXL-Turbo | **quantisation-aware distillation** |
+
+We can accept one offline calibration pass. We cannot retrain or distil, so the NVFP4 route as
+published is out unless the distillation turns out to be optional.
+
+**Bench them separately, and in this order.** Errors from weight and attention quantisation
+compound through the matmul and accumulate differently in causal attention (QK distortion and V
+reconstruction are two independent failure modes, arXiv 2605.20868). Order: (1) baseline, (2) 4-bit
+weights only, (3) 4-bit attention only, (4) both. That is why the INT8-attention isolation run
+exists: it establishes the method on the quantisation we already ship before adding a second one.
