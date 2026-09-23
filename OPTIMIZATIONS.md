@@ -1102,3 +1102,58 @@ without compile or FP8 in the picture.
 
 **Verdict: INT8 attention is lossless per call and is not a quality risk.** What it does, like every
 other numerical change in this stack, is move the rollout to a different trajectory.
+
+## 23. FP4 attention: built, measured, and wrong for our shape — pod 20 (2026-09-23)
+
+SageAttention 3's FP4 kernel was the largest remaining candidate: FP4's dense peak is 1676 TFLOP/s
+against INT8's 838, the paper reports 1038 TOPS on a 5090 (62 % of peak, the same utilisation our
+INT8 kernel gets), and section 21e projected attention 0.288 -> 0.145 s, 16.3 -> 19.1 FPS. It builds
+and runs on our card. It is slower than what we already ship.
+
+**Build.** `sageattention3_blackwell` from thu-ml/SageAttention, package `sageattn3` 1.0.0, built
+`arch=compute_120a,code=sm_120a` against CUDA 12.8.93, torch 2.8.0+cu128, cp312, triton 3.4.0.
+Every gate in `setup.py` passed; the `UnicodeDecodeError` in ninja's egg metadata is cosmetic.
+**Coexistence verified empirically, not just from reading setup.py**: `sageattn3`, `fp4attn_cuda`
+and `fp4quant_cuda` all import AND `sageattention` 2.2 still imports in the same venv, so the
+shipped Sage 2 path is untouched. Integration is `LINGBOT_ATTN=sage3` in `wan/modules/attention.py`
+with the three landmines guarded (HND layout, in-place K mutation, swallowed sm_scale).
+
+**At our production shape** (q [1, 6032, 12, 128], k/v [1, 27144, 12, 128], bf16, non-causal,
+1.006 TFLOP per call, 20 warm + 30 timed):
+
+| backend | ms | TOPS | % of its own peak | cosine vs fp32 SDPA |
+|---|---|---|---|---|
+| Sage2 INT8 (shipped) | **2.125** | 473 | 56 % of 838 | **0.999246** |
+| Sage3 FP4, kernel only | 2.185 | 460 | **27 %** of 1676 | **0.981890** |
+| Sage3 FP4, full call | 2.214 | 454 | 27 % | — |
+
+**FP4 is 0.97x — slower — and 24x more error per call.** The layout conversion we impose (NHD to
+HND, plus the mandatory K clone) is only 0.029 ms, 1 % of the call, so overhead is not the story.
+
+**Why, established by sweeping the shape:**
+
+| LQ x LK, heads | INT8 ms | FP4 ms | FP4/INT8 | FP4 TOPS |
+|---|---|---|---|---|
+| **6032 x 27144, 12 (ours)** | 2.117 | 2.184 | **0.97x** | 461 |
+| 27144 x 27144, 12 | 7.837 | 6.927 | 1.13x | 653 |
+| 8192 x 8192, 12 | 0.838 | 0.712 | 1.18x | 579 |
+| 16384 x 16384, 12 | 3.022 | 2.517 | 1.20x | 655 |
+| 32768 x 32768, 12 | 11.726 | 9.435 | **1.24x** | 699 |
+| 16384 x 16384, 24 | 6.047 | 4.994 | 1.21x | 661 |
+
+**The kernel is fine; our workload is the wrong shape for it.** FP4 wins 1.13-1.24x on large square
+attention and loses only on the asymmetric, short-query case that is exactly ours. Our chunked
+autoregressive design denoises 4 latents at a time, fixing LQ at 6032 = about 47 query tiles of 128
+— too few to amortise NVFP4's per-block scale machinery (an E4M3 scale per 16 elements, so 4.5
+effective bits and extra dequant work in the inner loop). LQ is not a free variable: chunk sizes 3
+and 2 were already rejected on quality.
+
+This also agrees with sections 19 and 20. We established the kernel is bound by INSTRUCTION COUNT in
+the inner loop, not by tensor throughput — we sit at 56 % of the INT8 peak with the gap being
+non-mma work. Doubling the tensor peak cannot help a kernel that is not tensor-bound, and FP4 *adds*
+per-block scaling instructions to the very loop that was already the bottleneck. Note FP4 never
+reaches the paper's 62 % at any shape we tried: its best is 699 TOPS, 42 % of peak.
+
+**Verdict: not shipped.** Keep the integration (`LINGBOT_ATTN=sage3`, default off) and this record,
+because the picture changes if the chunk ever grows or if a future kernel amortises the scales
+better. The sm_120 FP4 path itself is proven working on this card.
