@@ -132,3 +132,54 @@ validate quality on, not the recommended default.
   every candidate kv size (15080, 18096, 21112, 13572) without a new failure mode.
 - Actual quality numbers — no metrics tooling is installed in this repo (see gate step 4 above)
   and no run was executed.
+
+## Noise band for the fast stack, measured 2026-09-23 (pod 20, lakeside, 269 frames)
+
+The first noise band ever recorded for this stack. Three runs of the SAME configuration
+(`--preset fast --local_attn_size 18 --sink_size 6`, seed 42, example 03), scored against each
+other. Until this existed, every "inside noise" verdict on this stack was n = 1 against nothing.
+
+| metric | band1 | band2 | band3 | band |
+|---|---|---|---|---|
+| first-chunk PSNR vs band1 | — | 32.46 | 32.73 | 0.27 dB wide |
+| first-chunk SSIM | — | 0.9625 | 0.9564 | 0.956-0.963 |
+| first-chunk LPIPS | — | 0.0070 | 0.0074 | 0.0070-0.0074 |
+| sharpness (Laplacian var) | 465.7 | 459.9 | 498.6 | 459.9-498.6, about +-4 % |
+| flicker | 6.351 | 6.391 | 6.634 | 6.35-6.63 |
+| MUSIQ | 69.62 | 69.45 | 69.65 | 69.45-69.65 |
+
+**The stack is not run-to-run reproducible.** Two identical runs differ by 32.5 dB, so a byte
+comparison proves nothing here and any single-run "neutral" verdict is meaningless.
+
+### Window 12 against the band (same clip)
+
+| metric | w12 | band | verdict |
+|---|---|---|---|
+| MUSIQ | 68.89 | 69.45-69.65 | -0.68, inside the skill's +-1.5 line |
+| LPIPS first chunk | 0.0073 | 0.0070-0.0074 | inside |
+| sharpness overall | 452.6 | 459.9-498.6 | below the band |
+| flicker | 6.718 | 6.35-6.63 | slightly worse |
+| first-chunk PSNR | 31.67 | 32.46-32.73 | outside, by about 3x the band width |
+
+Per-90-frame bins, which is where the signal is:
+
+| bin | w12 | band | |
+|---|---|---|---|
+| 0-90 | 729.4 | 728.3-743.5 | inside |
+| 90-180 | 316.7 | 328.2-395.6 | below |
+| 180-269 | 310.2 | 313.5-355.0 | below |
+
+**Reading: indistinguishable early, drifting below the band later** — the signature a shortened
+memory should produce, and one a single clip-wide average hides completely.
+
+On the first-chunk PSNR miss: at chunk 0 the cache is not yet full, so windows 12 and 18 attend to
+identical content. A different `kv_size` changes tensor shapes and therefore kernel selection and
+rounding, which seeds a rollout divergence exactly as FP8 does (section 4). Treat it as numerical,
+not semantic.
+
+`stock` (upstream path) scored 29.15 dB / 487.6 sharpness / 69.24 MUSIQ, i.e. the fast stack sits
+inside the band against upstream, independently re-confirming sections 4 and 5.
+
+**Verdict on 16.8 s: MARGINAL, not a pass.** The 30 s dragon clip (`examples/00`, 481 frames, which
+has 961 poses and so is not clamped) decides it: if the late-bin sharpness trend flattens, w12 is
+shippable; if it accelerates, it is not, regardless of the +12.9 % FPS.
