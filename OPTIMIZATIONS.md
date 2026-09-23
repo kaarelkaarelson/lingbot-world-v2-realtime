@@ -869,7 +869,10 @@ raised. At `local_attn_size=9` with `sink_size=6` (rolling 3 < chunk 4) this tri
 **Do not run 9.** At 10, `num_rolled_tokens` is exactly 0: legal, but no cross-chunk memory beyond the sink
 survives, so 10 is expected to fail on quality even though its timing is valid.
 
-**Status: speed measured, quality NOT yet measured.** This is a class-C change under the
+**Status: CLOSED, not shipped. See 21c for the full record and the reason.** Speed is real; losslessness is not.
+What follows was the plan at the time of writing, kept for provenance:
+
+**Originally: speed measured, quality not yet measured.** This is a class-C change under the
 `bench-world-model-quality` skill: the attended context changes, so the rollout diverges from the baseline and
 per-frame identity is not the test. The gate is a 30 s clip with per-160-frame drift bins against a
 three-run noise band on the same stack, which had never been recorded for this stack before. Nothing here
@@ -919,3 +922,84 @@ measures immediate output sensitivity, not whether a long-horizon failure (revis
 appears later. The worst-layer column is much worse than the mean at every N, so some layers are
 far more context-hungry than others: a per-layer window would be the real optimisation here, and
 nothing in production video diffusion does that yet (PyramidKV/Ada-KV do it for LLMs).
+
+### 21c. The KV window, closed: everything tried and why we stopped (2026-09-23)
+
+One place to look before anyone reopens this. The lever was real and the speedup reproduced, but it
+fails the losslessness bar by a wide margin and every attempt to rescue it also failed.
+
+**Configurations measured** (pod 20, `generate.py --bench`, seed 42, steady median; lakeside
+`examples/03` 193 frames and dragon `examples/00` 481 frames, two scenes agreeing to 0.1 FPS):
+
+| `local_attn_size` | `sink_size` | rolling | kv tokens | lakeside | dragon | vs base |
+|---|---|---|---|---|---|---|
+| **18** (default) | 6 | 12 | 27 144 | 16.3 | 16.3 | — |
+| 12 | 6 | 6 | 18 096 | 18.4 | 18.4 | +12.9 % |
+| 10 | 6 | 4 | 15 080 | 19.3 | 19.2 | +18.4 % |
+| 12 | 3 | 9 | 18 096 | — | 18.4 | +12.9 % |
+| 10 | 3 | 7 | 15 080 | — | 19.3 | +18.4 % |
+| 9 | 6 | 3 | — | **never run** | — | structurally broken, see below |
+
+**What was tried, in order, and what happened**
+
+1. **Straight window shrink.** Reproduced on two scenes. Both candidates BEAT their predictions
+   (+12.9 % vs 17.85 predicted, +18.4 % vs 18.52), because the K/V re-quant term (0.039 s per chunk)
+   shrinks with the window too and the prediction only scaled attention. Diminishing returns are
+   sharp: 18 to 12 is +12.9 %, but 12 to 10 adds only +4.9 %.
+2. **Quality on a 16.8 s clip (lakeside).** Built the first noise band this stack has ever had:
+   three identical runs. w12 landed BELOW the band on sharpness in both later bins. Suggestive of
+   late-clip degradation.
+3. **Quality on a 30 s clip (dragon).** The opposite result. The band on a fast camera flight is
+   enormous (18 % whole-clip, 33 % in the last 160-frame bin) and w12 scored ABOVE it on sharpness,
+   MUSIQ and flicker. Two scenes, two contradictory verdicts: the method had no power.
+4. **The LongLive sink split.** LongLive (arXiv 2509.22622) ablates 3-27 latents and reports
+   "9-local + 3-sink achieves consistency close to a 21-frame window" (verified verbatim). Same kv
+   budget as w12, so free. It did NOT transfer: `w12_sink3` had the best MUSIQ and the lowest
+   flicker of anything measured but the WORST sharpness, below the band in both later bins.
+   LongLive gets its result because it TRAINS for the short window with streaming long tuning; we
+   cannot.
+5. **Per-layer windows.** The obvious rescue, and PyramidKV/Ada-KV report 30-70 % memory savings
+   doing it for LLMs. Killed by our own data: every one of the 30 layers needs 15-20 latents for
+   under 2 % output change (mean 18.5). The layers are uniform, so per-layer allocation saves 8 %.
+6. **The causal ablation (21b), which settled it.** On a frozen forward pass, truncating to 12
+   latents changes the attention output by 13.3 % mean and 30.1 % at the worst layer, on a smooth
+   curve with no knee and no plateau. The model uses its whole window.
+
+**Why we stopped.** The trade is not in our favour at any point on the curve:
+
+| shippable at | FPS gain | output perturbation |
+|---|---|---|
+| window 12 | +12.9 % | 13.3 % mean, 30.1 % worst layer |
+| window 16 (most aggressive under 5 %) | **+3.7 %** | 4.7 % |
+
+To stay near lossless the window can only reach 16, and 16 is worth +3.7 % (0.288 to 0.256 s of a
+0.98 s chunk, 16.3 to 16.9 FPS). The headline +12.9 % is only available by accepting a 13 %
+perturbation. For comparison, FP4 attention alone is about +15 % with a cosine-testable gate, and
+the decoder's fp16-accumulate is -0.13 s with a deterministic one. The same effort is worth roughly
+4x more in the numerical lane, and certifiable there in a way the window can never be.
+
+**Why the pixel metrics never resolved it.** A shorter window does not produce a worse video, it
+produces a coherent DIFFERENT one. Per-frame sharpness and MUSIQ cannot separate "different" from
+"worse", and with a coefficient of variation of 15-20 % you need n = 25-40 to detect a 5 % effect;
+we had n = 1 per candidate. This is the general lesson: **for any lever that changes what the model
+attends to, measure the mechanism, not the pixels.**
+
+**What the literature said** (all URLs in TODO.md): the default 18 has no published justification
+and is inherited from upstream; FlashDreams ships 14/6 for this exact checkpoint; attention sinks
+provably carry NO semantic memory (StreamingLLM's garbage-linebreak-token experiment), so the
+6-latent sink protects no scene content; Wan 2.1 and Self-Forcing fix the window across BOTH
+training and inference, so shrinking at inference is off-distribution; and nobody has published a
+window-vs-quality ablation for this model family at all.
+
+**What survives and is worth keeping:**
+
+- `bench/window/attn_ablate.py` — deterministic, per-layer, noise-free certification for any
+  context-changing lever. This is the tool that will certify block sparsity next.
+- `bench/window/score_window.py` + the first noise band for this stack (`bench/window/README.md`).
+- A corrected metric policy, now in the `bench-world-model-quality` skill: prefer LPIPS, never gate
+  on Laplacian sharpness, and run the band before the candidate.
+- One positive finding: **the default 18 is validated**, sitting at 2.5 % error against 20. It is a
+  sensible inherited value, not an arbitrary one, which is the reason to stop looking here.
+
+**Do not reopen** unless the model is retrained with a short window (the LongLive route), or unless
+someone wants the +12.9 % knowingly as a quality trade rather than as a lossless win.
