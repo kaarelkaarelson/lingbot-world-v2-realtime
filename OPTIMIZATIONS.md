@@ -1058,3 +1058,47 @@ latents (141 of ~471 blocks, 30 % of the buffer) hold low attention mass in this
 consistent with 21b's finding that recency dominates, and with StreamingLLM's own position that
 sinks are a numerical stabiliser rather than a memory. Whether a 6-latent sink earns 30 % of the KV
 buffer here is an open question, but it is not pursued: the window work is closed (21c).
+
+## 22. Is INT8 attention lossless? Measured on a deterministic loop — pod 20 (2026-09-23)
+
+Exp. 5 called SageAttention "near-lossless" from n = 1 on the production stack, where two identical
+runs differ by 32 dB. That could not have detected a real cost if one existed. This is the
+measurement it should have had.
+
+**Method.** Two runs differing in exactly one thing: `LINGBOT_ATTN`. Everything else held fixed AND
+made deterministic — `LINGBOT_TORCH_COMPILE=` and `LINGBOT_INDUCTOR_TUNE=` (off), `LINGBOT_FP8=0`,
+`LINGBOT_DIT_FUSION_EXACT_T=1`, eager bf16, same seed 42, example 00, 193 frames. Per exp. 10 this
+loop is bit-reproducible, so there is no noise band to clear: any delta IS the attention kernel.
+Latents dumped with `LINGBOT_DUMP_LATENTS` and compared directly, which avoids pixel metrics
+entirely. Arms: `fa2_ref` (FlashAttention-2 bf16) and `sage_int8` (SageAttention 2.2 INT8 QK/FP8 PV).
+
+**Whole-clip, and why it misleads.** Over all 48 latents: cosine 0.881, PSNR 25.4 dB, max abs diff
+3.66 on a 6.73 latent range. Taken alone that reads like a large loss. It is not.
+
+**Per-latent, which is the real answer:**
+
+| latent | 0 | 3 | 8 | 13 | 20 | 26 |
+|---|---|---|---|---|---|---|
+| cosine | **0.999969** | 0.998266 | 0.991903 | 0.951325 | 0.905306 | 0.906269 |
+| max abs | 0.060 | 0.898 | 1.680 | 1.991 | 2.969 | 2.617 |
+
+**Reading: per-call INT8 attention is effectively lossless (cosine 0.99997 at latent 0), and
+everything after that is accumulated divergence.** A perturbation of order 3e-5 compounds through
+12 chunks x 5 forwards x 30 layers into a different-but-equally-valid trajectory, plateauing near
+0.90. This is the same mechanism as sections 4 and 5 (FP8 and Sage "diverge like a different seed")
+and as 21c (a shorter window produces a coherent different video), now quantified on a loop with no
+run-to-run noise in it.
+
+**The methodology this establishes, and it is the useful part.** Autoregressive rollouts amplify any
+perturbation, so end-of-clip metrics cannot separate "this kernel is worse" from "this kernel is
+different". Determinism removes run-to-run noise but NOT config-to-config divergence. So for any
+numerical change, compare at **latent 0**, before divergence dominates: that isolates the per-call
+error of the kernel itself. This is the gate to apply to FP4 attention. If FP4's latent-0 cosine is
+0.999, that is 30x INT8's per-call error — still small, but measurably worse, and comparable on a
+like-for-like basis for the first time.
+
+**Speed, same eager loop:** FA2 bf16 1.853 s/chunk, SageAttention INT8 1.352 s/chunk, **-27 %**
+without compile or FP8 in the picture.
+
+**Verdict: INT8 attention is lossless per call and is not a quality risk.** What it does, like every
+other numerical change in this stack, is move the rollout to a different trajectory.
