@@ -1,539 +1,607 @@
 {
-  "_note": "Single source of truth for the result tables in README.md and the write-up (kaarelkaarelson.com/lingbot). Render with tools/tables.py. Sources: OPTIMIZATIONS.md sections in `source`, bench/engines/, lingbot-world-v2-stream/bench_results/. `cite` numbers are the write-up's reference list positions (site only).",
-  "settings": "LingBot-World 2.0 1.3B causal_fast, one RTX 5090, 832x464, 4 steps, 16-frame chunks, Wan 2.1 VAE, steady state after warm-up",
-  "engines": {
-    "source": "bench/engines/README.md; lingbot-world-v2-stream/bench_results/engines/",
-    "rows": [
-      {
-        "engine": "Original paper's code",
-        "version": "single GPU",
-        "s_per_chunk": 2.68,
-        "fps": 6.0,
-        "ran": "bf16 FlashAttention-2 eager, fp32 VAE",
-        "url": "https://arxiv.org/abs/2607.07534",
-        "cite": 1
-      },
-      {
-        "engine": "SGLang Diffusion",
-        "version": "v0.5.17",
-        "s_per_chunk": 2.48,
-        "fps": 6.45,
-        "ran": "torch SDPA, bf16 eager, fp32 VAE",
-        "url": "https://docs.sglang.io/docs/sglang-diffusion/",
-        "cite": 7
-      },
-      {
-        "engine": "LightX2V",
-        "version": "69018c9",
-        "s_per_chunk": 2.07,
-        "fps": 7.73,
-        "ran": "torch SDPA, bf16 DiT and VAE, eager",
-        "url": "https://github.com/ModelTC/LightX2V",
-        "cite": 9
-      },
-      {
-        "engine": "NVIDIA FlashDreams",
-        "version": "c1889e0",
-        "s_per_chunk": 1.85,
-        "fps": 8.65,
-        "ran": "bf16 cuDNN SDPA, its compile + CUDA graphs; window 20/6, static camera",
-        "url": "https://github.com/NVIDIA/flashdreams",
-        "cite": 8
-      },
-      {
-        "engine": "Ours",
-        "s_per_chunk": 0.98,
-        "fps": 16.1,
-        "ours": true,
-        "ran": "FP8 GEMMs, SageAttention, fused + compiled DiT, fused fp16 VAE"
-      }
-    ]
-  },
-  "baseline_vs_ours": {
-    "source": "OPTIMIZATIONS.md §13, §15, §17; --bench of --preset stock and fast on pod 10",
-    "rows": [
-      {
-        "metric": "FPS",
-        "before": "6.0",
-        "after": "16.1",
-        "big": true
-      },
-      {
-        "metric": "s / chunk",
-        "before": "2.68",
-        "after": "0.98",
-        "big": true
-      },
-      {
-        "metric": "DiT",
-        "before": "1.62 s",
-        "after": "0.64 s"
-      },
-      {
-        "metric": "Decoder",
-        "before": "1.06 s",
-        "after": "0.34 s"
-      },
-      {
-        "metric": "GPU busy",
-        "before": "90%",
-        "after": "98%"
-      },
-      {
-        "metric": "Kernel launches",
-        "before": "~20,000",
-        "after": "~4,800"
-      },
-      {
-        "metric": "Host syncs",
-        "before": "110",
-        "after": "2"
-      }
-    ]
-  },
-  "ladder": {
-    "source": "OPTIMIZATIONS.md exp 1, 9, 10, 12, 4, 5, 15; cumulative s/chunk in the order applied, last step closes to the measured total",
-    "start": 2.68,
-    "rows": [
-      {
-        "step": "Host syncs",
-        "before": "CPU↔GPU sync on every layer",
-        "after": "bookkeeping on the GPU",
-        "after_s": 2.57
-      },
-      {
-        "step": "Decoder",
-        "before": "Wan 2.1 VAE in fp32",
-        "before_url": "https://arxiv.org/abs/2503.20314",
-        "after": "fp16 with sub-pixel upsampling",
-        "after_url": "https://arxiv.org/abs/1609.05158",
-        "after_link_text": "sub-pixel",
-        "after_s": 1.95,
-        "before_link_text": "Wan 2.1 VAE"
-      },
-      {
-        "step": "Compiler",
-        "before": "PyTorch eager",
-        "after": "one compiled graph",
-        "after_s": 1.68
-      },
-      {
-        "step": "Matmuls",
-        "before": "bf16 linears",
-        "after": "FP8 rowwise via torchao",
-        "after_url": "https://github.com/pytorch/ao/tree/main/torchao/float8",
-        "after_link_text": "torchao",
-        "after_s": 1.47
-      },
-      {
-        "step": "Attention",
-        "before": "FlashAttention-2",
-        "after": "SageAttention 2.2",
-        "after_url": "https://arxiv.org/abs/2505.21136",
-        "after_link_text": "SageAttention 2.2",
-        "after_s": 1.04
-      },
-      {
-        "step": "Kernel fusion",
-        "before": "one kernel per operation",
-        "after": "fused kernels for norm, RoPE, residual and FP8 quant",
-        "after_s": 0.98
-      }
-    ],
-    "total": {
-      "before": "6.0 FPS",
-      "after": "16.1 FPS",
-      "before_s": 2.68,
-      "after_s": 0.98
-    }
-  },
-  "peaks": {
-    "source": "OPTIMIZATIONS.md §17; RTX 5090 peaks from NVIDIA's specification",
-    "rows": [
-      {
-        "kernel": "FP8 matmuls",
-        "reached": "393 TFLOP/s",
-        "peak": "419 TFLOP/s FP8",
-        "pct": "94 %"
-      },
-      {
-        "kernel": "Decoder convolutions",
-        "reached": "176 TFLOP/s",
-        "peak": "210 TFLOP/s FP16",
-        "pct": "84 %"
-      },
-      {
-        "kernel": "Fused elementwise",
-        "reached": "~1.3 TB/s",
-        "peak": "1.8 TB/s memory",
-        "pct": "~70 %"
-      },
-      {
-        "kernel": "SageAttention",
-        "reached": "524 TOPS",
-        "peak": "838 TOPS INT8",
-        "pct": "63 %"
-      }
-    ]
-  },
-  "quality": {
-    "source": "lingbot-world-v2-stream/quality_summary.tsv (exp15 all4 vs ref), quality_results_exp15.tsv; OPTIMIZATIONS.md §15",
-    "rows": [
-      {
-        "metric": "PSNR",
-        "before": "reference",
-        "after": "43.6 dB"
-      },
-      {
-        "metric": "SSIM",
-        "before": "reference",
-        "after": "0.981",
-        "url": "https://doi.org/10.1109/TIP.2003.819861",
-        "cite": 6
-      },
-      {
-        "metric": "LPIPS",
-        "before": "reference",
-        "after": "0.004",
-        "url": "https://arxiv.org/abs/1801.03924",
-        "cite": 5
-      },
-      {
-        "metric": "MUSIQ",
-        "before": "68.98",
-        "after": "68.99",
-        "url": "https://arxiv.org/abs/2108.05997",
-        "cite": 3
-      },
-      {
-        "metric": "CLIP-IQA",
-        "before": "0.592",
-        "after": "0.590",
-        "url": "https://arxiv.org/abs/2207.12396",
-        "cite": 4
-      },
-      {
-        "metric": "Sharpness (Laplacian), first / last s",
-        "before": "1022 / 298",
-        "after": "1023 / 298"
-      },
-      {
-        "metric": "Colourfulness, first / last s",
-        "before": "41.9 / 50.2",
-        "after": "41.9 / 50.2"
-      },
-      {
-        "metric": "Brightness, first / last s",
-        "before": "0.692 / 0.384",
-        "after": "0.692 / 0.384"
-      },
-      {
-        "metric": "Flicker",
-        "before": "0.0381",
-        "after": "0.0381"
-      },
-      {
-        "metric": "DiT latents, exact preset",
-        "before": "reference",
-        "after": "bit-identical"
-      }
-    ]
-  },
-  "numbers": {
-    "_note": "Inline numbers, rendered wherever a file has <!-- n:key -->…<!-- /n -->. All from the pod-10 runs (2026-09-17), the same card and day as the engine table.",
-    "fps_ours": "16.1",
-    "fps_ours_round": "16",
-    "fps_paper": "6.0",
-    "fps_paper_round": "6",
-    "s_ours": "0.98",
-    "s_paper": "2.68",
-    "speedup_paper": "2.7×",
-    "speedup_sglang": "2.5×",
-    "dit_ours": "0.64",
-    "vae_ours": "0.34",
-    "dit_paper": "1.62",
-    "vae_paper": "1.06",
-    "fps_exact": "14.8",
-    "s_exact": "1.07",
-    "dit_exact": "0.73",
-    "vae_exact": "0.34",
-    "peak_vram_gb": "28",
-    "fps_bench_range": "16.1–17.0",
-    "fps_play": "16.9",
-    "key_to_pixel_s": "1.58",
-    "fps_bench_lake": "17.0"
-  },
-  "sol": {
-    "_note": "RTX 5090 documented peaks, dense (no 2:4 sparsity), NVIDIA RTX Blackwell GPU architecture whitepaper, Appendix A, GB202 / RTX 5090 column; tensor peaks are with FP32 accumulate",
-    "url": "https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf",
-    "rows": [
-      {
-        "precision": "INT8 tensor",
-        "peak": "838 TOPS",
-        "paper": "—",
-        "ours": "attention (SageAttention)"
-      },
-      {
-        "precision": "FP8 tensor",
-        "peak": "419 TFLOP/s",
-        "paper": "—",
-        "ours": "DiT matmuls"
-      },
-      {
-        "precision": "BF16 tensor",
-        "peak": "209.5 TFLOP/s",
-        "paper": "DiT matmuls, attention",
-        "ours": "—"
-      },
-      {
-        "precision": "FP16 tensor",
-        "peak": "209.5 TFLOP/s",
-        "paper": "—",
-        "ours": "decoder"
-      },
-      {
-        "precision": "TF32 tensor",
-        "peak": "104.8 TFLOP/s",
-        "paper": "decoder",
-        "ours": "—"
-      },
-      {
-        "precision": "Memory",
-        "peak": "1,792 GB/s",
-        "paper": "elementwise, one kernel each",
-        "ours": "elementwise, fused"
-      }
-    ]
-  },
-  "sol_chunk": {
-    "_note": "work per chunk from the §18 roofline, all measured on pod 14; the paper's elementwise floor is its measured time, since the tracer's byte count over-counts L2 hits",
-    "rows": [
-      {
-        "component": "Attention",
-        "work": "151 TFLOP",
-        "paper_peak": "209.5",
-        "paper_floor": 0.72,
-        "ours_peak": "838",
-        "ours_floor": 0.18
-      },
-      {
-        "component": "DiT matmuls",
-        "work": "78 TFLOP",
-        "paper_peak": "209.5",
-        "paper_floor": 0.37,
-        "ours_peak": "419",
-        "ours_floor": 0.19
-      },
-      {
-        "component": "Decoder",
-        "work": "52 TFLOP",
-        "paper_peak": "104.8",
-        "paper_floor": 0.5,
-        "ours_peak": "209.5",
-        "ours_floor": 0.25
-      },
-      {
-        "component": "Elementwise",
-        "work": "~1.3 TB / ~175 GB",
-        "paper_peak": "1,792 GB/s",
-        "paper_floor": 0.55,
-        "ours_peak": "1,792 GB/s",
-        "ours_floor": 0.09
-      }
-    ],
-    "paper": {
-      "floor_s": 2.16,
-      "ceiling_fps": 7.4,
-      "measured_s": 2.68,
-      "measured_fps": 6.0,
-      "pct": 80
-    },
-    "ours": {
-      "floor_s": 0.72,
-      "ceiling_fps": 22,
-      "measured_s": 0.98,
-      "measured_fps": 16.1,
-      "pct": 74
-    }
-  },
-  "roofline": {
-    "_note": "Per-op roofline of one 16-frame chunk in the How to Scale Your Model form: floor = max(FLOPs/peak, bytes/bandwidth). Everything measured on pod 14 (2026-09-22, healthy RTX 5090: 235 TFLOP/s bf16 matmul, 2.48 GHz under load): kernel times from torch.profiler over chunks 8-10, matmul FLOPs and bytes from the profiler's per-shape records, stock bytes from the dispatch tracer, decoder conv FLOPs from the FLOP counter; attention analytic from the shapes. Tracer bytes are an upper bound (L2-resident intermediates are counted), so intensities are lower bounds; the fast stack's fused elementwise bytes are estimates (time at ~70 % of bandwidth). See OPTIMIZATIONS.md §18.",
-    "peaks": {
-      "INT8": 838,
-      "FP8": 419,
-      "FP16": 209.5,
-      "BF16": 209.5,
-      "TF32": 104.8,
-      "bandwidth_gbps": 1792
-    },
-    "ours": {
-      "chunk_s": 0.98,
-      "floor_s": 0.72,
-      "ceiling_fps": 22,
-      "pct": 74,
-      "rows": [
-        {
-          "op": "Attention",
-          "precision": "INT8",
-          "flops_t": 150.9,
-          "bytes_gb": 16.7,
-          "intensity": 9048,
-          "ridge": 468,
-          "bound": "compute",
-          "floor_s": 0.18,
-          "measured_s": 0.288,
-          "pct": 63
-        },
-        {
-          "op": "DiT matmuls",
-          "precision": "FP8",
-          "flops_t": 78.9,
-          "bytes_gb": 63.5,
-          "intensity": 1243,
-          "ridge": 234,
-          "bound": "compute",
-          "floor_s": 0.188,
-          "measured_s": 0.201,
-          "pct": 94
-        },
-        {
-          "op": "Decoder convolutions",
-          "precision": "FP16",
-          "flops_t": 52.2,
-          "bytes_gb": 39.2,
-          "intensity": 1332,
-          "ridge": 117,
-          "bound": "compute",
-          "floor_s": 0.249,
-          "measured_s": 0.296,
-          "pct": 84
-        },
-        {
-          "op": "DiT elementwise, fused",
-          "precision": "FP16",
-          "flops_t": null,
-          "bytes_gb": 117,
-          "intensity": null,
-          "ridge": 117,
-          "bound": "memory",
-          "floor_s": 0.065,
-          "measured_s": 0.093,
-          "pct": 70,
-          "est": true
-        },
-        {
-          "op": "Decoder elementwise, fused",
-          "precision": "FP16",
-          "flops_t": null,
-          "bytes_gb": 40,
-          "intensity": null,
-          "ridge": 117,
-          "bound": "memory",
-          "floor_s": 0.022,
-          "measured_s": 0.032,
-          "pct": 70,
-          "est": true
-        },
-        {
-          "op": "Attention K/V re-quant",
-          "precision": "INT8",
-          "flops_t": null,
-          "bytes_gb": 38,
-          "intensity": null,
-          "ridge": 468,
-          "bound": "memory",
-          "floor_s": 0.021,
-          "measured_s": 0.039,
-          "pct": 54
-        }
-      ],
-      "chunk_fps": 16.1,
-      "kernel_s": 0.955
-    },
-    "paper": {
-      "chunk_s": 2.68,
-      "floor_s": 2.16,
-      "ceiling_fps": 7.4,
-      "pct": 80,
-      "floor_fused_s": 1.67,
-      "ceiling_fused_fps": 9.6,
-      "rows": [
-        {
-          "op": "Attention",
-          "precision": "BF16",
-          "flops_t": 150.9,
-          "bytes_gb": 30.6,
-          "intensity": 4935,
-          "ridge": 117,
-          "bound": "compute",
-          "floor_s": 0.72,
-          "measured_s": 0.82,
-          "pct": 88
-        },
-        {
-          "op": "DiT matmuls",
-          "precision": "BF16",
-          "flops_t": 78.9,
-          "bytes_gb": 112.1,
-          "intensity": 704,
-          "ridge": 117,
-          "bound": "compute",
-          "floor_s": 0.377,
-          "measured_s": 0.471,
-          "pct": 80
-        },
-        {
-          "op": "Decoder convolutions",
-          "precision": "TF32",
-          "flops_t": 51.4,
-          "bytes_gb": 77.5,
-          "intensity": 663,
-          "ridge": 58,
-          "bound": "compute",
-          "floor_s": 0.49,
-          "measured_s": 0.621,
-          "pct": 79
-        },
-        {
-          "op": "DiT elementwise, one kernel per op",
-          "precision": "FP32",
-          "flops_t": null,
-          "bytes_gb": 826,
-          "intensity": null,
-          "ridge": 58,
-          "bound": "memory",
-          "floor_s": 0.264,
-          "measured_s": 0.264,
-          "pct": null,
-          "note": "826 GB touched is an upper bound; at bandwidth it would take 0.46 s, so part of it hits L2"
-        },
-        {
-          "op": "Decoder elementwise, one kernel per op",
-          "precision": "FP32",
-          "flops_t": null,
-          "bytes_gb": 516,
-          "intensity": null,
-          "ridge": 58,
-          "bound": "memory",
-          "floor_s": 0.288,
-          "measured_s": 0.393,
-          "pct": 73
-        },
-        {
-          "op": "KV-cache shift, memcpy",
-          "precision": "FP32",
-          "flops_t": null,
-          "bytes_gb": 28,
-          "intensity": null,
-          "ridge": 58,
-          "bound": "memory",
-          "floor_s": 0.016,
-          "measured_s": 0.053,
-          "pct": 30
-        }
-      ],
-      "chunk_fps": 6.0,
-      "kernel_s": 2.654
-    }
+ "_note": "Single source of truth for the result tables in README.md and the write-up (kaarelkaarelson.com/lingbot). Render with tools/tables.py. Sources: OPTIMIZATIONS.md sections in `source`, bench/engines/, lingbot-world-v2-stream/bench_results/. `cite` numbers are the write-up's reference list positions (site only).",
+ "settings": "LingBot-World 2.0 1.3B causal_fast, one RTX 5090, 832x464, 4 steps, 16-frame chunks, Wan 2.1 VAE, steady state after warm-up",
+ "engines": {
+  "source": "bench/engines/README.md; lingbot-world-v2-stream/bench_results/engines/",
+  "rows": [
+   {
+    "engine": "Original paper's code",
+    "version": "single GPU",
+    "s_per_chunk": 2.68,
+    "fps": 6.0,
+    "ran": "bf16 FlashAttention-2 eager, fp32 VAE",
+    "url": "https://arxiv.org/abs/2607.07534",
+    "cite": 1
+   },
+   {
+    "engine": "SGLang Diffusion",
+    "version": "v0.5.17",
+    "s_per_chunk": 2.48,
+    "fps": 6.45,
+    "ran": "torch SDPA, bf16 eager, fp32 VAE",
+    "url": "https://docs.sglang.io/docs/sglang-diffusion/",
+    "cite": 7
+   },
+   {
+    "engine": "LightX2V",
+    "version": "69018c9",
+    "s_per_chunk": 2.07,
+    "fps": 7.73,
+    "ran": "torch SDPA, bf16 DiT and VAE, eager",
+    "url": "https://github.com/ModelTC/LightX2V",
+    "cite": 9
+   },
+   {
+    "engine": "NVIDIA FlashDreams",
+    "version": "c1889e0",
+    "s_per_chunk": 1.85,
+    "fps": 8.65,
+    "ran": "bf16 cuDNN SDPA, its compile + CUDA graphs; window 20/6, static camera",
+    "url": "https://github.com/NVIDIA/flashdreams",
+    "cite": 8
+   },
+   {
+    "engine": "Ours",
+    "s_per_chunk": 0.98,
+    "fps": 16.1,
+    "ours": true,
+    "ran": "FP8 GEMMs, SageAttention, fused + compiled DiT, fused fp16 VAE"
+   }
+  ]
+ },
+ "baseline_vs_ours": {
+  "source": "OPTIMIZATIONS.md \u00a713, \u00a715, \u00a717; --bench of --preset stock and fast on pod 10",
+  "rows": [
+   {
+    "metric": "FPS",
+    "before": "6.0",
+    "after": "16.1",
+    "big": true
+   },
+   {
+    "metric": "s / chunk",
+    "before": "2.68",
+    "after": "0.98",
+    "big": true
+   },
+   {
+    "metric": "DiT",
+    "before": "1.62 s",
+    "after": "0.64 s"
+   },
+   {
+    "metric": "Decoder",
+    "before": "1.06 s",
+    "after": "0.34 s"
+   },
+   {
+    "metric": "GPU busy",
+    "before": "90%",
+    "after": "98%"
+   },
+   {
+    "metric": "Kernel launches",
+    "before": "~20,000",
+    "after": "~4,800"
+   },
+   {
+    "metric": "Host syncs",
+    "before": "110",
+    "after": "2"
+   }
+  ]
+ },
+ "ladder": {
+  "source": "OPTIMIZATIONS.md exp 1, 9, 10, 12, 4, 5, 15; cumulative s/chunk in the order applied, last step closes to the measured total",
+  "start": 2.68,
+  "rows": [
+   {
+    "step": "Host syncs",
+    "before": "CPU\u2194GPU sync on every layer",
+    "after": "bookkeeping on the GPU",
+    "after_s": 2.57
+   },
+   {
+    "step": "Decoder",
+    "before": "Wan 2.1 VAE in fp32",
+    "before_url": "https://arxiv.org/abs/2503.20314",
+    "after": "fp16 with sub-pixel upsampling",
+    "after_url": "https://arxiv.org/abs/1609.05158",
+    "after_link_text": "sub-pixel",
+    "after_s": 1.95,
+    "before_link_text": "Wan 2.1 VAE"
+   },
+   {
+    "step": "Compiler",
+    "before": "PyTorch eager",
+    "after": "one compiled graph",
+    "after_s": 1.68
+   },
+   {
+    "step": "Matmuls",
+    "before": "bf16 linears",
+    "after": "FP8 rowwise via torchao",
+    "after_url": "https://github.com/pytorch/ao/tree/main/torchao/float8",
+    "after_link_text": "torchao",
+    "after_s": 1.47
+   },
+   {
+    "step": "Attention",
+    "before": "FlashAttention-2",
+    "after": "SageAttention 2.2",
+    "after_url": "https://arxiv.org/abs/2505.21136",
+    "after_link_text": "SageAttention 2.2",
+    "after_s": 1.04
+   },
+   {
+    "step": "Kernel fusion",
+    "before": "one kernel per operation",
+    "after": "fused kernels for norm, RoPE, residual and FP8 quant",
+    "after_s": 0.98
+   }
+  ],
+  "total": {
+   "before": "6.0 FPS",
+   "after": "16.1 FPS",
+   "before_s": 2.68,
+   "after_s": 0.98
   }
+ },
+ "peaks": {
+  "source": "OPTIMIZATIONS.md \u00a717; RTX 5090 peaks from NVIDIA's specification",
+  "rows": [
+   {
+    "kernel": "FP8 matmuls",
+    "reached": "393 TFLOP/s",
+    "peak": "419 TFLOP/s FP8",
+    "pct": "94 %"
+   },
+   {
+    "kernel": "Decoder convolutions",
+    "reached": "176 TFLOP/s",
+    "peak": "210 TFLOP/s FP16",
+    "pct": "84 %"
+   },
+   {
+    "kernel": "Fused elementwise",
+    "reached": "~1.3 TB/s",
+    "peak": "1.8 TB/s memory",
+    "pct": "~70 %"
+   },
+   {
+    "kernel": "SageAttention",
+    "reached": "524 TOPS",
+    "peak": "838 TOPS INT8",
+    "pct": "63 %"
+   }
+  ]
+ },
+ "quality": {
+  "source": "lingbot-world-v2-stream/quality_summary.tsv (exp15 all4 vs ref), quality_results_exp15.tsv; OPTIMIZATIONS.md \u00a715",
+  "rows": [
+   {
+    "metric": "PSNR",
+    "before": "reference",
+    "after": "43.6 dB"
+   },
+   {
+    "metric": "SSIM",
+    "before": "reference",
+    "after": "0.981",
+    "url": "https://doi.org/10.1109/TIP.2003.819861",
+    "cite": 6
+   },
+   {
+    "metric": "LPIPS",
+    "before": "reference",
+    "after": "0.004",
+    "url": "https://arxiv.org/abs/1801.03924",
+    "cite": 5
+   },
+   {
+    "metric": "MUSIQ",
+    "before": "68.98",
+    "after": "68.99",
+    "url": "https://arxiv.org/abs/2108.05997",
+    "cite": 3
+   },
+   {
+    "metric": "CLIP-IQA",
+    "before": "0.592",
+    "after": "0.590",
+    "url": "https://arxiv.org/abs/2207.12396",
+    "cite": 4
+   },
+   {
+    "metric": "Sharpness (Laplacian), first / last s",
+    "before": "1022 / 298",
+    "after": "1023 / 298"
+   },
+   {
+    "metric": "Colourfulness, first / last s",
+    "before": "41.9 / 50.2",
+    "after": "41.9 / 50.2"
+   },
+   {
+    "metric": "Brightness, first / last s",
+    "before": "0.692 / 0.384",
+    "after": "0.692 / 0.384"
+   },
+   {
+    "metric": "Flicker",
+    "before": "0.0381",
+    "after": "0.0381"
+   },
+   {
+    "metric": "DiT latents, exact preset",
+    "before": "reference",
+    "after": "bit-identical"
+   }
+  ]
+ },
+ "numbers": {
+  "_note": "Inline numbers, rendered wherever a file has <!-- n:key -->\u2026<!-- /n -->. All from the pod-10 runs (2026-09-17), the same card and day as the engine table.",
+  "fps_ours": "16.1",
+  "fps_ours_round": "16",
+  "fps_paper": "6.0",
+  "fps_paper_round": "6",
+  "s_ours": "0.98",
+  "s_paper": "2.68",
+  "speedup_paper": "2.7\u00d7",
+  "speedup_sglang": "2.5\u00d7",
+  "dit_ours": "0.64",
+  "vae_ours": "0.34",
+  "dit_paper": "1.62",
+  "vae_paper": "1.06",
+  "fps_exact": "14.8",
+  "s_exact": "1.07",
+  "dit_exact": "0.73",
+  "vae_exact": "0.34",
+  "peak_vram_gb": "28",
+  "fps_bench_range": "16.1\u201317.0",
+  "fps_play": "16.9",
+  "key_to_pixel_s": "1.58",
+  "fps_bench_lake": "17.0"
+ },
+ "sol": {
+  "_note": "RTX 5090 documented peaks, dense (no 2:4 sparsity), NVIDIA RTX Blackwell GPU architecture whitepaper, Appendix A, GB202 / RTX 5090 column; tensor peaks are with FP32 accumulate. FP4 row added 2026-09-23 from the same Appendix A table: 1676/3352 dense/sparse with FP32 accumulate, exactly 2x INT8 and 4x FP8-with-FP32-accumulate. The table has NO INT4 tensor row, so INT4 has no accelerated path on this card.",
+  "url": "https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf",
+  "rows": [
+   {
+    "precision": "FP4 tensor",
+    "peak": "1,676 TFLOP/s",
+    "paper": "\u2014",
+    "ours": "candidate: attention (SageAttention 3), DiT matmuls (unscoped)"
+   },
+   {
+    "precision": "INT8 tensor",
+    "peak": "838 TOPS",
+    "paper": "\u2014",
+    "ours": "attention (SageAttention)"
+   },
+   {
+    "precision": "FP8 tensor",
+    "peak": "419 TFLOP/s",
+    "paper": "\u2014",
+    "ours": "DiT matmuls"
+   },
+   {
+    "precision": "BF16 tensor",
+    "peak": "209.5 TFLOP/s",
+    "paper": "DiT matmuls, attention",
+    "ours": "\u2014"
+   },
+   {
+    "precision": "FP16 tensor",
+    "peak": "209.5 TFLOP/s",
+    "paper": "\u2014",
+    "ours": "decoder"
+   },
+   {
+    "precision": "TF32 tensor",
+    "peak": "104.8 TFLOP/s",
+    "paper": "decoder",
+    "ours": "\u2014"
+   },
+   {
+    "precision": "Memory",
+    "peak": "1,792 GB/s",
+    "paper": "elementwise, one kernel each",
+    "ours": "elementwise, fused"
+   }
+  ]
+ },
+ "sol_chunk": {
+  "_note": "work per chunk from the \u00a718 roofline, all measured on pod 14; the paper's elementwise floor is its measured time, since the tracer's byte count over-counts L2 hits",
+  "rows": [
+   {
+    "component": "Attention",
+    "work": "151 TFLOP",
+    "paper_peak": "209.5",
+    "paper_floor": 0.72,
+    "ours_peak": "838",
+    "ours_floor": 0.18
+   },
+   {
+    "component": "DiT matmuls",
+    "work": "78 TFLOP",
+    "paper_peak": "209.5",
+    "paper_floor": 0.37,
+    "ours_peak": "419",
+    "ours_floor": 0.19
+   },
+   {
+    "component": "Decoder",
+    "work": "52 TFLOP",
+    "paper_peak": "104.8",
+    "paper_floor": 0.5,
+    "ours_peak": "209.5",
+    "ours_floor": 0.25
+   },
+   {
+    "component": "Elementwise",
+    "work": "~1.3 TB / ~175 GB",
+    "paper_peak": "1,792 GB/s",
+    "paper_floor": 0.55,
+    "ours_peak": "1,792 GB/s",
+    "ours_floor": 0.09
+   }
+  ],
+  "paper": {
+   "floor_s": 2.16,
+   "ceiling_fps": 7.4,
+   "measured_s": 2.68,
+   "measured_fps": 6.0,
+   "pct": 80
+  },
+  "ours": {
+   "floor_s": 0.72,
+   "ceiling_fps": 22,
+   "measured_s": 0.98,
+   "measured_fps": 16.1,
+   "pct": 74
+  }
+ },
+ "roofline": {
+  "_note": "Per-op roofline of one 16-frame chunk in the How to Scale Your Model form: floor = max(FLOPs/peak, bytes/bandwidth). Everything measured on pod 14 (2026-09-22, healthy RTX 5090: 235 TFLOP/s bf16 matmul, 2.48 GHz under load): kernel times from torch.profiler over chunks 8-10, matmul FLOPs and bytes from the profiler's per-shape records, stock bytes from the dispatch tracer, decoder conv FLOPs from the FLOP counter; attention analytic from the shapes. Tracer bytes are an upper bound (L2-resident intermediates are counted), so intensities are lower bounds; the fast stack's fused elementwise bytes are estimates (time at ~70 % of bandwidth). See OPTIMIZATIONS.md \u00a718.",
+  "peaks": {
+   "INT8": 838,
+   "FP8": 419,
+   "FP16": 209.5,
+   "BF16": 209.5,
+   "TF32": 104.8,
+   "bandwidth_gbps": 1792
+  },
+  "ours": {
+   "chunk_s": 0.98,
+   "floor_s": 0.72,
+   "ceiling_fps": 22,
+   "pct": 74,
+   "rows": [
+    {
+     "op": "Attention",
+     "precision": "INT8",
+     "flops_t": 150.9,
+     "bytes_gb": 16.7,
+     "intensity": 9048,
+     "ridge": 468,
+     "bound": "compute",
+     "floor_s": 0.18,
+     "measured_s": 0.288,
+     "pct": 63
+    },
+    {
+     "op": "DiT matmuls",
+     "precision": "FP8",
+     "flops_t": 78.9,
+     "bytes_gb": 63.5,
+     "intensity": 1243,
+     "ridge": 234,
+     "bound": "compute",
+     "floor_s": 0.188,
+     "measured_s": 0.201,
+     "pct": 94
+    },
+    {
+     "op": "Decoder convolutions",
+     "precision": "FP16",
+     "flops_t": 52.2,
+     "bytes_gb": 39.2,
+     "intensity": 1332,
+     "ridge": 117,
+     "bound": "compute",
+     "floor_s": 0.249,
+     "measured_s": 0.296,
+     "pct": 84
+    },
+    {
+     "op": "DiT elementwise, fused",
+     "precision": "FP16",
+     "flops_t": null,
+     "bytes_gb": 117,
+     "intensity": null,
+     "ridge": 117,
+     "bound": "memory",
+     "floor_s": 0.065,
+     "measured_s": 0.093,
+     "pct": 70,
+     "est": true
+    },
+    {
+     "op": "Decoder elementwise, fused",
+     "precision": "FP16",
+     "flops_t": null,
+     "bytes_gb": 40,
+     "intensity": null,
+     "ridge": 117,
+     "bound": "memory",
+     "floor_s": 0.022,
+     "measured_s": 0.032,
+     "pct": 70,
+     "est": true
+    },
+    {
+     "op": "Attention K/V re-quant",
+     "precision": "INT8",
+     "flops_t": null,
+     "bytes_gb": 38,
+     "intensity": null,
+     "ridge": 468,
+     "bound": "memory",
+     "floor_s": 0.021,
+     "measured_s": 0.039,
+     "pct": 54
+    }
+   ],
+   "chunk_fps": 16.1,
+   "kernel_s": 0.955
+  },
+  "paper": {
+   "chunk_s": 2.68,
+   "floor_s": 2.16,
+   "ceiling_fps": 7.4,
+   "pct": 80,
+   "floor_fused_s": 1.67,
+   "ceiling_fused_fps": 9.6,
+   "rows": [
+    {
+     "op": "Attention",
+     "precision": "BF16",
+     "flops_t": 150.9,
+     "bytes_gb": 30.6,
+     "intensity": 4935,
+     "ridge": 117,
+     "bound": "compute",
+     "floor_s": 0.72,
+     "measured_s": 0.82,
+     "pct": 88
+    },
+    {
+     "op": "DiT matmuls",
+     "precision": "BF16",
+     "flops_t": 78.9,
+     "bytes_gb": 112.1,
+     "intensity": 704,
+     "ridge": 117,
+     "bound": "compute",
+     "floor_s": 0.377,
+     "measured_s": 0.471,
+     "pct": 80
+    },
+    {
+     "op": "Decoder convolutions",
+     "precision": "TF32",
+     "flops_t": 51.4,
+     "bytes_gb": 77.5,
+     "intensity": 663,
+     "ridge": 58,
+     "bound": "compute",
+     "floor_s": 0.49,
+     "measured_s": 0.621,
+     "pct": 79
+    },
+    {
+     "op": "DiT elementwise, one kernel per op",
+     "precision": "FP32",
+     "flops_t": null,
+     "bytes_gb": 826,
+     "intensity": null,
+     "ridge": 58,
+     "bound": "memory",
+     "floor_s": 0.264,
+     "measured_s": 0.264,
+     "pct": null,
+     "note": "826 GB touched is an upper bound; at bandwidth it would take 0.46 s, so part of it hits L2"
+    },
+    {
+     "op": "Decoder elementwise, one kernel per op",
+     "precision": "FP32",
+     "flops_t": null,
+     "bytes_gb": 516,
+     "intensity": null,
+     "ridge": 58,
+     "bound": "memory",
+     "floor_s": 0.288,
+     "measured_s": 0.393,
+     "pct": 73
+    },
+    {
+     "op": "KV-cache shift, memcpy",
+     "precision": "FP32",
+     "flops_t": null,
+     "bytes_gb": 28,
+     "intensity": null,
+     "ridge": 58,
+     "bound": "memory",
+     "floor_s": 0.016,
+     "measured_s": 0.053,
+     "pct": 30
+    }
+   ],
+   "chunk_fps": 6.0,
+   "kernel_s": 2.654
+  }
+ },
+ "fp4_sol": {
+  "_note": "Speed of light if attention and/or the DiT matmuls move to FP4. Work per chunk from the section 18 roofline (attention 151 TFLOP, DiT matmuls 78 TFLOP); peaks from the RTX Blackwell whitepaper Appendix A, dense, FP32 accumulate. The 62 % column is the utilisation our INT8 kernel already achieves and is also exactly what SageAttention 3 reports on a 5090 (1038 of 1676 TOPS), so it is the realistic figure, not the floor.",
+  "peaks": {
+   "FP4": 1676,
+   "INT8": 838,
+   "FP8_fp32acc": 419,
+   "FP8_fp16acc": 838,
+   "FP16_fp32acc": 209.5,
+   "INT4": null
+  },
+  "attention": {
+   "work_tflop": 151,
+   "measured_s": 0.288,
+   "int8_floor_s": 0.18,
+   "fp4_floor_s": 0.09,
+   "fp4_at_62pct_s": 0.145
+  },
+  "dit_matmuls": {
+   "work_tflop": 78,
+   "measured_s": 0.201,
+   "fp8_floor_s": 0.188,
+   "fp4_floor_s": 0.047,
+   "fp4_at_62pct_s": 0.075
+  },
+  "scenarios": [
+   {
+    "what": "today",
+    "chunk_s": 0.98,
+    "fps": 16.3
+   },
+   {
+    "what": "FP4 attention only, at 62 %",
+    "chunk_s": 0.837,
+    "fps": 19.1
+   },
+   {
+    "what": "FP4 DiT matmuls only, at 62 %",
+    "chunk_s": 0.854,
+    "fps": 18.7
+   },
+   {
+    "what": "both at 62 %",
+    "chunk_s": 0.711,
+    "fps": 22.5
+   },
+   {
+    "what": "both at 100 % of FP4 peak (speed of light)",
+    "chunk_s": 0.618,
+    "fps": 25.9
+   }
+  ],
+  "chunk_floor_s": {
+   "today_int8_attn": 0.72,
+   "with_fp4_attn": 0.63,
+   "with_fp4_attn_and_dit": 0.489
+  },
+  "ceiling_fps": {
+   "today": 22.2,
+   "with_fp4_attn": 25.4,
+   "with_fp4_attn_and_dit": 32.7
+  }
+ }
 }
