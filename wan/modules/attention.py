@@ -159,6 +159,23 @@ def attention(
         if _dump and k.shape[1] >= 27000 and not os.path.exists(_dump):
             # one full-window self-attention call (q/k/v as passed to Sage) for the KV-quant probe
             torch.save({"q": q.detach().cpu(), "k": k.detach().cpu(), "v": v.detach().cpu()}, _dump)
+        # LINGBOT_DUMP_QKV_DIR=<dir>: same idea but keeps the first N full-window calls of one
+        # forward, numbered in call order, so attention decay can be read per layer rather than
+        # from whichever layer happened to fire first. Receptive field varies with depth, so a
+        # single layer cannot answer "how much window does this model actually use".
+        _ddir = os.environ.get("LINGBOT_DUMP_QKV_DIR")
+        if _ddir and k.shape[1] >= 27000:
+            global _DUMP_N
+            try:
+                _DUMP_N
+            except NameError:
+                _DUMP_N = 0
+            if _DUMP_N < int(os.environ.get("LINGBOT_DUMP_QKV_MAX", "30")):
+                os.makedirs(_ddir, exist_ok=True)
+                torch.save({"q": q.detach().cpu(), "k": k.detach().cpu(), "v": v.detach().cpu(),
+                            "call": _DUMP_N, "lk": int(k.shape[1])},
+                           os.path.join(_ddir, f"call_{_DUMP_N:03d}.pt"))
+                _DUMP_N += 1
         # q/k/v: [B, L, H, D] == SageAttention's "NHD" layout. Cross-length
         # (Lq != Lk) is fine without a causal mask, which is our case.
         out_dtype = q.dtype
