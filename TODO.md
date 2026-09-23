@@ -165,28 +165,18 @@ Open, in the order worth doing:
 3. FP4 (SageAttention 3) - biggest ceiling, but a build plus two integration fixes plus its own quality run.
 4. `bench/attn/c7_sparge_build.md` phases 1-3 - build debug, modest payoff.
 
-- **Shorten the KV window. No kernel work, no new dependency, the cheapest large lever we have.**
-  `--local_attn_size` (default 18) and `--sink_size` (default 6) are plain runtime ints on the CLI
-  (`generate.py:203-210`), stored at `wan/image2video.py:245-246`, with the real-time engine's own defaults at
-  `lingbot/play/live.py:260-273`. **`local_attn_size` is the WHOLE kv buffer, sink included**:
-  `kv_size = frame_seqlen * local_attn_size` (`wan/image2video.py:568-573`), and 1508 x 18 = 27144 exactly matches the
-  measured shape, so the real rolling window is 12 latents, not 18. (Independently consistent with the exp-11 note at
-  OPTIMIZATIONS.md #423.) Safe to change without retraining: RoPE positions come from the absolute
-  `current_start_frame`, not a buffer offset, and `max_attention_size` auto-tracks `kv_size`. Do NOT try to shrink via
-  `max_attention_size` alone - it is a suffix slice and trims the sink first, the opposite of what is wanted.
-
-  | local_attn_size | rolling | kv | pred attn | pred chunk | pred FPS |
-  |---|---|---|---|---|---|
-  | 18 (baseline) | 12 | 27144 | 0.288 s | 0.980 s | 16.10 |
-  | 12 | 6 | 18096 | 0.192 s | 0.884 s | 17.85 |
-  | 10 | 4 | 15080 | 0.160 s | 0.852 s | 18.52 |
-  | 9 | 3 | 13572 | 0.144 s | 0.836 s | 18.87 (degenerate: rolling < chunk_size 4) |
-
-  Harness `bench/window/window_sweep.py`, protocol `bench/window/README.md`. This is the one candidate whose gate is a
-  rollout quality run, not a kernel cosine: a shorter window targets long-range coherence directly, so per-160-frame
-  drift bins matter more here than they did for FP8/Sage. Unverified without a GPU: torch.compile recompile behaviour
-  across kv shapes, and SageAttention at the new kv sizes.
-
+- **~~Shorten the KV window~~ CLOSED 2026-09-23, do not reopen. See OPTIMIZATIONS.md 21c.** Real
+  speedup (+12.9 % at window 12, +18.4 % at 10, reproduced on two scenes), but NOT lossless: a
+  causal ablation on a frozen forward pass shows window 12 changes attention outputs by 13.3 % mean
+  and 30.1 % worst-layer, on a smooth curve with no plateau, i.e. the model uses its whole window.
+  Staying under 5 % output change caps the window at 16, which is worth only +3.7 %. Rescue attempts
+  that also failed: LongLive's 9-local+3-sink split (did not transfer, they train for it), per-layer
+  windows (all 30 layers want 15-20 latents, saves 8 %), and two rounds of rollout quality metrics
+  (contradicted each other across scenes; n=1 against a band spanning 18-33 %). Reopen only if the
+  model is retrained with a short window, or if the +12.9 % is wanted knowingly as a quality trade.
+  Tooling that survives and is reusable: `bench/window/attn_ablate.py` (deterministic per-layer
+  certification for any context-changing lever), `bench/window/score_window.py`, and the stack's
+  first noise band in `bench/window/README.md`.
 - **`cfg_depnull`: does C5's 8.7 % survive without phi?** C5 is dead (see below), but its saving is real and
   unattributed. If the win comes from the loop restructuring rather than from deleting the online max, it is available
   with no phi and no calibration risk. `bench/attn/h2_tiles/cfg_depnull.patch` computes the REAL row max (same
