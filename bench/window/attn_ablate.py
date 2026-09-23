@@ -38,6 +38,7 @@ ap.add_argument("--dump_dir", required=True, help="dir written by LINGBOT_DUMP_Q
 ap.add_argument("--frame_seqlen", type=int, default=1508, help="tokens per latent at 832x464")
 ap.add_argument("--sink", type=int, default=6, help="pinned sink latents at the front of the buffer")
 ap.add_argument("--q_sample", type=int, default=512, help="query rows sampled per layer")
+ap.add_argument("--device", default="cpu", help="cuda makes this seconds instead of many minutes")
 ap.add_argument("--out", default="bench/window/attn_ablate.json")
 a = ap.parse_args()
 
@@ -60,7 +61,8 @@ print(f"# {len(files)} layer dumps, sink={a.sink}")
 per_layer = []
 for path in files:
     d = torch.load(path, map_location="cpu")
-    q, k, v = d["q"].float(), d["k"].float(), d["v"].float()   # [B, L, H, D] NHD
+    dev = a.device
+    q, k, v = (d["q"].float().to(dev), d["k"].float().to(dev), d["v"].float().to(dev))  # [B,L,H,D] NHD
     B, Lq, H, D = q.shape
     Lk = k.shape[1]
     n_lat = Lk // a.frame_seqlen
@@ -80,7 +82,7 @@ for path in files:
         roll = N - S
         # sink stays pinned at the front; the rest is the newest `roll` latents, which is exactly
         # what a shorter local_attn_size would have retained at this point in the rollout
-        keep = torch.cat([torch.arange(0, S * fs), torch.arange(Lk - roll * fs, Lk)])
+        keep = torch.cat([torch.arange(0, S * fs), torch.arange(Lk - roll * fs, Lk)]).to(dev)
         out = attend(qs, ks[:, keep], vs[:, keep], scale)
         row["errors"][str(N)] = float(((out - ref).norm() / ref_norm).item())
     per_layer.append(row)
