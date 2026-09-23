@@ -874,3 +874,48 @@ survives, so 10 is expected to fail on quality even though its timing is valid.
 per-frame identity is not the test. The gate is a 30 s clip with per-160-frame drift bins against a
 three-run noise band on the same stack, which had never been recorded for this stack before. Nothing here
 ships until that is in.
+
+### 21b. The KV window is not redundant: a causal ablation says so (pod 20, 2026-09-23)
+
+The rollout metrics could not settle whether window 12 was lossless: three identical baseline runs
+differ by 18 % on whole-clip Laplacian sharpness and 33 % in the last 160-frame bin, and the
+candidate landed above that band on one scene and below it on another. So the question was answered
+a different way, on one frozen forward pass where there is no seed, no divergence and no band.
+
+**Method.** Run at `--local_attn_size 24`, dump q/k/v for all 30 layers of the first forward whose
+KV buffer exceeds 27 000 tokens (`LINGBOT_DUMP_QKV_DIR`, `wan/modules/attention.py`), which caught
+the buffer at 20 latents. Then, offline and deterministically, recompute the attention output while
+keeping only the sink plus the newest `N - sink` latents, and measure the relative change against
+the full 20-latent output: `||out_trunc - out_full|| / ||out_full||`. This is the published CAOTE
+idea (arXiv 2504.14051). Attention WEIGHTS were deliberately not used: they are not a faithful
+proxy (Jain & Wallace, arXiv 1902.10186), and softmax dilutes mass as O(1/n) so a long window makes
+every token look unimportant regardless of whether it is. Script: `bench/window/attn_ablate.py`,
+raw: `bench/window/attn_ablate.json`.
+
+| window N | mean rel. output change | worst layer |
+|---|---|---|
+| 10 | 0.346 | 0.744 |
+| **12** (the +12.9 % FPS candidate) | **0.133** | **0.301** |
+| 14 | 0.079 | 0.175 |
+| 16 | 0.047 | 0.101 |
+| **18** (current default) | **0.025** | **0.050** |
+| 19 | 0.014 | 0.030 |
+| 20 | 0 | 0 |
+
+**Reading: the model uses its whole window.** The curve decays smoothly with no knee and no
+plateau, which is what "this context is being used" looks like; a redundant window would show a
+flat region that truncation does not disturb. Window 12 perturbs the attention output by 13 % mean
+and 30 % at the worst layer, so **the +12.9 % FPS is not lossless**. For under 5 % change the window
+would have to stay at 16, and under 2 % needs 19, i.e. above today's default.
+
+**Why the pixel metrics missed it.** A truncated window does not degrade the video, it produces a
+coherent DIFFERENT one: the rollout diverges into another plausible trajectory of the same scene.
+Per-frame sharpness and MUSIQ cannot separate "different" from "worse", and the run-to-run band is
+wider than the effect. This is a general lesson for any lever that changes what the model attends
+to, and it is now recorded in the `bench-world-model-quality` skill.
+
+**Caveats.** One forward pass at one point in one rollout, 30 layers, 512 sampled query rows; it
+measures immediate output sensitivity, not whether a long-horizon failure (revisit inconsistency)
+appears later. The worst-layer column is much worse than the mean at every N, so some layers are
+far more context-hungry than others: a per-layer window would be the real optimisation here, and
+nothing in production video diffusion does that yet (PyramidKV/Ada-KV do it for LLMs).
