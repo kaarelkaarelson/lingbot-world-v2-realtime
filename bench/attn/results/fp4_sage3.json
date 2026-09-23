@@ -1,0 +1,20 @@
+{
+ "_note": "SageAttention 3 FP4 vs SageAttention 2 INT8, pod 20 (b57clgx8sa8gnc), 2026-09-23. Built arch=compute_120a/sm_120a, CUDA 12.8.93, torch 2.8.0+cu128, cp312, triton 3.4.0. 20 warm + 30 timed, CUDA events via time.time + synchronize. fp32 SDPA reference computed chunked over queries. See OPTIMIZATIONS.md section 23.",
+ "production_shape": {"q": [1, 6032, 12, 128], "kv": [1, 27144, 12, 128], "dtype": "bfloat16",
+   "causal": false, "tflop_per_call": 1.006},
+ "peaks_dense_fp32acc": {"INT8": 838, "FP4": 1676},
+ "at_production_shape": [
+  {"backend": "sage2_int8", "ms": 2.125, "tops": 473, "pct_of_own_peak": 56, "cosine_vs_fp32": 0.999246},
+  {"backend": "sage3_fp4_kernel_only", "ms": 2.185, "tops": 460, "pct_of_own_peak": 27, "cosine_vs_fp32": 0.981890},
+  {"backend": "sage3_fp4_full_call", "ms": 2.214, "tops": 454, "pct_of_own_peak": 27, "cosine_vs_fp32": null}],
+ "layout_overhead_ms": 0.029,
+ "mandatory_k_clone_ms": 0.109,
+ "shape_sweep": [
+  {"lq": 6032,  "lk": 27144, "heads": 12, "int8_ms": 2.117,  "fp4_ms": 2.184, "fp4_over_int8": 0.97, "fp4_tops": 461},
+  {"lq": 27144, "lk": 27144, "heads": 12, "int8_ms": 7.837,  "fp4_ms": 6.927, "fp4_over_int8": 1.13, "fp4_tops": 653},
+  {"lq": 8192,  "lk": 8192,  "heads": 12, "int8_ms": 0.838,  "fp4_ms": 0.712, "fp4_over_int8": 1.18, "fp4_tops": 579},
+  {"lq": 16384, "lk": 16384, "heads": 12, "int8_ms": 3.022,  "fp4_ms": 2.517, "fp4_over_int8": 1.20, "fp4_tops": 655},
+  {"lq": 32768, "lk": 32768, "heads": 12, "int8_ms": 11.726, "fp4_ms": 9.435, "fp4_over_int8": 1.24, "fp4_tops": 699},
+  {"lq": 16384, "lk": 16384, "heads": 24, "int8_ms": 6.047,  "fp4_ms": 4.994, "fp4_over_int8": 1.21, "fp4_tops": 661}],
+ "verdict": "not shipped: 0.97x at our asymmetric short-query shape; wins 1.13-1.24x only on large square attention; never exceeds 42% of the FP4 peak at any shape tried"
+}

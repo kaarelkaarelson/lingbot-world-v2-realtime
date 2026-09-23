@@ -1,0 +1,14 @@
+{
+ "_note": "Is SageAttention INT8 lossless? Deterministic loop, only LINGBOT_ATTN differs. compile off, inductor tuning off, FP8 off, DIT_FUSION_EXACT_T=1, eager bf16, seed 42, example 00, 193 frames, pod 20, 2026-09-23. Latents compared directly, no pixel metrics. See OPTIMIZATIONS.md section 22.",
+ "arms": {"fa2_ref": "FlashAttention-2 bf16", "sage_int8": "SageAttention 2.2 INT8 QK / FP8 PV"},
+ "latent_tensor_shape": [16, 48, 58, 104],
+ "whole_clip": {"cosine": 0.881249, "psnr_db": 25.36, "max_abs_diff": 3.660251,
+                "mean_abs_diff": 0.230954, "latent_range": 6.7270, "bit_identical": false},
+ "per_latent_cosine": {"0": 0.999969, "1": 0.998797, "2": 0.998789, "3": 0.998266, "4": 0.996047,
+   "5": 0.993794, "8": 0.991903, "9": 0.982396, "12": 0.978438, "13": 0.951325, "15": 0.944662,
+   "16": 0.927264, "18": 0.917241, "20": 0.905306, "26": 0.906269},
+ "timing_eager_no_compile_no_fp8": {"fa2_bf16_s_per_chunk": 1.853, "sage_int8_s_per_chunk": 1.352,
+   "speedup_pct": 27},
+ "verdict": "lossless per call (cosine 0.999969 at latent 0); the whole-clip 0.881 is compounding autoregressive divergence, not loss",
+ "methodology": "compare at latent 0, before divergence dominates - this is the gate for any numerical change"
+}
