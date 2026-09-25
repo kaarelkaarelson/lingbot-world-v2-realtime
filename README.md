@@ -72,6 +72,14 @@ The first start compiles for about 2.5 min, later starts take 35 s.
 | Recommended | RTX 5090, 32 GB | everything here was measured on it; `setup.sh` ships prebuilt kernels for it (sm_120) |
 | Minimum | RTX 4090, 24 GB | untested: every patch supports sm_89, expect ~12 FPS; needs `sageattention` and `flash_attn` built from source and T5 on the CPU to fit |
 
+The default preset peaks at 30.7 GB of VRAM when it decodes a whole clip at once, which leaves
+little headroom on a 32 GB card, and a long enough clip will run out. Decoding chunk by chunk
+brings the peak to 26.4 GB.
+
+One card serves one stream. Two streams cost 1.89 times one and four cost 3.82 times, because a
+single stream already saturates the tensor cores, so the card puts out about 17 frames per second
+in total however many streams share it.
+
 ## Optimizations
 
 Nothing about the model changed. The checkpoint, the sampler and the decoder are upstream's, with the same 4 steps, chunks of 4 latents and a KV window of 18 frames. I worked through the stack from the top down, cheapest and most general layer first, measured each step, and stopped at the kernel boundary. The table shows seconds per chunk after each step in the order they were applied. A chunk is 16 frames, one second of video.
@@ -127,7 +135,7 @@ The same four kernels on a roofline, one chunk. Each operation's floor is its FL
 | **Chunk** | | | | | | | **0.72 s, 22 FPS** | **0.98 s, 16.1 FPS** | **74 %** |
 <!-- /table:roofline -->
 
-The result is lossless. Four of the six steps are bit identical to the paper's code, and FP8 and the attention kernel were checked on identical inputs. PSNR, SSIM and LPIPS compare the same latents decoded by the paper's fp32 decoder and by ours. The rest are no reference metrics on the generated clips, measured on the first and last second. The numbers are in `quality_summary.tsv` from experiment 15.
+The result is lossless. Four of the six steps are bit identical to the paper's code, and FP8 and the attention kernel were checked on identical inputs. The attention kernel was measured again on a loop where nothing else varies, and its first chunk of latents matches FlashAttention-2 to a cosine of 0.999969, so the kernel itself is lossless and everything after that is the rollout drifting. PSNR, SSIM and LPIPS compare the same latents decoded by the paper's fp32 decoder and by ours. The rest are no reference metrics on the generated clips, measured on the first and last second. The numbers are in `quality_summary.tsv` from experiment 15.
 
 <!-- table:quality -->
 | | Original paper's code | Ours |
@@ -153,6 +161,10 @@ The result is lossless. Four of the six steps are bit identical to the paper's c
 | `stock` | the original paper's code | <!-- n:s_paper -->2.68<!-- /n --> | <!-- n:fps_paper -->6.0<!-- /n --> |
 | `exact` | ours, with the DiT latents bit identical to the paper's bf16 model | <!-- n:s_exact -->1.07<!-- /n --> | <!-- n:fps_exact -->14.8<!-- /n --> |
 | **`fast`** (default) | ours, FP8 linears, SageAttention, compiled and fused DiT, fused fp16 decoder | **<!-- n:s_ours -->0.98<!-- /n -->** | **<!-- n:fps_ours -->16.1<!-- /n -->** |
+
+The same seed does not give the same video twice on `fast`. Two identical runs differ by about 9.6
+levels out of 255 on average, because FP8 and the attention kernel are not bit reproducible and the
+difference compounds as the clip goes on. `exact` is bit identical run to run and across machines.
 
 ## Tests
 
