@@ -96,6 +96,8 @@ Nothing about the model changed. The checkpoint, the sampler and the decoder are
 | **Total** | 6.0&nbsp;FPS | **16.1&nbsp;FPS** | **2.68&nbsp;→&nbsp;0.98** |
 <!-- /table:ladder -->
 
+\* `torch.compile` traces the model into a graph and fuses the small ops around it (norm, RoPE, residual adds) into fewer, larger kernels; it doesn't touch FlashAttention or the GEMMs, which stay calls into hand-tuned CUDA libraries. Tracing breaks wherever control flow reads a tensor's value, and the DiT forward started at 13 graphs and 12 breaks per call. Making the grid size and step count plain Python ints, precomputing the RoPE table, and caching the per-chunk camera-MLP output cut that to one graph, zero breaks (`OPTIMIZATIONS.md` §2, §10).
+
 The table compares the original paper's code with ours, per chunk. GPU busy and kernel launches come from profiler traces of both, described in sections 13 and 17 of `OPTIMIZATIONS.md`. Host syncs are counted over three chunks.
 
 <!-- table:baseline -->
@@ -141,16 +143,38 @@ The result is lossless. Four of the six steps are bit identical to the paper's c
 | | Original paper's code | Ours |
 |---|---|---|
 | PSNR | reference | **43.6 dB** |
-| [SSIM](https://doi.org/10.1109/TIP.2003.819861) | reference | **0.981** |
-| [LPIPS](https://arxiv.org/abs/1801.03924) | reference | **0.004** |
-| [MUSIQ](https://arxiv.org/abs/2108.05997) | 68.98 | **68.99** |
-| [CLIP-IQA](https://arxiv.org/abs/2207.12396) | 0.592 | **0.590** |
+| SSIM | reference | **0.981** |
+| LPIPS | reference | **0.004** |
+| MUSIQ | 68.98 | **68.99** |
+| CLIP-IQA | 0.592 | **0.590** |
 | Sharpness (Laplacian), first / last s | 1022 / 298 | **1023 / 298** |
 | Colourfulness, first / last s | 41.9 / 50.2 | **41.9 / 50.2** |
 | Brightness, first / last s | 0.692 / 0.384 | **0.692 / 0.384** |
 | Flicker | 0.0381 | **0.0381** |
 | DiT latents, exact preset | reference | **bit-identical** |
 <!-- /table:quality -->
+
+What those metrics mean. The first three need a reference frame to compare against, so they only
+say something when both clips show the same thing. The rest score a clip on its own.
+
+| Metric | What it measures | Reference | Better |
+|---|---|---|---|
+| PSNR | Average pixel error, in decibels. Strict, and it punishes a one pixel shift as hard as real damage. | needed | higher |
+| [SSIM](https://doi.org/10.1109/TIP.2003.819861) | Local structure, contrast and luminance rather than raw pixel values. | needed | higher |
+| [LPIPS](https://arxiv.org/abs/1801.03924) | Distance between two images as a pretrained vision network sees them, fitted to human judgements of which distortion looks closer. The most reliable of the three here. | needed | lower |
+| [MUSIQ](https://arxiv.org/abs/2108.05997) | A quality score from a transformer trained on human ratings. | none | higher |
+| [CLIP-IQA](https://arxiv.org/abs/2207.12396) | How close the frame sits to "a good photo" rather than "a bad photo" in CLIP's embedding space. | none | higher |
+| Sharpness | Edge energy, the variance of a Laplacian filter. It rises for fine detail and for artifacts alike, so read it next to the others and never on its own. | none | context |
+| Colourfulness | Spread and saturation of colour. | none | context |
+| Brightness | Mean luminance. | none | context |
+| Flicker | Mean change between consecutive frames, a stand in for temporal stability. | none | lower |
+
+The split matters more than it looks, because the model is autoregressive and every chunk is
+conditioned on the ones before it. Change a kernel or a precision and you do not get a worse version
+of the same video, you get a different video that is just as coherent, so a reference metric late in
+a clip is comparing two different scenes and reporting the difference as damage. That is why the
+attention kernel above is checked on the first chunk, before the two runs drift apart.
+
 
 `OPTIMIZATIONS.md` is the full log. It has every experiment with its measurement, the profiles, and the levers that were tried and rejected.
 
