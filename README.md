@@ -41,6 +41,8 @@ Every operation has a floor: its FLOPs over the peak of the precision it runs at
 | **Chunk** | | | | | | | **0.72 s, 22 FPS** | **0.98 s, 16.1 FPS** | **74 %** |
 <!-- /table:roofline -->
 
+Measured with the roofline method from Google's [How to Scale Your Model](https://jax-ml.github.io/scaling-book/).
+
 ## Quick start
 
 ### Setup
