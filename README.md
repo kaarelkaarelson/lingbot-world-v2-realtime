@@ -27,21 +27,21 @@ Measured with `lingbot bench` on a stock RunPod RTX 5090 (2026-09-17).
 
 ## Speed of light
 
-Every operation has a floor: its FLOPs over the peak of the precision it runs at, or its bytes over the memory bandwidth, whichever is larger. The sum of those floors is the chunk's speed of light, 0.72 s, and the chunk takes 0.98 s, so the stack runs at 74 % of what the card physically allows. Every large operation is compute bound, well above the card's ridge point, so the remaining gap is inside the kernels, not in how data moves. FLOPs and bytes were measured with the profiler and a dispatch tracer, and the two fused elementwise rows carry estimated bytes, since compiled kernels bypass the tracer. The original paper's code sits at 80 % of its own speed of light, 2.16 s. The numbers, the method and the profile of that stack are in `OPTIMIZATIONS.md` §18.
+Every operation has a floor, either its arithmetic divided by the peak of the precision it runs at, or its memory traffic divided by the bandwidth, whichever is larger. Those floors add up to 0.72 s per chunk and the chunk takes 0.98 s, so the stack reaches 74 % of what the card physically allows. Every large operation is compute bound, which means the gap that remains is inside the kernels rather than in how data moves. The original paper's code reaches 80 % of its own floor, 2.16 s.
 
 <!-- table:roofline -->
-| Operation | Precision | FLOP / chunk | Bytes / chunk | FLOP / B | Ridge | Bound | Floor | Measured | Of speed of light |
-|---|---|---|---|---|---|---|---|---|---|
-| Attention | INT8 | 151 T | 17 GB | 9,048 | 468 | compute | 0.180 s | 0.288 s | **63 %** |
-| DiT matmuls | FP8 | 79 T | 64 GB | 1,243 | 234 | compute | 0.188 s | 0.201 s | **94 %** |
-| Decoder convolutions | FP16 | 52 T | 39 GB | 1,332 | 117 | compute | 0.249 s | 0.296 s | **84 %** |
-| DiT elementwise, fused | FP16 | — | ~117 GB | — | 117 | memory | 0.065 s | 0.093 s | **70 %** |
-| Decoder elementwise, fused | FP16 | — | ~40 GB | — | 117 | memory | 0.022 s | 0.032 s | **70 %** |
-| Attention K/V re-quant | INT8 | — | 38 GB | — | 468 | memory | 0.021 s | 0.039 s | **54 %** |
-| **Chunk** | | | | | | | **0.72 s, 22 FPS** | **0.98 s, 16.1 FPS** | **74 %** |
+| Operation | Precision | Work / chunk | Bound | Floor | Measured | Of speed of light |
+|---|---|---|---|---|---|---|
+| Attention | INT8 | 151 TFLOP | compute | 0.180 s | 0.288 s | **63 %** |
+| DiT matmuls | FP8 | 79 TFLOP | compute | 0.188 s | 0.201 s | **94 %** |
+| Decoder convolutions | FP16 | 52 TFLOP | compute | 0.249 s | 0.296 s | **84 %** |
+| DiT elementwise, fused | FP16 | ~117 GB | memory | 0.065 s | 0.093 s | **70 %** |
+| Decoder elementwise, fused | FP16 | ~40 GB | memory | 0.022 s | 0.032 s | **70 %** |
+| Attention K/V re-quant | INT8 | 38 GB | memory | 0.021 s | 0.039 s | **54 %** |
+| **Chunk** | | | | **0.72 s, 22 FPS** | **0.98 s, 16.1 FPS** | **74 %** |
 <!-- /table:roofline -->
 
-Measured with the roofline method from Google's [How to Scale Your Model](https://jax-ml.github.io/scaling-book/).
+Measured with the roofline method from Google's [How to Scale Your Model](https://jax-ml.github.io/scaling-book/). The two fused elementwise rows carry estimated bytes, because compiled kernels bypass the tracer.
 
 ## Quick start
 

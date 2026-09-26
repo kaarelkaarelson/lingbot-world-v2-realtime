@@ -97,13 +97,19 @@ def _rf(r):
 
 
 def md_roofline(who="ours"):
+    # Seven columns, not the ten the blog carries. FLOP/chunk and Bytes/chunk collapse into one
+    # "Work" column, because a compute-bound row's floor is set by its FLOPs and a memory-bound
+    # row's by its bytes, never both, so two columns left half of each empty. FLOP/B and Ridge are
+    # dropped here and kept in OPTIMIZATIONS.md 18 -- the prose already says every large operation
+    # sits well above the ridge. At ten columns the README table wrapped "0.180 s" onto two lines.
     R = DATA["roofline"][who]
-    out = ["| Operation | Precision | FLOP / chunk | Bytes / chunk | FLOP / B | Ridge | Bound | Floor | Measured | Of speed of light |",
-           "|---|---|---|---|---|---|---|---|---|---|"]
+    out = ["| Operation | Precision | Work / chunk | Bound | Floor | Measured | Of speed of light |",
+           "|---|---|---|---|---|---|---|"]
     for r in R["rows"]:
-        f, b, i, pct = _rf(r)
-        out.append(f"| {r['op']} | {r['precision']} | {f} | {b} | {i} | {r['ridge']} | {r['bound']} | {r['floor_s']:.3f} s | {r['measured_s']:.3f} s | {pct} |")
-    out.append(f"| **Chunk** | | | | | | | **{R['floor_s']:.2f} s, {R['ceiling_fps']} FPS** | **{R['chunk_s']:.2f} s, {R['chunk_fps']} FPS** | **{R['pct']} %** |")
+        _f, _b, _i, pct = _rf(r)
+        work = f"{r['flops_t']:.0f} TFLOP" if r.get("flops_t") else f"{'~' if r.get('est') else ''}{r['bytes_gb']:.0f} GB"
+        out.append(f"| {r['op']} | {r['precision']} | {work} | {r['bound']} | {r['floor_s']:.3f} s | {r['measured_s']:.3f} s | {pct} |")
+    out.append(f"| **Chunk** | | | | **{R['floor_s']:.2f} s, {R['ceiling_fps']} FPS** | **{R['chunk_s']:.2f} s, {R['chunk_fps']} FPS** | **{R['pct']} %** |")
     return "\n".join(out)
 
 
