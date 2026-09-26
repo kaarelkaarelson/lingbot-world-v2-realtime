@@ -163,7 +163,7 @@
     "pct": "84 %"
    },
    {
-    "kernel": "Fused elementwise",
+    "kernel": "Fused norm, activation, residual",
     "reached": "~1.3 TB/s",
     "peak": "1.8 TB/s memory",
     "pct": "~70 %"
@@ -415,7 +415,7 @@
      "pct": 84
     },
     {
-     "op": "DiT elementwise, fused",
+     "op": "DiT norm, RoPE, modulation, residual",
      "precision": "FP16",
      "flops_t": null,
      "bytes_gb": 117,
@@ -428,7 +428,7 @@
      "est": true
     },
     {
-     "op": "Decoder elementwise, fused",
+     "op": "Decoder norm, SiLU, pad, upsample",
      "precision": "FP16",
      "flops_t": null,
      "bytes_gb": 40,

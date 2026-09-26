@@ -35,13 +35,13 @@ Every operation has a floor, either its arithmetic divided by the peak of the pr
 | Attention | INT8 | 151 TFLOP | compute | 0.180 s | 0.288 s | **63 %** |
 | DiT matmuls | FP8 | 79 TFLOP | compute | 0.188 s | 0.201 s | **94 %** |
 | Decoder convolutions | FP16 | 52 TFLOP | compute | 0.249 s | 0.296 s | **84 %** |
-| DiT elementwise, fused | FP16 | ~117 GB | memory | 0.065 s | 0.093 s | **70 %** |
-| Decoder elementwise, fused | FP16 | ~40 GB | memory | 0.022 s | 0.032 s | **70 %** |
+| DiT norm, RoPE, modulation, residual | FP16 | ~117 GB | memory | 0.065 s | 0.093 s | **70 %** |
+| Decoder norm, SiLU, pad, upsample | FP16 | ~40 GB | memory | 0.022 s | 0.032 s | **70 %** |
 | Attention K/V re-quant | INT8 | 38 GB | memory | 0.021 s | 0.039 s | **54 %** |
 | **Chunk** | | | | **0.72 s, 22 FPS** | **0.98 s, 16.1 FPS** | **74 %** |
 <!-- /table:roofline -->
 
-Measured with the roofline method from Google's [How to Scale Your Model](https://jax-ml.github.io/scaling-book/). The two fused elementwise rows carry estimated bytes, because compiled kernels bypass the tracer.
+Measured with the roofline method from Google's [How to Scale Your Model](https://jax-ml.github.io/scaling-book/). The two memory bound rows carry estimated bytes, because compiled kernels bypass the tracer.
 
 ## Quick start
 
@@ -137,7 +137,7 @@ What is left runs in four kernels written by others, and three of them are near 
 |---|---|---|---|
 | FP8 matmuls | 393 TFLOP/s | 419 TFLOP/s FP8 | **94 %** |
 | Decoder convolutions | 176 TFLOP/s | 210 TFLOP/s FP16 | **84 %** |
-| Fused elementwise | ~1.3 TB/s | 1.8 TB/s memory | **~70 %** |
+| Fused norm, activation, residual | ~1.3 TB/s | 1.8 TB/s memory | **~70 %** |
 | SageAttention | 524 TOPS | 838 TOPS INT8 | **63 %** |
 <!-- /table:peaks -->
 
