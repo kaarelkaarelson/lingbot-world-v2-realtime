@@ -103,12 +103,21 @@ def md_roofline(who="ours"):
     # dropped here and kept in OPTIMIZATIONS.md 18 -- the prose already says every large operation
     # sits well above the ridge. At ten columns the README table wrapped "0.180 s" onto two lines.
     R = DATA["roofline"][who]
-    out = ["| Operation | Precision | Work / chunk | Bound | Floor | Measured | Of speed of light |",
+    P = DATA["roofline"]["peaks"]
+    out = ["| Operation | Precision and peak | Work / chunk | Bound | Floor | Measured | Of speed of light |",
            "|---|---|---|---|---|---|---|"]
     for r in R["rows"]:
         _f, _b, _i, pct = _rf(r)
         work = f"{r['flops_t']:.0f} TFLOP" if r.get("flops_t") else f"{'~' if r.get('est') else ''}{r['bytes_gb']:.0f} GB"
-        out.append(f"| {r['op']} | {r['precision']} | {work} | {r['bound']} | {r['floor_s']:.3f} s | {r['measured_s']:.3f} s | {pct} |")
+        # the peak the floor is divided by: the tensor peak for its precision when compute bound,
+        # memory bandwidth when not, so a reader can check floor = work / peak from the row itself
+        if r["bound"] == "compute":
+            pk = P[r["precision"]]
+            unit = "TOPS" if r["precision"].startswith("INT") else "TFLOP/s"
+            peak = f"{r['precision']}, {pk:,.10g} {unit}"
+        else:
+            peak = f"{r['precision']}, {P['bandwidth_gbps']:,} GB/s"
+        out.append(f"| {r['op']} | {peak} | {work} | {r['bound']} | {r['floor_s']:.3f} s | {r['measured_s']:.3f} s | {pct} |")
     out.append(f"| **Chunk** | | | | **{R['floor_s']:.2f} s, {R['ceiling_fps']} FPS** | **{R['chunk_s']:.2f} s, {R['chunk_fps']} FPS** | **{R['pct']} %** |")
     return "\n".join(out)
 

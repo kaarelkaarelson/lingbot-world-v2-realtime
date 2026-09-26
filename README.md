@@ -30,18 +30,18 @@ Measured with `lingbot bench` on a stock RunPod RTX 5090 (2026-09-17).
 Every operation has a floor, either its arithmetic divided by the peak of the precision it runs at, or its memory traffic divided by the bandwidth, whichever is larger. Those floors add up to 0.72 s per chunk and the chunk takes 0.98 s, so the stack reaches 74 % of what the card physically allows. Every large operation is compute bound, which means the gap that remains is inside the kernels rather than in how data moves. The original paper's code reaches 80 % of its own floor, 2.16 s.
 
 <!-- table:roofline -->
-| Operation | Precision | Work / chunk | Bound | Floor | Measured | Of speed of light |
+| Operation | Precision and peak | Work / chunk | Bound | Floor | Measured | Of speed of light |
 |---|---|---|---|---|---|---|
-| Attention | INT8 | 151 TFLOP | compute | 0.180 s | 0.288 s | **63 %** |
-| DiT matmuls | FP8 | 79 TFLOP | compute | 0.188 s | 0.201 s | **94 %** |
-| Decoder convolutions | FP16 | 52 TFLOP | compute | 0.249 s | 0.296 s | **84 %** |
-| DiT norm, RoPE, modulation, residual | FP16 | ~117 GB | memory | 0.065 s | 0.093 s | **70 %** |
-| Decoder norm, SiLU, pad, upsample | FP16 | ~40 GB | memory | 0.022 s | 0.032 s | **70 %** |
-| Attention K/V re-quant | INT8 | 38 GB | memory | 0.021 s | 0.039 s | **54 %** |
+| Attention | INT8, 838 TOPS | 151 TFLOP | compute | 0.180 s | 0.288 s | **63 %** |
+| DiT matmuls | FP8, 419 TFLOP/s | 79 TFLOP | compute | 0.188 s | 0.201 s | **94 %** |
+| Decoder convolutions | FP16, 209.5 TFLOP/s | 52 TFLOP | compute | 0.249 s | 0.296 s | **84 %** |
+| DiT norm, RoPE, modulation, residual | FP16, 1,792 GB/s | ~117 GB | memory | 0.065 s | 0.093 s | **70 %** |
+| Decoder norm, SiLU, pad, upsample | FP16, 1,792 GB/s | ~40 GB | memory | 0.022 s | 0.032 s | **70 %** |
+| Attention K/V re-quant | INT8, 1,792 GB/s | 38 GB | memory | 0.021 s | 0.039 s | **54 %** |
 | **Chunk** | | | | **0.72 s, 22 FPS** | **0.98 s, 16.1 FPS** | **74 %** |
 <!-- /table:roofline -->
 
-Measured with the roofline method from Google's [How to Scale Your Model](https://jax-ml.github.io/scaling-book/). The two memory bound rows carry estimated bytes, because compiled kernels bypass the tracer.
+Measured with the roofline method from Google's [How to Scale Your Model](https://jax-ml.github.io/scaling-book/).
 
 ## Quick start
 
@@ -137,7 +137,7 @@ What is left runs in four kernels written by others, and three of them are near 
 |---|---|---|---|
 | FP8 matmuls | 393 TFLOP/s | 419 TFLOP/s FP8 | **94 %** |
 | Decoder convolutions | 176 TFLOP/s | 210 TFLOP/s FP16 | **84 %** |
-| Fused norm, activation, residual | ~1.3 TB/s | 1.8 TB/s memory | **~70 %** |
+| Norm, activation, residual | ~1.3 TB/s | 1.8 TB/s memory | **~70 %** |
 | SageAttention | 524 TOPS | 838 TOPS INT8 | **63 %** |
 <!-- /table:peaks -->
 
@@ -188,7 +188,7 @@ attention kernel above is checked on the first chunk, before the two runs drift 
 |---|---|---|---|
 | `stock` | the original paper's code | <!-- n:s_paper -->2.68<!-- /n --> | <!-- n:fps_paper -->6.0<!-- /n --> |
 | `exact` | ours, with the DiT latents bit identical to the paper's bf16 model | <!-- n:s_exact -->1.07<!-- /n --> | <!-- n:fps_exact -->14.8<!-- /n --> |
-| **`fast`** (default) | ours, FP8 linears, SageAttention, compiled and fused DiT, fused fp16 decoder | **<!-- n:s_ours -->0.98<!-- /n -->** | **<!-- n:fps_ours -->16.1<!-- /n -->** |
+| **`fast`** (default) | ours, FP8 linears, SageAttention, compiled and fused DiT, fp16 decoder | **<!-- n:s_ours -->0.98<!-- /n -->** | **<!-- n:fps_ours -->16.1<!-- /n -->** |
 
 The same seed does not give the same video twice on `fast`. Two identical runs differ by about 9.6
 levels out of 255 on average, because FP8 and the attention kernel are not bit reproducible and the

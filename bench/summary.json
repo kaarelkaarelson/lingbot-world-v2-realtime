@@ -163,7 +163,7 @@
     "pct": "84 %"
    },
    {
-    "kernel": "Fused norm, activation, residual",
+    "kernel": "Norm, activation, residual",
     "reached": "~1.3 TB/s",
     "peak": "1.8 TB/s memory",
     "pct": "~70 %"
