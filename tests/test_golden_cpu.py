@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_dit_fusion_cpu as T  # noqa: E402
 
 GOLDEN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "golden", "dit_fused.pt")
+GOLDEN_VAE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "golden", "vae_fused.pt")
 
 
 def outputs():
@@ -37,6 +38,28 @@ def outputs():
     return out
 
 
+def vae_outputs():
+    """Fused decoder, eager fp32 (CPU), the small seeded VAE from test_vae_fused_cpu.py."""
+    import copy
+    import test_vae_fused_cpu as V
+    fused = V.fused  # lingbot/models/lingbot_world/vae.py
+    vae = V.build()
+    z = torch.randn(16, 9, 8, 16, generator=torch.Generator().manual_seed(7))
+    out = {}
+    # fp32 only: fp16 conv3d on CPU takes tens of minutes; the shipped fp16 path is the same code
+    for dtype, sub in ((torch.float32, False), (torch.float32, True)):
+        dec = fused.FusedDecoder(copy.deepcopy(vae), compile_mode=None, channels_last=False,
+                                 dtype=dtype, subpixel=sub)
+        out[f"{dtype}, subpixel={sub}"] = dec.decode(z)
+    return out
+
+
+def test_golden_vae_cpu():
+    ref, got = torch.load(GOLDEN_VAE), vae_outputs()
+    for k in ref:
+        assert torch.equal(ref[k], got[k]), f"vae {k}: max|diff|={(ref[k] - got[k]).abs().max().item():.3e}"
+
+
 def test_golden_cpu():
     ref = torch.load(GOLDEN)
     got = outputs()
@@ -50,7 +73,9 @@ if __name__ == "__main__":
     if "--regen" in sys.argv:
         os.makedirs(os.path.dirname(GOLDEN), exist_ok=True)
         torch.save(outputs(), GOLDEN)
-        print("wrote", GOLDEN)
+        torch.save(vae_outputs(), GOLDEN_VAE)
+        print("wrote", GOLDEN, GOLDEN_VAE)
     else:
         test_golden_cpu()
+        test_golden_vae_cpu()
         print("OK: bit-identical to", GOLDEN)

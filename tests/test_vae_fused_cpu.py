@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CPU fp32 check of wan/modules/vae2_1_fused.py against the stock Wan2.1 decoder loop
+"""CPU fp32 check of lingbot/models/lingbot_world/vae.py against the paper's Wan2.1 decoder loop
 (random seeded weights, small clip). Run: ~/lingbot-world-bench/.venv/bin/python tests/test_vae_fused_cpu.py
 """
 import copy, importlib.util, os, sys, types
@@ -10,17 +10,21 @@ import torch  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def load(name, path):  # `wan/__init__.py` pulls in the whole pipeline; load just the two VAE files as wan.modules.*
-    for pkg in ("wan", "wan.modules"):
-        sys.modules.setdefault(pkg, types.ModuleType(pkg)).__path__ = []
+def load(name, path):  # `reference/wan/__init__.py` pulls in the whole pipeline; load just the two VAE files
+    # package stubs with their real __path__, so later imports in the same process still resolve
+    for pkg, pkg_dir in (("wan", "reference/wan"), ("wan.modules", "reference/wan/modules"), ("lingbot", "lingbot"),
+                      ("lingbot.models", "lingbot/models"), ("lingbot.models.lingbot_world", "lingbot/models/lingbot_world")):
+        if pkg not in sys.modules:
+            sys.modules[pkg] = types.ModuleType(pkg)
+            sys.modules[pkg].__path__ = [os.path.join(ROOT, pkg_dir)]
     spec = importlib.util.spec_from_file_location(name, path)
     mod = sys.modules[name] = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
 
 
-WanVAE_ = load("wan.modules.vae2_1", os.path.join(ROOT, "wan", "modules", "vae2_1.py")).WanVAE_
-fused = load("wan.modules.vae2_1_fused", os.path.join(ROOT, "wan", "modules", "vae2_1_fused.py"))
+WanVAE_ = load("wan.modules.vae2_1", os.path.join(ROOT, "reference", "wan", "modules", "vae2_1.py")).WanVAE_
+fused = load("lingbot.models.lingbot_world.vae", os.path.join(ROOT, "lingbot", "models", "lingbot_world", "vae.py"))
 
 
 def build(seed=0):

@@ -32,12 +32,12 @@ def _env():
 
 
 def cmd_clip(argv: list[str]) -> int:
-    """generate.py with run.sh's defaults; any generate.py flag may follow (later flags win)."""
+    """lingbot.generate with the example's defaults; any of its flags may follow (later flags win)."""
     if argv[:1] in (["-h"], ["--help"]):
-        print("usage: lingbot clip [generate.py flags]\n\nDefaults: " + " ".join(CLIP_DEFAULTS[:4] + ["--prompt", "<lakeside prompt>", "--save_dir", "outputs"])
+        print("usage: lingbot clip [lingbot.generate flags]\n\nDefaults: " + " ".join(CLIP_DEFAULTS[:4] + ["--prompt", "<lakeside prompt>", "--save_dir", "outputs"])
               + "\nExamples:\n  lingbot clip --frame_num 361 --bench\n  lingbot clip --image me.jpg --action_path my_poses/ --prompt \"...\" --preset exact\n")
-        return subprocess.call([sys.executable, "generate.py", "--help"], cwd=REPO, env=_env())
-    return subprocess.call([sys.executable, "generate.py", *CLIP_DEFAULTS, *argv], cwd=REPO, env=_env())
+        return subprocess.call([sys.executable, "-m", "lingbot.generate", "--help"], cwd=REPO, env=_env())
+    return subprocess.call([sys.executable, "-m", "lingbot.generate", *CLIP_DEFAULTS, *argv], cwd=REPO, env=_env())
 
 
 def cmd_bench(argv: list[str]) -> int:
@@ -52,7 +52,7 @@ def _play_parser() -> argparse.ArgumentParser:
     p.add_argument("--image", default=None, help="first frame (default: the scene's image.jpg)")
     p.add_argument("--action_path", default=None, help="directory with intrinsics.npy (default: the scene's; poses.npy is replaced by the keys)")
     p.add_argument("--prompt", default=None, help="default: the scene's prompt.txt")
-    p.add_argument("--preset", default="fast", choices=["fast", "exact", "stock"], help="generate.py preset (env defaults)")
+    p.add_argument("--preset", default="fast", choices=["fast", "exact"], help="runtime preset (env defaults); the paper's code has no live hooks")
     p.add_argument("--frame_num", type=int, default=361, help="frames per rollout; the world restarts from the image after that (or on R)")
     p.add_argument("--chunk_size", type=int, default=4, help="latents per chunk (4 = 16 frames = 1 s of input per chunk)")
     p.add_argument("--seed", type=int, default=42)

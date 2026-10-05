@@ -50,7 +50,7 @@ repository = "https://github.com/robbyant/lingbot-world-v2"
 huggingface = "https://huggingface.co/robbyant/lingbot-world-v2-base-cam"
 
 [tool.setuptools.packages.find]
-include = ["wan*", "lingbot*"]
+include = ["lingbot*"]  # reference/ (the paper's `wan`) is put on sys.path by lingbot/__init__.py; install with -e
 
 [tool.black]
 line-length = 88

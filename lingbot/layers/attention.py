@@ -6,8 +6,8 @@ cross-attention, uses the paper's FlashAttention wrapper unchanged.
 """
 import os
 
-from reference.wan.modules.attention import attention as _paper_attention
-from reference.wan.modules.attention import flash_attention
+from wan.modules.attention import attention as _paper_attention
+from wan.modules.attention import flash_attention
 
 __all__ = ["attention", "flash_attention"]
 

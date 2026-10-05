@@ -26,7 +26,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .vae2_1 import CACHE_T, AttentionBlock, Resample, ResidualBlock
+from wan.modules.vae2_1 import CACHE_T, AttentionBlock, Resample, ResidualBlock
 
 CL3D = torch.channels_last_3d
 

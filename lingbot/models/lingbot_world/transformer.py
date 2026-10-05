@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as torch_F
 from diffusers.configuration_utils import ConfigMixin, register_to_config
 from diffusers.models.modeling_utils import ModelMixin
-from reference.wan.modules.model import (
+from wan.modules.model import (
     WanRMSNorm,
     WanLayerNorm,
     WanSelfAttention,

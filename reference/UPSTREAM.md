@@ -2,8 +2,7 @@
 
 An exact copy of [robbyant/lingbot-world](https://github.com/robbyant/lingbot-world) at commit
 `1895d30` ("Fix README for causal_fast 1.3B command details"): `wan/`, `generate.py`, `run_fast.sh`,
-`requirements.txt` and `README.md`. Only `__init__.py` (so `reference.wan` is importable) and this
-file were added.
+`requirements.txt` and `README.md`. Only this file was added.
 
 It serves two purposes:
 
@@ -11,7 +10,9 @@ It serves two purposes:
   are measured on the paper's code itself. Its own multi-GPU path is
   `torchrun --nproc_per_node=N reference/generate.py ... --dit_fsdp --t5_fsdp --ulysses_size N`.
 - **Shared primitives.** The optimized code in `lingbot/` imports unchanged building blocks from
-  here (configs, VAE and T5 modules, RMSNorm, RoPE helpers, camera utilities, scheduler).
+  here (configs, VAE and T5 modules, RMSNorm, RoPE helpers, camera utilities, scheduler). The paper's
+  code imports itself as the top-level package `wan`, so `lingbot/__init__.py` puts this directory on
+  the import path and `lingbot/` imports `wan.*`.
 
 Do not edit files in this directory. Verify it is still byte-identical (needs the `upstream` remote):
 

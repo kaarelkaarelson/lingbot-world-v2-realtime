@@ -45,9 +45,7 @@ def _stub_packages():
                         "diffusers.models": mu, "diffusers.models.modeling_utils": mm})
     # package stubs with __path__ set, so submodules import without running the heavy __init__s
     sys.path.insert(0, ROOT)
-    for name, path in (("wan", "reference/wan"), ("wan.modules", "reference/wan/modules"),
-                       ("reference", "reference"), ("reference.wan", "reference/wan"),
-                       ("reference.wan.modules", "reference/wan/modules")):
+    for name, path in (("wan", "reference/wan"), ("wan.modules", "reference/wan/modules")):
         pkg = types.ModuleType(name)
         pkg.__path__ = [os.path.join(ROOT, path)]
         sys.modules[name] = pkg
