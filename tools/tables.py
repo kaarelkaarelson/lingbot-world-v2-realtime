@@ -48,16 +48,16 @@ def md_baseline():
 def md_ladder():
     # Rows are stored in the order applied (the HTML ladder needs that). The README shows the
     # precision changes first, then the rest, each group by saving, and re-chains s/chunk in that
-    # order from each step's measured saving. Each cell is "before<br>**after**".
+    # order from each step's measured saving. Each cell is "before → **after**".
     L = DATA["ladder"]
     nb = lambda x: x.replace(" ", "&nbsp;")
-    pair = lambda a, b: a if a == b else f"{a}<br>**{b}**"
+    pair = lambda a, b: a if a == b else f"{a} → **{b}**"
     rows, prev = [], L["start"]
     for r in L["rows"]:
         rows.append((prev - r["after_s"], r))
         prev = r["after_s"]
     rows.sort(key=lambda x: (x[1]["loaded"][0] == "unchanged", -x[0]))
-    out = ["| Step | Change | Stored in GPU memory | Tensor-core math: inputs → accumulator | s/chunk |",
+    out = ["| Step | Change | Stored as | Computed in | s/chunk |",
            "|---|---|---|---|---|"]
     s = L["start"]
     for saved, r in rows:
@@ -71,7 +71,7 @@ def md_ladder():
         out.append(f"| {nb(r['step'])} | {pair(before, after)} | {pair(*r['loaded'])} | {pair(*r['math'])} | {s:.2f}&nbsp;→&nbsp;{s - saved:.2f} |")
         s -= saved
     t = L["total"]
-    out.append(f"| **Total** | {t['before_s']:.2f}&nbsp;→&nbsp;**{t['after_s']:.2f}&nbsp;s**, {nb(t['before'])}&nbsp;→&nbsp;**{nb(t['after'])}** | | | **{t['before_s']:.2f}&nbsp;→&nbsp;{t['after_s']:.2f}** |")
+    out.append(f"| **Total** | {nb(t['before'])}&nbsp;→&nbsp;**{nb(t['after'])}** | | | **{t['before_s']:.2f}&nbsp;→&nbsp;{t['after_s']:.2f}** |")
     return "\n".join(out)
 
 

@@ -119,12 +119,12 @@
     "after_s": 1.95,
     "before_link_text": "Wan 2.1 VAE",
     "loaded": [
-     "FP32 weights and activations",
-     "FP16 weights and activations (weights converted once at load)"
+     "FP32",
+     "FP16"
     ],
     "math": [
-     "TF32 \u2192 FP32",
-     "FP16 \u2192 FP32"
+     "TF32",
+     "FP16"
     ]
    },
    {
@@ -147,12 +147,12 @@
     "after": "FP8 rowwise via torch._scaled_mm",
     "after_s": 1.47,
     "loaded": [
-     "BF16 weights and activations",
-     "FP8 weights (converted once at load); BF16 activations, converted to FP8 each call"
+     "BF16",
+     "FP8 weights, BF16 activations"
     ],
     "math": [
-     "BF16 \u2192 FP32",
-     "FP8 \u2192 FP32"
+     "BF16",
+     "FP8"
     ]
    },
    {
@@ -163,18 +163,18 @@
     "after_link_text": "SageAttention 2.2",
     "after_s": 1.04,
     "loaded": [
-     "Q, K, V in BF16",
-     "Q, K, V in BF16; converted each call to INT8 (Q, K) and FP8 (V)"
+     "BF16",
+     "BF16"
     ],
     "math": [
-     "QK\u1d40 and PV: BF16 \u2192 FP32",
-     "QK\u1d40: INT8 \u2192 INT32; PV: FP8 \u2192 FP16, added into FP32 every 64 keys"
+     "BF16",
+     "INT8 QK\u1d40, FP8 PV"
     ]
    },
    {
     "step": "Kernel fusion",
     "before": "one kernel per operation",
-    "after": "fused kernels for norm, RoPE, residual and the per-call FP8 conversion",
+    "after": "fused norm, RoPE, residual and FP8 conversion",
     "after_s": 0.98,
     "loaded": [
      "unchanged",

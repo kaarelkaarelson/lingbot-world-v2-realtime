@@ -110,18 +110,18 @@ in total however many streams share it.
 
 ## Optimizations
 
-The model is unchanged: same checkpoint, sampler, decoder, 4 steps, 4-latent chunks and 18-frame KV window. Each row is one change: precision changes first, then the rest, each by saving; top line before, bold line after. A chunk is 16 frames, one second of video. The steps were measured in a different order (host syncs, decoder, compiler, matmuls, attention, fusion), so the s/chunk values between the first and last row chain each step's measured saving and are estimates; FP8 in particular only pays under the compiler. The residual stream, norms and softmax stay FP32 throughout.
+The model is unchanged: same checkpoint, sampler, decoder, 4 steps, 4-latent chunks and 18-frame KV window. Each row is one change, before → **after**: precision changes first, then the rest, each by saving. A chunk is 16 frames, one second of video. The steps were measured in a different order (host syncs, decoder, compiler, matmuls, attention, fusion), so the s/chunk values between the first and last row chain each step's measured saving and are estimates; FP8 in particular only pays under the compiler. Tensor cores accumulate in FP32, except in SageAttention: QKᵀ in INT32, PV in FP16 added into FP32 every 64 keys. Weights are converted once at load; activations and Q/K/V are converted on every call, fused into neighbouring kernels. The residual stream, norms and softmax stay FP32 throughout.
 
 <!-- table:ladder -->
-| Step | Change | Stored in GPU memory | Tensor-core math: inputs → accumulator | s/chunk |
+| Step | Change | Stored as | Computed in | s/chunk |
 |---|---|---|---|---|
-| Decoder | [Wan 2.1 VAE](https://arxiv.org/abs/2503.20314) in fp32<br>**fp16 with [sub-pixel](https://arxiv.org/abs/1609.05158) upsampling** | FP32 weights and activations<br>**FP16 weights and activations (weights converted once at load)** | TF32 → FP32<br>**FP16 → FP32** | 2.68&nbsp;→&nbsp;2.06 |
-| Attention | FlashAttention-2<br>**[SageAttention 2.2](https://arxiv.org/abs/2505.21136)** | Q, K, V in BF16<br>**Q, K, V in BF16; converted each call to INT8 (Q, K) and FP8 (V)** | QKᵀ and PV: BF16 → FP32<br>**QKᵀ: INT8 → INT32; PV: FP8 → FP16, added into FP32 every 64 keys** | 2.06&nbsp;→&nbsp;1.63 |
-| Matmuls | bf16 linears<br>**FP8 rowwise via torch._scaled_mm** | BF16 weights and activations<br>**FP8 weights (converted once at load); BF16 activations, converted to FP8 each call** | BF16 → FP32<br>**FP8 → FP32** | 1.63&nbsp;→&nbsp;1.42 |
-| Compiler | PyTorch eager, 13 graphs<br>**one compiled graph** | unchanged | unchanged | 1.42&nbsp;→&nbsp;1.15 |
-| Host&nbsp;syncs | CPU↔GPU sync on every layer<br>**bookkeeping on the GPU** | unchanged | unchanged | 1.15&nbsp;→&nbsp;1.04 |
-| Kernel&nbsp;fusion | one kernel per operation<br>**fused kernels for norm, RoPE, residual and the per-call FP8 conversion** | unchanged | unchanged | 1.04&nbsp;→&nbsp;0.98 |
-| **Total** | 2.68&nbsp;→&nbsp;**0.98&nbsp;s**, 6.0&nbsp;FPS&nbsp;→&nbsp;**16.1&nbsp;FPS** | | | **2.68&nbsp;→&nbsp;0.98** |
+| Decoder | [Wan 2.1 VAE](https://arxiv.org/abs/2503.20314) in fp32 → **fp16 with [sub-pixel](https://arxiv.org/abs/1609.05158) upsampling** | FP32 → **FP16** | TF32 → **FP16** | 2.68&nbsp;→&nbsp;2.06 |
+| Attention | FlashAttention-2 → **[SageAttention 2.2](https://arxiv.org/abs/2505.21136)** | BF16 | BF16 → **INT8 QKᵀ, FP8 PV** | 2.06&nbsp;→&nbsp;1.63 |
+| Matmuls | bf16 linears → **FP8 rowwise via torch._scaled_mm** | BF16 → **FP8 weights, BF16 activations** | BF16 → **FP8** | 1.63&nbsp;→&nbsp;1.42 |
+| Compiler | PyTorch eager, 13 graphs → **one compiled graph** | unchanged | unchanged | 1.42&nbsp;→&nbsp;1.15 |
+| Host&nbsp;syncs | CPU↔GPU sync on every layer → **bookkeeping on the GPU** | unchanged | unchanged | 1.15&nbsp;→&nbsp;1.04 |
+| Kernel&nbsp;fusion | one kernel per operation → **fused norm, RoPE, residual and FP8 conversion** | unchanged | unchanged | 1.04&nbsp;→&nbsp;0.98 |
+| **Total** | 6.0&nbsp;FPS&nbsp;→&nbsp;**16.1&nbsp;FPS** | | | **2.68&nbsp;→&nbsp;0.98** |
 <!-- /table:ladder -->
 
 Per chunk, against the paper's code (profiler traces in `OPTIMIZATIONS.md` §13, §17; host syncs counted over three chunks):
