@@ -37,6 +37,9 @@ def _early_setup(argv):
     apply_preset(preset)
     if "--bench" in argv:
         os.environ.setdefault("LINGBOT_BENCH_TIMING", "1")
+    if "--bench_e2e" in argv:  # per-chunk decode on a side stream, timed with CUDA events (lingbot/benchmark.py)
+        for k in ("LINGBOT_BENCH_E2E", "LINGBOT_VAE_STREAM", "LINGBOT_DECODE_FIRST"):
+            os.environ.setdefault(k, "1")
     if "LOCAL_RANK" in os.environ and torch.cuda.is_available():
         torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
     return preset
@@ -63,6 +66,10 @@ def _parse_args():
                    help="fast: our stack (default); exact: fast with the paper's time-embedding MLP; "
                         "stock: the paper's code in reference/")
     p.add_argument("--bench", action="store_true", help="Print per-chunk time and the as-played FPS at the end.")
+    p.add_argument("--bench_e2e", action="store_true",
+                   help="End-to-end throughput and first-frame latency from frame-ready times: one warm-up rollout, "
+                        "then --trials timed rollouts (see lingbot/benchmark.py).")
+    p.add_argument("--trials", type=int, default=3, help="Timed rollouts for --bench_e2e.")
     p.add_argument("--task", default=MODEL["task"], choices=list(WAN_CONFIGS.keys()))
     p.add_argument("--size", default="480*832", choices=list(SIZE_CONFIGS.keys()),
                    help="Area (width*height); the aspect ratio follows the input image.")
@@ -90,6 +97,7 @@ def _parse_args():
     args = p.parse_args()
 
     assert args.task in WAN_CONFIGS, f"unsupported task: {args.task}"
+    assert not (args.bench and args.bench_e2e), "--bench syncs every chunk, which would distort --bench_e2e; pick one"
     assert args.size in SUPPORTED_SIZES[args.task], \
         f"unsupported size {args.size} for {args.task}; supported: {', '.join(SUPPORTED_SIZES[args.task])}"
     args.prompt = args.prompt or _EXAMPLE["prompt"]
@@ -136,6 +144,9 @@ def _time_reference(pipe, passes_per_chunk):
 
 
 def build_pipeline(args, cfg, rank, device):
+    if PRESET == "stock" and args.bench_e2e:
+        raise SystemExit("--bench_e2e needs per-chunk decoding; the paper's code decodes the whole clip at the end. "
+                         "Use --bench for the stock preset.")
     if PRESET == "stock":
         import wan as paper
         pipe = paper.WanI2VCausal(
@@ -201,10 +212,14 @@ def main():
     img = Image.open(args.image).convert("RGB")
     pipe = build_pipeline(args, cfg, rank, device)
     logging.info("Generating video ...")
-    video = pipe.generate(args.prompt, img, action_path=args.action_path, chunk_size=args.chunk_size,
-                          max_area=MAX_AREA_CONFIGS[args.size], frame_num=args.frame_num, shift=args.sample_shift,
-                          seed=args.base_seed, offload_model=args.offload_model,
-                          max_attention_size=args.max_attention_size)
+    ready = []
+    for rollout in range(1 + args.trials if args.bench_e2e else 1):  # with --bench_e2e, rollout 0 is the warm-up
+        video = pipe.generate(args.prompt, img, action_path=args.action_path, chunk_size=args.chunk_size,
+                              max_area=MAX_AREA_CONFIGS[args.size], frame_num=args.frame_num, shift=args.sample_shift,
+                              seed=args.base_seed, offload_model=args.offload_model,
+                              max_attention_size=args.max_attention_size)
+        if args.bench_e2e and rollout > 0:
+            ready.append(pipe.bench_ready_ms)
 
     if rank == 0:
         os.makedirs(args.save_dir, exist_ok=True)
@@ -217,6 +232,11 @@ def main():
                    value_range=(-1, 1))
         if args.bench:
             _print_bench_summary(pipe, args, cfg)
+        if args.bench_e2e:
+            from lingbot.benchmark import format_lines, summarize
+            h, w = video.shape[-2:]
+            per, med = summarize(ready, args.chunk_size * cfg.vae_stride[0], h, w)
+            print("\n".join(format_lines(per, med, PRESET, world_size, h, w)))
 
     torch.cuda.synchronize()
     if dist.is_initialized():

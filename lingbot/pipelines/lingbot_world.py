@@ -278,6 +278,13 @@ class LingBotWorldPipeline:
                  max_sequence_length=512, max_attention_size=None):
         """Returns the video as [C, F, H, W] in [-1, 1] on rank 0 (None elsewhere)."""
         batch_size = 1
+        # LINGBOT_BENCH_E2E=1 (lingbot.benchmark): CUDA events at the start and when each chunk's frames
+        # are decoded, read once at the end; nothing synchronizes inside the loop.
+        e2e = os.environ.get("LINGBOT_BENCH_E2E") == "1"
+        if e2e:
+            e2e_start = torch.cuda.Event(enable_timing=True)
+            e2e_start.record(torch.cuda.current_stream(self.device))
+            e2e_ready = []
         assert action_path is not None, "action_path is required"
         c2ws = np.load(os.path.join(action_path, "poses.npy"))  # opencv coordinate
         frame_num = ((frame_num - 1) // 4) * 4 + 1
@@ -397,6 +404,8 @@ class LingBotWorldPipeline:
                 assert vae_stream_on, "frame_sink needs LINGBOT_VAE_STREAM=1"
                 chunk_t0 = []
             bench_timing = os.environ.get("LINGBOT_BENCH_TIMING") == "1"
+            assert not e2e or (vae_stream_on and decode_first and not bench_timing), \
+                "LINGBOT_BENCH_E2E needs per-chunk decoding (LINGBOT_VAE_STREAM=1, LINGBOT_DECODE_FIRST=1) and no per-chunk syncs"
             if bench_timing:
                 torch.cuda.synchronize(self.device)
                 t_loop0 = t_prev = time.perf_counter()
@@ -482,6 +491,9 @@ class LingBotWorldPipeline:
                                 else:
                                     dec_frames.append(fr)
                                 off += fr.shape[1]
+                            if e2e:
+                                e2e_ready.append(torch.cuda.Event(enable_timing=True))
+                                e2e_ready[-1].record(vae_stream)
                 elif vae_stream_on:
                     dec_pending = x0
                 _rf = torch.profiler.record_function("cache_write"); _rf.__enter__()
@@ -539,6 +551,9 @@ class LingBotWorldPipeline:
                     logging.info(f"BENCH vae_decode_s={time.perf_counter() - t_dec0:.3f}")
                     self.bench_vae_decode_s = time.perf_counter() - t_dec0
 
+        if e2e:
+            torch.cuda.synchronize(self.device)
+            self.bench_ready_ms = [e2e_start.elapsed_time(e) for e in e2e_ready]
         if offload_model:
             gc.collect()
             torch.cuda.synchronize(self.device)
