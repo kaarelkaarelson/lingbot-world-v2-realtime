@@ -56,8 +56,8 @@ def md_ladder():
     for r in L["rows"]:
         rows.append((prev - r["after_s"], r))
         prev = r["after_s"]
-    rows.sort(key=lambda x: (x[1]["loaded"][0] == "unchanged", -x[0]))
-    out = ["| Step | Change | Stored as | Computed in | s/chunk |",
+    rows.sort(key=lambda x: (x[1]["loaded"][0] == "–", -x[0]))
+    out = ["| Step | Change | Stored in memory | Computed in | s/chunk |",
            "|---|---|---|---|---|"]
     s = L["start"]
     for saved, r in rows:

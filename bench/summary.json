@@ -101,12 +101,12 @@
     "after": "bookkeeping on the GPU",
     "after_s": 2.57,
     "loaded": [
-     "unchanged",
-     "unchanged"
+     "\u2013",
+     "\u2013"
     ],
     "math": [
-     "unchanged",
-     "unchanged"
+     "\u2013",
+     "\u2013"
     ]
    },
    {
@@ -133,12 +133,12 @@
     "after": "one compiled graph",
     "after_s": 1.68,
     "loaded": [
-     "unchanged",
-     "unchanged"
+     "\u2013",
+     "\u2013"
     ],
     "math": [
-     "unchanged",
-     "unchanged"
+     "\u2013",
+     "\u2013"
     ]
    },
    {
@@ -177,12 +177,12 @@
     "after": "fused norm, RoPE, residual and FP8 conversion",
     "after_s": 0.98,
     "loaded": [
-     "unchanged",
-     "unchanged"
+     "\u2013",
+     "\u2013"
     ],
     "math": [
-     "unchanged",
-     "unchanged"
+     "\u2013",
+     "\u2013"
     ]
    }
   ],
@@ -280,7 +280,7 @@
     "after": "0.0381"
    },
    {
-    "metric": "DiT latents, exact preset",
+    "metric": "DiT latents, code changes only (BF16, FlashAttention-2)",
     "before": "reference",
     "after": "bit-identical"
    }

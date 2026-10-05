@@ -110,17 +110,17 @@ in total however many streams share it.
 
 ## Optimizations
 
-The model is unchanged: same checkpoint, sampler, decoder, 4 steps, 4-latent chunks and 18-frame KV window. Each row is one change, before → **after**: precision changes first, then the rest, each by saving. A chunk is 16 frames, one second of video. The steps were measured in a different order (host syncs, decoder, compiler, matmuls, attention, fusion), so the s/chunk values between the first and last row chain each step's measured saving and are estimates; FP8 in particular only pays under the compiler. Tensor cores accumulate in FP32, except in SageAttention: QKᵀ in INT32, PV in FP16 added into FP32 every 64 keys. Weights are converted once at load; activations and Q/K/V are converted on every call, fused into neighbouring kernels. The residual stream, norms and softmax stay FP32 throughout.
+Each row changes how the same model runs, before → **after**; the s/chunk values between the first and last row are estimates.
 
 <!-- table:ladder -->
-| Step | Change | Stored as | Computed in | s/chunk |
+| Step | Change | Stored in memory | Computed in | s/chunk |
 |---|---|---|---|---|
 | Decoder | [Wan 2.1 VAE](https://arxiv.org/abs/2503.20314) in fp32 → **fp16 with [sub-pixel](https://arxiv.org/abs/1609.05158) upsampling** | FP32 → **FP16** | TF32 → **FP16** | 2.68&nbsp;→&nbsp;2.06 |
 | Attention | FlashAttention-2 → **[SageAttention 2.2](https://arxiv.org/abs/2505.21136)** | BF16 | BF16 → **INT8 QKᵀ, FP8 PV** | 2.06&nbsp;→&nbsp;1.63 |
 | Matmuls | bf16 linears → **FP8 rowwise via torch._scaled_mm** | BF16 → **FP8 weights, BF16 activations** | BF16 → **FP8** | 1.63&nbsp;→&nbsp;1.42 |
-| Compiler | PyTorch eager, 13 graphs → **one compiled graph** | unchanged | unchanged | 1.42&nbsp;→&nbsp;1.15 |
-| Host&nbsp;syncs | CPU↔GPU sync on every layer → **bookkeeping on the GPU** | unchanged | unchanged | 1.15&nbsp;→&nbsp;1.04 |
-| Kernel&nbsp;fusion | one kernel per operation → **fused norm, RoPE, residual and FP8 conversion** | unchanged | unchanged | 1.04&nbsp;→&nbsp;0.98 |
+| Compiler | PyTorch eager, 13 graphs → **one compiled graph** | – | – | 1.42&nbsp;→&nbsp;1.15 |
+| Host&nbsp;syncs | CPU↔GPU sync on every layer → **bookkeeping on the GPU** | – | – | 1.15&nbsp;→&nbsp;1.04 |
+| Kernel&nbsp;fusion | one kernel per operation → **fused norm, RoPE, residual and FP8 conversion** | – | – | 1.04&nbsp;→&nbsp;0.98 |
 | **Total** | 6.0&nbsp;FPS&nbsp;→&nbsp;**16.1&nbsp;FPS** | | | **2.68&nbsp;→&nbsp;0.98** |
 <!-- /table:ladder -->
 
@@ -149,9 +149,7 @@ What's left runs in four library kernels, three of them near the RTX 5090's peak
 
 \* Limited by its softmax bookkeeping, not tensor throughput (§19–20).
 
-The output is lossless. Four of the six changes are bit-identical. FP8 and SageAttention were checked on identical inputs: SageAttention's first chunk matches FlashAttention-2 at cosine 0.999969.
-
-PSNR, SSIM and LPIPS compare the same latents decoded by both decoders. The other metrics score each clip on its own (first and last second), because the model is autoregressive: a small numeric change gives a different but equally coherent video, so frame-by-frame comparison late in a clip measures scene drift, not damage. Data: `quality_summary.tsv` (experiment 15).
+The table decodes the same latents two ways: the reference is the paper's fp32 decoder, "Ours" is our fp16 decoder. For example, PSNR 43.6 dB means a pixel differs from the reference by about 1.7 out of 255 on average, about the noise an mp4 encode adds. PSNR, SSIM and LPIPS compare the two frame by frame; the other metrics score each clip on its own. The last row is the DiT: its code changes give bit-identical latents when run in BF16 with FlashAttention-2. FP8 and SageAttention change the numbers slightly and are not in this table: SageAttention's first chunk matches FlashAttention-2 at cosine 0.999969, and FP8 with SageAttention moves first-chunk LPIPS by 0.005.
 
 <!-- table:quality -->
 | | Original paper's code | Ours |
@@ -165,7 +163,7 @@ PSNR, SSIM and LPIPS compare the same latents decoded by both decoders. The othe
 | Colourfulness, first / last s | 41.9 / 50.2 | **41.9 / 50.2** |
 | Brightness, first / last s | 0.692 / 0.384 | **0.692 / 0.384** |
 | Flicker | 0.0381 | **0.0381** |
-| DiT latents, exact preset | reference | **bit-identical** |
+| DiT latents, code changes only (BF16, FlashAttention-2) | reference | **bit-identical** |
 <!-- /table:quality -->
 
 `OPTIMIZATIONS.md` is the full log. It has every experiment with its measurement, the profiles, and the levers that were tried and rejected.
@@ -175,12 +173,12 @@ PSNR, SSIM and LPIPS compare the same latents decoded by both decoders. The othe
 | `--preset` | What runs | s / chunk | FPS |
 |---|---|---|---|
 | `stock` | the original paper's code | <!-- n:s_paper -->2.68<!-- /n --> | <!-- n:fps_paper -->6.0<!-- /n --> |
-| `exact` | ours, with the DiT latents bit identical to the paper's bf16 model | <!-- n:s_exact -->1.07<!-- /n --> | <!-- n:fps_exact -->14.8<!-- /n --> |
+| `exact` | `fast` with the time-embedding MLP computed as in the paper; still FP8 and SageAttention, so not bit identical | <!-- n:s_exact -->1.07<!-- /n --> | <!-- n:fps_exact -->14.8<!-- /n --> |
 | **`fast`** (default) | ours, FP8 linears, SageAttention, compiled and fused DiT, fp16 decoder | **<!-- n:s_ours -->0.98<!-- /n -->** | **<!-- n:fps_ours -->16.1<!-- /n -->** |
 
 The same seed does not give the same video twice on `fast`. Two identical runs differ by about 9.6
 levels out of 255 on average, because FP8 and the attention kernel are not bit reproducible and the
-difference compounds as the clip goes on. `exact` is bit identical run to run and across machines.
+difference compounds as the clip goes on. `exact` runs the same kernels, so it is not bit reproducible either. Latents bit identical to the paper's need FP8, SageAttention and the compiler off: `LINGBOT_FP8=0 LINGBOT_ATTN= LINGBOT_TORCH_COMPILE= LINGBOT_INDUCTOR_TUNE= lingbot clip --preset exact`.
 
 ## Tests
 
