@@ -90,6 +90,13 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    measurable; the host-memory path is the bottleneck.
 7. **Software was not the problem.** Forum reports of 5090 multi-GPU failures were old NCCL versions;
    PyTorch 2.8 ships NCCL 2.27.3, which worked without changes.
+8. **Each exchange is mostly fixed cost, so message count matters more than bytes.** A nearly empty
+   message takes ~100-120 µs; a 9.3 MB bf16 exchange takes 160-185 µs. Sending q, k, v in 8 bits as
+   separate messages is *slower* than bf16 (1,144 vs 968 µs per layer), because the scales add a
+   message. Packing q|k|v and their scales into one 8-bit message per layer cuts it to 713 µs: 145 → 107
+   ms per chunk (-26%). Packing in bf16 alone saves little (922 µs). `tools/linkbench/quant_a2a.py`,
+   data in `bench/2x_rtx5090_link/quant_a2a.tsv`. Untested: numerics inside SageAttention (its K
+   smoothing needs one mean shared by both halves, e.g. the previous step's).
 
 ## What it means for splitting LingBot-World 2.0 across the two cards
 
