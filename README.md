@@ -29,9 +29,9 @@ Measured with `lingbot bench` on a stock RunPod RTX 5090 (2026-09-17).
 
 The model generates video by predicting one chunk of 16 frames at a time. For each chunk:
 
-1. **Take the inputs:** 4 camera poses for this chunk, one per 4 frames. The start image and text prompt are given once per rollout: the prompt is used in every chunk, the start image (encoded into a latent) only in the first; after that it lives on in memory.
-2. **Start from noise:** 16 × 4 × 58 × 104 random numbers, the size of 4 compressed *latent* frames (one per 4 video frames).
-3. **Denoise 4 times.** Each step is one pass of the 1.3B transformer. Its inputs are the noisy chunk, the noise level (100%, 94%, 83%, 63%), the camera poses as a 3D ray per pixel, memory (by default the first 6 and the latest 8 latent frames made so far), the prompt and, in the first chunk, the start image. It returns a guess of the clean chunk; after steps 1 to 3 noise is mixed back in at the next, lower level, and the guess from step 4 is the result.
+1. **Take the inputs:** 4 camera poses (one per 4 frames), the text prompt and, in the first chunk only, the start image.
+2. **Start from noise:** random numbers the size of 4 compressed *latent* frames (16 × 4 × 58 × 104), one per 4 video frames.
+3. **Denoise 4 times:** each step is one pass of the 1.3B transformer that looks at the noisy chunk, the inputs and memory, and guesses the clean chunk, starting from less noise each time (100% → 94% → 83% → 63%).
 4. **Save to memory:** one more pass over the clean chunk at 0% noise, so later chunks can look back at it.
 5. **Decode:** the VAE decoder turns the 4 latent frames into 16 RGB frames.
 
