@@ -34,6 +34,8 @@ def test_median_of_trials_and_mpps():
     assert med["mpps"] == pytest.approx(16 / 0.98 * 464 * 832 / 1e6)
     lines = format_lines(per, med, "fast", 2, 464, 832)
     assert lines[-1].startswith("BENCH_E2E preset=fast gpus=2 832x464, median of 3 trials: 16.33 FPS")
+    one = format_lines(per[:1], per[0] | {"mpps": 1.0}, "fast", 1, 464, 832, cold=True)[-1]
+    assert "1 rollout" in one and one.endswith("(cold: includes compile)")
 
 
 def test_too_few_chunks_rejected():

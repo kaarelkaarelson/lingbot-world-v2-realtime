@@ -67,9 +67,11 @@ def _parse_args():
                         "stock: the paper's code in reference/")
     p.add_argument("--bench", action="store_true", help="Print per-chunk time and the as-played FPS at the end.")
     p.add_argument("--bench_e2e", action="store_true",
-                   help="End-to-end throughput and first-frame latency from frame-ready times: one warm-up rollout, "
-                        "then --trials timed rollouts (see lingbot/benchmark.py).")
-    p.add_argument("--trials", type=int, default=1, help="Timed rollouts for --bench_e2e (after one warm-up rollout).")
+                   help="End-to-end throughput and first-frame latency from frame-ready times (lingbot/benchmark.py).")
+    p.add_argument("--trials", type=int, default=1, help="Timed rollouts for --bench_e2e (default 1; more is optional).")
+    p.add_argument("--warmup", type=int, default=0,
+                   help="Untimed rollouts before the timed ones (default 0). Throughput is unaffected either way (steady "
+                        "chunks come after the compiles); with 0, first-frame latency includes compilation (reported as cold).")
     p.add_argument("--task", default=MODEL["task"], choices=list(WAN_CONFIGS.keys()))
     p.add_argument("--size", default="480*832", choices=list(SIZE_CONFIGS.keys()),
                    help="Area (width*height); the aspect ratio follows the input image.")
@@ -219,12 +221,12 @@ def main():
     pipe = build_pipeline(args, cfg, rank, device)
     logging.info("Generating video ...")
     ready = []
-    for rollout in range(1 + args.trials if args.bench_e2e else 1):  # with --bench_e2e, rollout 0 is the warm-up
+    for rollout in range(args.warmup + args.trials if args.bench_e2e else 1):  # the first --warmup rollouts are untimed
         video = pipe.generate(args.prompt, img, action_path=args.action_path, chunk_size=args.chunk_size,
                               max_area=MAX_AREA_CONFIGS[args.size], frame_num=args.frame_num, shift=args.sample_shift,
                               seed=args.base_seed, offload_model=args.offload_model,
                               max_attention_size=args.max_attention_size)
-        if args.bench_e2e and rollout > 0:
+        if args.bench_e2e and rollout >= args.warmup:
             ready.append(pipe.bench_ready_ms)
 
     if rank == 0:
@@ -243,7 +245,7 @@ def main():
             h, w = video.shape[-2:]
             per, med = summarize(ready, args.chunk_size * cfg.vae_stride[0], h, w)
             gpus = world_size + (args.decoder_gpu is not None and args.decoder_gpu != device)
-            print("\n".join(format_lines(per, med, PRESET, gpus, h, w)))
+            print("\n".join(format_lines(per, med, PRESET, gpus, h, w, cold=args.warmup == 0)))
 
     torch.cuda.synchronize()
     if dist.is_initialized():

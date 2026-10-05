@@ -14,8 +14,9 @@ chunk's frames are decoded; nothing synchronizes inside the loop.
   (index 5 on: the KV window is full and every graph is compiled). Also p95 and p99 of that interval.
 - **First-frame latency:** start of generation → first chunk's frames decoded.
 - **MPPS:** throughput × width × height, for comparison with models at other resolutions.
-- One warm-up rollout is discarded; the headline is the median over `--trials` rollouts (default 1;
-  use 3 when the result is going into a report).
+- One rollout per experiment by default. Optional, suggested for numbers that go into a report:
+  `--trials 3` (headline = median of the three) and `--warmup 1` (an untimed rollout first, so the
+  first-frame latency is warm; without it the latency includes compilation and is marked cold).
 
 It only looks at when frames come out, so it applies unchanged to any multi-GPU layout, including
 ones where the DiT and the decoder run at the same time on different cards.
@@ -37,7 +38,7 @@ percentiles. Run it once per configuration that can play.
 
 ## Commands
 
-    lingbot clip --frame_num 157 --bench_e2e --trials 1                  # ours, one GPU
+    lingbot clip --frame_num 157 --bench_e2e                             # ours, one GPU
     lingbot clip --frame_num 157 --bench                                  # same, the per-chunk method
     lingbot clip --frame_num 157 --bench --preset stock                   # the paper's code
     torchrun --nproc_per_node=2 -m lingbot.generate --preset stock --bench \
@@ -53,6 +54,7 @@ to about 0.3%.
   two-GPU pod, never on a different pod.
 - Run `tools/podcheck.sh` before each session (clock, throttle reasons, PCIe link) and record it.
 - Same driver, CUDA, PyTorch and kernel versions across every configuration.
-- Report the median of trials with p95; one run is not a result.
+- One rollout is enough to move fast: steady chunk times vary by about 0.5%. Optional, suggested for
+  published numbers: 3 trials and report the median with p95.
 - State what is included: our throughput includes the VAE decode; T5 is cached and the start image
   is encoded once per rollout.

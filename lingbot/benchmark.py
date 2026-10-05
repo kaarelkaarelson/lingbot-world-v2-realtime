@@ -8,8 +8,9 @@ chunk's frames are decoded; nothing synchronizes inside the loop. From those tim
   first frame  generation start -> first chunk's frames ready, as Self-Forcing reports latency
   MPPS         megapixels per second, for comparison across resolutions
 
-One warm-up rollout is discarded; each later rollout is a trial, and the headline is the median of
-the per-trial medians. The same numbers apply to one GPU and to any multi-GPU layout, since they only
+By default one rollout is measured (`--trials 1`, no warm-up); more trials and a warm-up rollout are
+optional. With several trials the headline is the median of the per-trial values. Without a warm-up
+the first-frame latency includes compilation and is reported as cold. The same numbers apply to one GPU and to any multi-GPU layout, since they only
 look at when frames come out.
 """
 import statistics
@@ -44,11 +45,12 @@ def summarize(trials, frames_per_chunk, height, width):
     return per, med
 
 
-def format_lines(per, med, preset, gpus, height, width):
+def format_lines(per, med, preset, gpus, height, width, cold=False):
     lines = [f"BENCH_E2E trial {i + 1}: {p['fps']:.2f} FPS (interval p50 {p['interval_p50_ms']:.1f} ms, "
              f"p95 {p['interval_p95_ms']:.1f}, p99 {p['interval_p99_ms']:.1f}; {p['steady_chunks']} steady chunks), "
              f"first frame {p['first_frame_ms']:.0f} ms" for i, p in enumerate(per)]
-    lines.append(f"BENCH_E2E preset={preset} gpus={gpus} {width}x{height}, median of {len(per)} trials: "
+    what = "1 rollout" if len(per) == 1 else f"median of {len(per)} trials"
+    lines.append(f"BENCH_E2E preset={preset} gpus={gpus} {width}x{height}, {what}: "
                  f"{med['fps']:.2f} FPS, {med['mpps']:.2f} MPPS, interval p95 {med['interval_p95_ms']:.1f} ms, "
-                 f"first frame {med['first_frame_ms']:.0f} ms")
+                 f"first frame {med['first_frame_ms']:.0f} ms" + (" (cold: includes compile)" if cold else ""))
     return lines
