@@ -257,7 +257,7 @@ class LiveSource:
 
 
 def build_pipe(ckpt_dir: str, assets_dir: str | None, preset: str = "fast", local_attn_size: int = 18,
-               sink_size: int = 6, device_id: int = 0):
+               sink_size: int = 6, device_id: int = 0, decoder_device_id: int | None = None):
     """lingbot.generate's pipeline (single process, rank 0) with the preset's env plus PLAY_ENV, applied
     before the pipeline is imported (the attention backend is chosen at import time)."""
     from ..presets import apply_preset
@@ -268,7 +268,8 @@ def build_pipe(ckpt_dir: str, assets_dir: str | None, preset: str = "fast", loca
     from wan.configs import WAN_CONFIGS
     cfg = WAN_CONFIGS[MODELS[DEFAULT_MODEL]["task"]]
     return pipeline_class(DEFAULT_MODEL)(config=cfg, checkpoint_dir=ckpt_dir, device_id=device_id, rank=0,
-                                         local_attn_size=local_attn_size, sink_size=sink_size, assets_dir=assets_dir)
+                                         local_attn_size=local_attn_size, sink_size=sink_size, assets_dir=assets_dir,
+                                         decoder_device_id=decoder_device_id)
 
 
 class DryPipe:

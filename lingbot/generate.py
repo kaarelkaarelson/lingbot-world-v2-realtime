@@ -81,6 +81,8 @@ def _parse_args():
     p.add_argument("--offload_model", type=str2bool, default=False,
                    help="Move the DiT to the CPU after generation (and empty the cache between forwards).")
     p.add_argument("--t5_cpu", action="store_true", help="Run T5 on the CPU.")
+    p.add_argument("--decoder_gpu", type=int, default=None,
+                   help="Run the decoder on this GPU, overlapped with the DiT on GPU 0 (two-GPU layout B1).")
     p.add_argument("--ulysses_size", type=int, default=1, help="Sequence parallel degree (stock preset only, for now).")
     p.add_argument("--dit_fsdp", action="store_true", help="FSDP for the DiT (stock preset only).")
     p.add_argument("--t5_fsdp", action="store_true", help="FSDP for T5 (stock preset only).")
@@ -144,6 +146,8 @@ def _time_reference(pipe, passes_per_chunk):
 
 
 def build_pipeline(args, cfg, rank, device):
+    if PRESET == "stock" and args.decoder_gpu is not None:
+        raise SystemExit("--decoder_gpu runs our pipeline only; the paper's code decodes on the DiT's GPU")
     if PRESET == "stock" and args.bench_e2e:
         raise SystemExit("--bench_e2e needs per-chunk decoding; the paper's code decodes the whole clip at the end. "
                          "Use --bench for the stock preset.")
@@ -162,7 +166,8 @@ def build_pipeline(args, cfg, rank, device):
     from lingbot.registry import pipeline_class
     return pipeline_class(DEFAULT_MODEL)(
         config=cfg, checkpoint_dir=args.ckpt_dir, device_id=device, rank=rank, t5_cpu=args.t5_cpu,
-        local_attn_size=args.local_attn_size, sink_size=args.sink_size, assets_dir=args.assets_dir)
+        local_attn_size=args.local_attn_size, sink_size=args.sink_size, assets_dir=args.assets_dir,
+        decoder_device_id=args.decoder_gpu)
 
 
 def _print_bench_summary(pipe, args, cfg):
@@ -236,7 +241,8 @@ def main():
             from lingbot.benchmark import format_lines, summarize
             h, w = video.shape[-2:]
             per, med = summarize(ready, args.chunk_size * cfg.vae_stride[0], h, w)
-            print("\n".join(format_lines(per, med, PRESET, world_size, h, w)))
+            gpus = world_size + (args.decoder_gpu is not None and args.decoder_gpu != device)
+            print("\n".join(format_lines(per, med, PRESET, gpus, h, w)))
 
     torch.cuda.synchronize()
     if dist.is_initialized():

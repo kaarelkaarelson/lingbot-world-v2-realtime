@@ -160,8 +160,12 @@ class LingBotWorldPipeline:
     """
 
     def __init__(self, config, checkpoint_dir, device_id=0, rank=0, t5_cpu=False, pipe_dtype=torch.bfloat16,
-                 local_attn_size=-1, sink_size=0, assets_dir=None):
+                 local_attn_size=-1, sink_size=0, assets_dir=None, decoder_device_id=None):
         self.device = torch.device(f"cuda:{device_id}")
+        # decoder_device_id: run the decoder on another GPU, overlapped with the DiT (2X_RTX5090_LEARNINGS.md);
+        # each chunk's 4 clean latents (0.77 MB) cross over, nothing else does.
+        self.decoder_device = self.device if decoder_device_id is None else torch.device(f"cuda:{decoder_device_id}")
+        self.split_decoder = self.decoder_device != self.device
         self.config = config
         self.rank = rank
         self.t5_cpu = t5_cpu
@@ -194,7 +198,10 @@ class LingBotWorldPipeline:
                               dtype=torch.float, device=self.device)
         fused = os.environ.get("LINGBOT_VAE_FUSED", "1")
         mode = {"1": "max-autotune-no-cudagraphs", "eager": None}.get(fused, fused)
-        self.decoder = FusedDecoder(self.vae, compile_mode=mode)
+        dec_vae = self.vae if not self.split_decoder else Wan2_1_VAE(
+            vae_pth=_resolve_asset_path(config.vae_checkpoint, checkpoint_dir, assets_dir),
+            dtype=torch.float, device=self.decoder_device)
+        self.decoder = FusedDecoder(dec_vae, compile_mode=mode)
         logging.info(f"Fused decoder (compile={mode})")
 
         self.frame_sink = None
@@ -224,6 +231,11 @@ class LingBotWorldPipeline:
 
         self.scheduler = FlowUniPCMultistepScheduler(
             num_train_timesteps=self.num_train_timesteps, shift=1, use_dynamic_shifting=False)
+
+    def _to_decoder(self, x):
+        """Latents onto the decoder's GPU (a no-op on one GPU). Across GPUs PyTorch runs the copy on the
+        source GPU's current stream, after the work that produced x, with barriers on both sides."""
+        return x if not self.split_decoder else x.to(self.decoder_device, non_blocking=True)
 
     def _encode_prompts(self, prompts):
         """T5-encode ``prompts`` via the in-memory and on-disk caches; one context list per prompt."""
@@ -283,7 +295,7 @@ class LingBotWorldPipeline:
         e2e = os.environ.get("LINGBOT_BENCH_E2E") == "1"
         if e2e:
             e2e_start = torch.cuda.Event(enable_timing=True)
-            e2e_start.record(torch.cuda.current_stream(self.device))
+            e2e_start.record(torch.cuda.current_stream(self.decoder_device))  # same GPU as the ready events
             e2e_ready = []
         assert action_path is not None, "action_path is required"
         c2ws = np.load(os.path.join(action_path, "poses.npy"))  # opencv coordinate
@@ -396,7 +408,7 @@ class LingBotWorldPipeline:
             # final whole-clip decode is skipped.
             vae_stream_on = os.environ.get("LINGBOT_VAE_STREAM") == "1"
             if vae_stream_on:
-                vae_stream, dec_state, dec_pending, dec_frames = torch.cuda.Stream(device=self.device), None, None, []
+                vae_stream, dec_state, dec_pending, dec_frames = torch.cuda.Stream(device=self.decoder_device), None, None, []
             # LINGBOT_DECODE_FIRST=1: decode right after x0 on the side stream, overlapped with this
             # chunk's cache-write forward only, then the main stream waits before the next chunk.
             decode_first = os.environ.get("LINGBOT_DECODE_FIRST") == "1"
@@ -450,8 +462,9 @@ class LingBotWorldPipeline:
                     with torch.profiler.record_function("vae_stream_launch"), torch.no_grad():
                         vae_stream.wait_stream(torch.cuda.current_stream(self.device))
                         with torch.cuda.stream(vae_stream):
-                            dec_pending.record_stream(vae_stream)
-                            fr, dec_state = self.decoder.decode_step(dec_pending, dec_state)
+                            if not self.split_decoder:
+                                dec_pending.record_stream(vae_stream)
+                            fr, dec_state = self.decoder.decode_step(self._to_decoder(dec_pending), dec_state)
                             if self.frame_sink is not None:
                                 self.frame_sink(chunk_id - 1, fr, vae_stream, chunk_t0[chunk_id - 1])
                             else:
@@ -482,10 +495,12 @@ class LingBotWorldPipeline:
                     with torch.profiler.record_function("vae_decode_first"), torch.no_grad():
                         vae_stream.wait_stream(torch.cuda.current_stream(self.device))
                         with torch.cuda.stream(vae_stream):
-                            x0.record_stream(vae_stream)
+                            if not self.split_decoder:
+                                x0.record_stream(vae_stream)
+                            z = self._to_decoder(x0)
                             off = 0
-                            for li in range(x0.shape[1]):
-                                fr, dec_state = self.decoder.decode_step(x0[:, li:li + 1], dec_state)
+                            for li in range(z.shape[1]):
+                                fr, dec_state = self.decoder.decode_step(z[:, li:li + 1], dec_state)
                                 if self.frame_sink is not None:
                                     self.frame_sink(chunk_id, fr, vae_stream, chunk_t0[chunk_id], off)
                                 else:
@@ -500,8 +515,10 @@ class LingBotWorldPipeline:
                 kwargs['cam_first_call'] = False
                 self.model(x=[x0] * batch_size, t=sched['t_zero'], cross_attn_first_call=False, **kwargs)
                 _rf.__exit__(None, None, None)
-                if vae_stream_on and decode_first:
-                    torch.cuda.current_stream(self.device).wait_stream(vae_stream)  # decode done before the next chunk
+                if vae_stream_on and decode_first and not self.split_decoder:
+                    # one GPU: finish the decode before the next chunk instead of competing with it;
+                    # with the decoder on its own GPU there is nothing to compete with
+                    torch.cuda.current_stream(self.device).wait_stream(vae_stream)
                 if bench_timing:
                     with torch.profiler.record_function("bench_sync"):
                         torch.cuda.synchronize(self.device)
@@ -526,9 +543,10 @@ class LingBotWorldPipeline:
                 if os.environ.get("LINGBOT_VAE_WARM") == "1" and not vae_stream_on and not getattr(self, "_vae_warmed", False):
                     self._vae_warmed = True
                     with torch.no_grad():
-                        self.decoder.decode(pred_latent_chunks[:, :5])
+                        self.decoder.decode(self._to_decoder(pred_latent_chunks[:, :5]))
                 if bench_timing:
                     torch.cuda.synchronize(self.device)
+                    torch.cuda.synchronize(self.decoder_device)
                     t_dec0 = time.perf_counter()
                 with DecodeProfiler(enabled=not vae_stream_on) as dprof:
                     if vae_stream_on:
@@ -544,15 +562,15 @@ class LingBotWorldPipeline:
                             torch.cuda.current_stream(self.device).wait_stream(vae_stream)
                             videos = [torch.cat(dec_frames, 1)] if dec_frames else [None]
                     else:
-                        videos = [self.decoder.decode(pred_latent_chunks)]
+                        videos = [self.decoder.decode(self._to_decoder(pred_latent_chunks))]
                     dprof.finish(num_inference_chunk)
                 if bench_timing:
-                    torch.cuda.synchronize(self.device)
+                    torch.cuda.synchronize(self.decoder_device)
                     logging.info(f"BENCH vae_decode_s={time.perf_counter() - t_dec0:.3f}")
                     self.bench_vae_decode_s = time.perf_counter() - t_dec0
 
         if e2e:
-            torch.cuda.synchronize(self.device)
+            torch.cuda.synchronize(self.decoder_device)
             self.bench_ready_ms = [e2e_start.elapsed_time(e) for e in e2e_ready]
         if offload_model:
             gc.collect()

@@ -56,6 +56,7 @@ def _play_parser() -> argparse.ArgumentParser:
     p.add_argument("--frame_num", type=int, default=361, help="frames per rollout; the world restarts from the image after that (or on R)")
     p.add_argument("--chunk_size", type=int, default=4, help="latents per chunk (4 = 16 frames = 1 s of input per chunk)")
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--decoder_gpu", type=int, default=None, help="decode on this GPU, overlapped with the DiT on GPU 0")
     p.add_argument("--ckpt_dir", default=_R(CKPT_DIR))
     p.add_argument("--assets_dir", default=_R(ASSETS_DIR))
     p.add_argument("--input-mode", choices=["history", "hold"], default="history",
@@ -101,7 +102,7 @@ def cmd_play(argv: list[str]) -> int:
         img = Image.open(args.image).convert("RGB")
         width, height = output_size(*img.size)
         t0 = time.monotonic()
-        pipe = build_pipe(args.ckpt_dir, args.assets_dir, preset=args.preset)
+        pipe = build_pipe(args.ckpt_dir, args.assets_dir, preset=args.preset, decoder_device_id=args.decoder_gpu)
         logging.info("pipeline built in %.1f s", time.monotonic() - t0)
         src = LiveSource(pipe, img, args.action_path, args.prompt, frame_num=args.frame_num, chunk_size=args.chunk_size,
                          seed=args.seed, timing_tsv=args.timing_tsv, width=width, height=height, loop=True, control=control)

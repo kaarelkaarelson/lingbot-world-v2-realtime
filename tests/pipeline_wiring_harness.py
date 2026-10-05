@@ -67,7 +67,7 @@ def run(old_root=None):
         import lingbot.models.lingbot_world.transformer as M
         import lingbot.pipelines.lingbot_world as I
         pipe = object.__new__(I.LingBotWorldPipeline)
-        extra = dict(decoder=MockDecoder(log))
+        extra = dict(decoder=MockDecoder(log), decoder_device=torch.device("cpu"), split_decoder=False)
         cfg_mod = "wan.configs"
     M.attention = M.flash_attention = _sdpa
     from importlib import import_module
