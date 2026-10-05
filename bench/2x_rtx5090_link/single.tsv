@@ -1,0 +1,76 @@
+# torch 2.8.0+cu128 | peer access 0->1 False, 1->0 False
+test	size_MB	us	GB/s
+H2D gpu0	0.004	7.0	0.6
+D2H gpu0	0.004	5.8	0.7
+H2D gpu1	0.004	7.6	0.5
+H2D both GPUs at once (total)	0.004	50.0	0.2
+D2H+H2D gpu0 at once (total, duplex)	0.004	39.6	0.2
+copy_ gpu0->gpu1	0.004	24.7	0.2
+copy_ both directions at once (total)	0.004	86.9	0.1
+all_to_all by copy_ (busbw, 2-GPU)	0.004	99.0	0.0
+manual pinned staging gpu0->gpu1, 4 MB pieces	0.004	64.0	0.1
+H2D gpu0	0.064	6.3	10.7
+D2H gpu0	0.064	6.0	11.2
+H2D gpu1	0.064	6.7	10.0
+H2D both GPUs at once (total)	0.064	49.0	2.7
+D2H+H2D gpu0 at once (total, duplex)	0.064	38.8	3.5
+copy_ gpu0->gpu1	0.064	24.9	2.7
+copy_ both directions at once (total)	0.064	86.9	1.5
+all_to_all by copy_ (busbw, 2-GPU)	0.064	99.5	0.3
+manual pinned staging gpu0->gpu1, 4 MB pieces	0.064	63.5	1.1
+H2D gpu0	1	20.2	51.8
+D2H gpu0	1	19.0	55.3
+H2D gpu1	1	20.2	52.0
+H2D both GPUs at once (total)	1	49.4	42.5
+D2H+H2D gpu0 at once (total, duplex)	1	40.0	52.4
+copy_ gpu0->gpu1	1	49.1	21.3
+copy_ both directions at once (total)	1	93.1	22.5
+all_to_all by copy_ (busbw, 2-GPU)	1	106.3	4.9
+manual pinned staging gpu0->gpu1, 4 MB pieces	1	64.0	16.4
+H2D gpu0	4.6	87.7	55.0
+D2H gpu0	4.6	83.9	57.5
+H2D gpu1	4.6	87.3	55.3
+H2D both GPUs at once (total)	4.6	88.1	109.5
+D2H+H2D gpu0 at once (total, duplex)	4.6	98.9	97.6
+copy_ gpu0->gpu1	4.6	126.4	38.2
+copy_ both directions at once (total)	4.6	177.5	54.3
+all_to_all by copy_ (busbw, 2-GPU)	4.6	142.7	16.9
+manual pinned staging gpu0->gpu1, 4 MB pieces	4.6	131.3	36.7
+H2D gpu0	9.3	175.0	55.7
+D2H gpu0	9.3	168.8	57.8
+H2D gpu1	9.3	174.9	55.7
+H2D both GPUs at once (total)	9.3	175.5	111.1
+D2H+H2D gpu0 at once (total, duplex)	9.3	195.3	99.9
+copy_ gpu0->gpu1	9.3	232.4	42.0
+copy_ both directions at once (total)	9.3	330.5	59.0
+all_to_all by copy_ (busbw, 2-GPU)	9.3	185.2	26.3
+manual pinned staging gpu0->gpu1, 4 MB pieces	9.3	200.0	48.8
+H2D gpu0	18.5	346.1	56.1
+D2H gpu0	18.5	335.1	57.9
+H2D gpu1	18.5	346.1	56.1
+H2D both GPUs at once (total)	18.5	346.6	111.9
+D2H+H2D gpu0 at once (total, duplex)	18.5	383.2	101.2
+copy_ gpu0->gpu1	18.5	437.2	44.4
+copy_ both directions at once (total)	18.5	620.8	62.5
+all_to_all by copy_ (busbw, 2-GPU)	18.5	329.7	29.4
+manual pinned staging gpu0->gpu1, 4 MB pieces	18.5	351.7	55.2
+H2D gpu0	64	1193.0	56.3
+D2H gpu0	64	1157.6	58.0
+H2D gpu1	64	1192.7	56.3
+H2D both GPUs at once (total)	64	1193.6	112.5
+D2H+H2D gpu0 at once (total, duplex)	64	1317.9	101.8
+copy_ gpu0->gpu1	64	1505.6	44.6
+copy_ both directions at once (total)	64	2053.0	65.4
+all_to_all by copy_ (busbw, 2-GPU)	64	1054.6	31.8
+manual pinned staging gpu0->gpu1, 4 MB pieces	64	1209.6	55.5
+H2D gpu0	256	4767.0	56.3
+D2H gpu0	256	4721.2	56.9
+H2D gpu1	256	4767.3	56.3
+H2D both GPUs at once (total)	256	4771.5	112.5
+D2H+H2D gpu0 at once (total, duplex)	256	5287.8	101.5
+copy_ gpu0->gpu1	256	5863.8	45.8
+copy_ both directions at once (total)	256	8144.8	65.9
+all_to_all by copy_ (busbw, 2-GPU)	256	4139.0	32.4
+manual pinned staging gpu0->gpu1, 4 MB pieces	256	4863.8	55.2
+matmul gpu0 alone	-	4592	239 TFLOP/s
+matmul gpu0 during copies	-	4568	241 TFLOP/s

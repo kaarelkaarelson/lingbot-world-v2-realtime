@@ -1,0 +1,14 @@
+test	size_MB	piece_MB	us	busbw GB/s
+staged a2a	4.6	1	374.5	6.4
+staged a2a	4.6	2	266.2	9.1
+staged a2a	4.6	4	125.8	19.2
+staged a2a	9.3	1	623.7	7.8
+staged a2a	9.3	2	375.4	13.0
+staged a2a	9.3	4	255.2	19.1
+staged a2a	18.5	1	1249.9	7.8
+staged a2a	18.5	2	624.9	15.5
+staged a2a	18.5	4	384.2	25.2
+staged a2a	64	1	4249.2	7.9
+staged a2a	64	2	1603.7	20.9
+staged a2a	64	4	881.4	38.1
+data check: ok

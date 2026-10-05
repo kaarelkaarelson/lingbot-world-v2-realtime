@@ -1,0 +1,1 @@
+matmul alone 241 TFLOP/s, during NCCL all_to_all 240 TFLOP/s (1.00x time)

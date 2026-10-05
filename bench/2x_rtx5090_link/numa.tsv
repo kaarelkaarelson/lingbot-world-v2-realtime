@@ -1,0 +1,32 @@
+cpu_node1	all_reduce	4.6	166.8	28.9
+cpu_node1	all_to_all	4.6	245.4	9.8
+cpu_node1	sendrecv_bidir	4.6	200.1	24.1
+cpu_node1	all_reduce	9.3	316.9	30.8
+cpu_node1	all_to_all	9.3	483.6	10.1
+cpu_node1	sendrecv_bidir	9.3	385.7	25.3
+cpu_node1	all_reduce	18.5	618.5	31.4
+cpu_node1	all_to_all	18.5	385.8	25.1
+cpu_node1	sendrecv_bidir	18.5	748.4	25.9
+cpu_node1	all_reduce	64	2081.4	32.2
+cpu_node1	all_to_all	64	1305.8	25.7
+cpu_node1	sendrecv_bidir	64	2540.5	26.4
+cpu_node1	copy_ gpu0->gpu1	9.3	233.1	41.8
+cpu_node1	all_to_all by copy_ (busbw, 2-GPU)	9.3	177.4	27.5
+cpu_node1	copy_ gpu0->gpu1	64	1472.8	45.6
+cpu_node1	all_to_all by copy_ (busbw, 2-GPU)	64	1045.2	32.1
+cpu_node0	all_reduce	4.6	167.2	28.8
+cpu_node0	all_to_all	4.6	245.8	9.8
+cpu_node0	sendrecv_bidir	4.6	198.9	24.2
+cpu_node0	all_reduce	9.3	317.1	30.8
+cpu_node0	all_to_all	9.3	483.7	10.1
+cpu_node0	sendrecv_bidir	9.3	384.8	25.3
+cpu_node0	all_reduce	18.5	620.1	31.3
+cpu_node0	all_to_all	18.5	386.6	25.1
+cpu_node0	sendrecv_bidir	18.5	747.9	25.9
+cpu_node0	all_reduce	64	2085.7	32.2
+cpu_node0	all_to_all	64	1304.8	25.7
+cpu_node0	sendrecv_bidir	64	2545.1	26.4
+cpu_node0	copy_ gpu0->gpu1	9.3	234.0	41.7
+cpu_node0	all_to_all by copy_ (busbw, 2-GPU)	9.3	175.8	27.7
+cpu_node0	copy_ gpu0->gpu1	64	1490.4	45.0
+cpu_node0	all_to_all by copy_ (busbw, 2-GPU)	64	1046.1	32.1
