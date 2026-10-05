@@ -226,7 +226,13 @@ class LingBotWorldPipeline:
                 _inductor_tune()
             # dynamic=True: current_start and the KV-cache slice bounds are Python ints that change
             # every chunk; specialising on them would recompile per chunk.
-            self.model = torch.compile(self.model, dynamic=True, mode=None if compile_mode == "1" else compile_mode)
+            if compile_mode == "regional":
+                # one graph per transformer block, shared by all 30 (same code): a code change re-traces one
+                # block instead of the whole model, which shortens cold starts after edits
+                for i, block in enumerate(self.model.blocks):
+                    self.model.blocks[i] = torch.compile(block, dynamic=True)
+            else:
+                self.model = torch.compile(self.model, dynamic=True, mode=None if compile_mode == "1" else compile_mode)
             logging.info(f"torch.compile enabled (mode={compile_mode})")
 
         self.scheduler = FlowUniPCMultistepScheduler(
