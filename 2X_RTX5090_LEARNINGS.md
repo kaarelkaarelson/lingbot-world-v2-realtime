@@ -147,6 +147,9 @@ These are predictions from link benchmarks and single-card kernel times; the mod
    sequence parallelism needs each all-to-all's result before attention starts. Splitting each
    exchange into pieces and pipelining them against compute is the known technique (xDiT's
    PipeFusion, overlapped Ulysses); how much of the 159 ms per chunk it hides is untested.
+   A first micro-benchmark (`tools/linkbench/overlap_layer.py`) was inconclusive: with small matmuls
+   it is bound by Python launching kernels (its compute-only time varied 4.8-6.1 ms between runs),
+   so it measures launch overhead, not overlap. It needs CUDA graphs or the real model.
 3. **Do other 2× 5090 hosts wire the cards differently?** This one is `NODE`. A `SYS` host (cards on
    different CPU sockets) may be slower through host memory; RunPod listings do not say.
 4. **Does a busy neighbour slow the host-memory path?** Host memory bandwidth is shared with other
@@ -154,9 +157,17 @@ These are predictions from link benchmarks and single-card kernel times; the mod
 5. **Do RTX PRO cards get P2P on RunPod?** NVIDIA allows P2P on professional cards, but cloud
    hypervisors can still block it (an ESXi report on RTX PRO 6000: missing PCIe ATS blocks P2P), and
    pie-project's RTX PRO 6000 pair ran with P2P off. Only `can_device_access_peer` on the pod answers it.
-6. **Two processes or one?** The fastest exchange here drives both cards from one process. With one
-   process per card (`torchrun`), reaching the other card's memory needs CUDA IPC handles, which have
-   not been measured without P2P.
+6. **Two processes or one? Answered: no difference.** With one process per card (as `torchrun`
+   deploys), each process copies its half out of the other card's buffer through a CUDA IPC handle.
+   It works without P2P, the data checks out, and it is as fast as one process
+   (`tools/linkbench/ipc_a2a.py`):
+
+   | Exchange | Two processes, CUDA IPC | One process | NCCL all-to-all |
+   |---|---|---|---|
+   | 4.6 MB | 114 µs | 104-143 µs | 246 µs |
+   | 9.3 MB | 181 µs | 177-185 µs | 484 µs |
+   | 18.5 MB | 321 µs | 330 µs | 388 µs |
+   | 64 MB | 1,022 µs | 1,045 µs | 1,304 µs |
 
 ## Caveats
 
