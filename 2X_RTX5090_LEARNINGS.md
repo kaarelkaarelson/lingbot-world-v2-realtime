@@ -114,6 +114,50 @@ except tensor parallelism's elementwise work, which both cards repeat):
 
 These are predictions from link benchmarks and single-card kernel times; the model runs are next.
 
+## What others have found
+
+- **A patched driver enables P2P on 5090s, but only on hardware you own.** tinygrad's
+  open-gpu-kernel-modules patch and its forks (aikitoria, the CachyOS DKMS package) map each card's
+  memory over PCIe BAR1. They need Resizable BAR, IOMMU in passthrough mode and ACS off, all host
+  settings. Some 5090 owners still hit `cudaErrorMapBufferObjectFailed` with it.
+- **Patched P2P is not faster than this pod's host-memory path.** Reported with the patch: about
+  26 GB/s one way and 51 GB/s both ways, against 45 and 65 GB/s measured here through host memory.
+  On a dual-5090 vLLM box, turning patched P2P on changed throughput by +2.7% on average (range
+  −1.9% to +4.7%); an earlier multi-run test on the same box measured −5 to −7%.
+- **Without P2P, inference engines fall back to NCCL and lose their fast paths.** vLLM disables its
+  custom all-reduce (which reads the other card's memory directly) and warns; old NCCL versions
+  (before 2.26.5) made 5090 tensor parallelism fail outright. pie-project saw two RTX PRO 6000s with
+  P2P off run tensor parallelism at 5,380 tokens/s against 15,450 on one card, because every layer's
+  activations went through host memory.
+- **Engines recommend pipeline parallelism on PCIe without NVLink.** It splits the model by layers
+  and sends one small activation between cards, instead of exchanging every layer's output. That is
+  the DiT-on-one-card, decoder-on-the-other layout above.
+- **NCCL's copy-engine collectives are NVLink-only.** NCCL 2.28 added collectives that use copy
+  engines instead of GPU cores (`NCCL_CTA_POLICY_ZERO` with symmetric memory), documented for NVLink
+  domains only. The hand-written copy-engine exchange above is the PCIe equivalent.
+- **A newer NCCL does not fix the all-to-all hole.** NCCL 2.32.3 (the latest, loaded with
+  `LD_PRELOAD`) measures 476 µs at 9.3 MB, the same as 2.27.3's 484 µs.
+
+## Open questions
+
+1. **Why does NCCL's all-to-all drop to 10 GB/s at 4-10 MB on the SHM transport?** Not in NCCL's
+   issue tracker; present from 2.27.3 to 2.32.3 and in every protocol, algorithm and channel setting.
+   Worth reporting upstream with `tools/linkbench/nccl.py`.
+2. **How much communication can the model actually overlap?** Transfers cost no compute, but
+   sequence parallelism needs each all-to-all's result before attention starts. Splitting each
+   exchange into pieces and pipelining them against compute is the known technique (xDiT's
+   PipeFusion, overlapped Ulysses); how much of the 159 ms per chunk it hides is untested.
+3. **Do other 2× 5090 hosts wire the cards differently?** This one is `NODE`. A `SYS` host (cards on
+   different CPU sockets) may be slower through host memory; RunPod listings do not say.
+4. **Does a busy neighbour slow the host-memory path?** Host memory bandwidth is shared with other
+   tenants on the machine; these numbers come from one quiet session.
+5. **Do RTX PRO cards get P2P on RunPod?** NVIDIA allows P2P on professional cards, but cloud
+   hypervisors can still block it (an ESXi report on RTX PRO 6000: missing PCIe ATS blocks P2P), and
+   pie-project's RTX PRO 6000 pair ran with P2P off. Only `can_device_access_peer` on the pod answers it.
+6. **Two processes or one?** The fastest exchange here drives both cards from one process. With one
+   process per card (`torchrun`), reaching the other card's memory needs CUDA IPC handles, which have
+   not been measured without P2P.
+
 ## Caveats
 
 - One pod, one session. Another 2× 5090 host can wire its cards differently (`PIX`, `PHB` or `SYS`
@@ -123,3 +167,15 @@ These are predictions from link benchmarks and single-card kernel times; the mod
   README's measured 16.1 includes run-to-run spread.
 - The single-process measurements drive both cards from one process; a two-process setup (one per
   card, as `torchrun` launches) would need CUDA IPC or NCCL to reach the other card's memory.
+
+## Sources
+
+- [tinygrad/open-gpu-kernel-modules #44: P2P on 2× RTX 5090 fails](https://github.com/tinygrad/open-gpu-kernel-modules/issues/44)
+- [aikitoria/open-gpu-kernel-modules](https://github.com/aikitoria/open-gpu-kernel-modules), [CachyOS P2P DKMS](https://github.com/A1RM4X/CachyOS-P2P-Nvidia)
+- [vLLM forum: dual RTX 5090 TP=2, SHM vs patched BAR1 P2P](https://discuss.vllm.ai/t/dual-rtx-5090-tp-2-shm-vs-patched-bar1-p2p-cumem-single-pass-2-7-mean-point-estimate/2870)
+- [vLLM forum: vLLM does not work with 2× 5090 in TP 2](https://discuss.vllm.ai/t/vllm-does-not-work-with-2x-5090-in-tp-2/1630)
+- [pie-project #713: TP2 slower than TP1 over host memory](https://github.com/pie-project/pie/issues/713), [#741: peer all-reduce vs NCCL by message size](https://github.com/pie-project/pie/issues/741)
+- [NVIDIA: copy engine collectives in NCCL 2.28](https://developer.nvidia.com/blog/fusing-communication-and-compute-with-new-device-api-and-copy-engine-collectives-in-nvidia-nccl-2-28/)
+- [NCCL environment variables](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html)
+- [RTX PRO 6000 Blackwell: no PCIe ATS blocks ESXi P2P](https://forums.developer.nvidia.com/t/rtx-pro-6000-blackwell-does-not-advertise-pcie-ats-blocking-esxis-p2p-path/362222)
+- [xDiT](https://github.com/xdit-project/xDiT)
