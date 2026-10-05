@@ -69,7 +69,7 @@ def _parse_args():
     p.add_argument("--bench_e2e", action="store_true",
                    help="End-to-end throughput and first-frame latency from frame-ready times: one warm-up rollout, "
                         "then --trials timed rollouts (see lingbot/benchmark.py).")
-    p.add_argument("--trials", type=int, default=3, help="Timed rollouts for --bench_e2e.")
+    p.add_argument("--trials", type=int, default=1, help="Timed rollouts for --bench_e2e (after one warm-up rollout).")
     p.add_argument("--task", default=MODEL["task"], choices=list(WAN_CONFIGS.keys()))
     p.add_argument("--size", default="480*832", choices=list(SIZE_CONFIGS.keys()),
                    help="Area (width*height); the aspect ratio follows the input image.")

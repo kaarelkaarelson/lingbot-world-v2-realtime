@@ -14,7 +14,8 @@ chunk's frames are decoded; nothing synchronizes inside the loop.
   (index 5 on: the KV window is full and every graph is compiled). Also p95 and p99 of that interval.
 - **First-frame latency:** start of generation → first chunk's frames decoded.
 - **MPPS:** throughput × width × height, for comparison with models at other resolutions.
-- One warm-up rollout is discarded; the headline is the median over `--trials` rollouts (default 3).
+- One warm-up rollout is discarded; the headline is the median over `--trials` rollouts (default 1;
+  use 3 when the result is going into a report).
 
 It only looks at when frames come out, so it applies unchanged to any multi-GPU layout, including
 ones where the DiT and the decoder run at the same time on different cards.

@@ -90,7 +90,7 @@ The first start compiles for about 2.5 min, later starts take 35 s.
 | `lingbot play [scene]` | a window on the world; scenes: `lake` (default), `wall`, `stonehenge`, `alley`, `castle`, `dragon` |
 | `lingbot play --image me.jpg --prompt "..."` | your own world from any image |
 | `SDL_VIDEODRIVER=dummy lingbot play --headless-seconds 120` | no display (a cloud pod): same model, no window, taps `W` and prints the HUD summary |
-| `lingbot bench` | the 22 s clip to `outputs/`, prints s/chunk and FPS |
+| `lingbot bench` | the minimal speed run: 10 chunks (5 warm-up, 5 steady), prints s/chunk and FPS; `--bench_e2e` adds first-frame latency |
 | `lingbot clip --image me.jpg --action_path my_poses/ --prompt "..."` | offline generation from a camera path, `poses.npy` and `intrinsics.npy` as in `examples/` |
 
 ## Requirements
