@@ -77,6 +77,19 @@ if [ -n "${free_gb:-}" ] && [ "$free_gb" -lt 30 ]; then
   fi
 fi
 
+echo "== network (10 s from Hugging Face)"
+# 2026-10-05: a 2x 5090 host downloaded at ~12 MB/s, so the 15 GB of weights took ~20 min.
+# Informational only: a slow network does not affect measurements, only setup time.
+mbps=$(curl -sL -o /dev/null --max-time 10 -w "%{speed_download}" \
+  "https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-fast/resolve/main/models_t5_umt5-xxl-enc-bf16.pth" \
+  2>/dev/null | awk '{printf "%.0f", $1/1e6}')
+if [ -n "$mbps" ] && [ "$mbps" -gt 0 ]; then
+  echo "download ${mbps} MB/s (one connection); full weights (~15 GB) take ~$(( 15000 / (mbps * 3 + 1) / 60 + 1 )) min with parallel downloads"
+  [ "$mbps" -lt 20 ] && echo "SLOW NETWORK: setup.sh will spend a long time on the weights; reuse a volume that has them if you can"
+else
+  echo "download test failed (no network or gated file)"
+fi
+
 echo "== existing state"
 ls -d /workspace/lingbot-world-v2-realtime 2>/dev/null && echo "repo present: skip setup.sh" || echo "empty: full setup (~15 min)"
 
