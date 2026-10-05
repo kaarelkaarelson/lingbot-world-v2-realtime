@@ -229,60 +229,70 @@
    {
     "metric": "PSNR",
     "before": "reference",
-    "after": "43.6 dB"
+    "after": "43.6 dB",
+    "what": "Average pixel difference from the reference, in decibels; higher is closer"
    },
    {
     "metric": "SSIM",
     "before": "reference",
     "after": "0.981",
     "url": "https://doi.org/10.1109/TIP.2003.819861",
-    "cite": 6
+    "cite": 6,
+    "what": "How closely local structure and contrast match the reference; 1 is identical"
    },
    {
     "metric": "LPIPS",
     "before": "reference",
     "after": "0.004",
     "url": "https://arxiv.org/abs/1801.03924",
-    "cite": 5
+    "cite": 5,
+    "what": "How different the frames look to a network trained on human judgements; 0 is identical"
    },
    {
     "metric": "MUSIQ",
     "before": "68.98",
     "after": "68.99",
     "url": "https://arxiv.org/abs/2108.05997",
-    "cite": 3
+    "cite": 3,
+    "what": "Image quality score from a model trained on human ratings; no reference"
    },
    {
     "metric": "CLIP-IQA",
     "before": "0.592",
     "after": "0.590",
     "url": "https://arxiv.org/abs/2207.12396",
-    "cite": 4
+    "cite": 4,
+    "what": "How much a frame looks like \"a good photo\" to CLIP; no reference"
    },
    {
     "metric": "Sharpness (Laplacian), first / last s",
     "before": "1022 / 298",
-    "after": "1023 / 298"
+    "after": "1023 / 298",
+    "what": "Edge detail; higher is sharper"
    },
    {
     "metric": "Colourfulness, first / last s",
     "before": "41.9 / 50.2",
-    "after": "41.9 / 50.2"
+    "after": "41.9 / 50.2",
+    "what": "How saturated and varied the colours are"
    },
    {
     "metric": "Brightness, first / last s",
     "before": "0.692 / 0.384",
-    "after": "0.692 / 0.384"
+    "after": "0.692 / 0.384",
+    "what": "Mean luminance, 0 to 1"
    },
    {
     "metric": "Flicker",
     "before": "0.0381",
-    "after": "0.0381"
+    "after": "0.0381",
+    "what": "Average change between consecutive frames; lower is steadier"
    },
    {
-    "metric": "DiT latents, code changes only (BF16, FlashAttention-2)",
+    "metric": "DiT latents",
     "before": "reference",
-    "after": "bit-identical"
+    "after": "bit-identical",
+    "what": "Whether the DiT's output matches the paper's bit for bit, with our code changes run in BF16 and FlashAttention-2"
    }
   ]
  },

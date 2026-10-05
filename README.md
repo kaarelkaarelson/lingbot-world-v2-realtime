@@ -110,17 +110,15 @@ in total however many streams share it.
 
 ## Optimizations
 
-Each row changes how the same model runs, before → **after**; the s/chunk values between the first and last row are estimates.
-
 <!-- table:ladder -->
 | Step | Change | Stored in memory | Computed in | s/chunk |
 |---|---|---|---|---|
-| Decoder | [Wan 2.1 VAE](https://arxiv.org/abs/2503.20314) in fp32 → **fp16 with [sub-pixel](https://arxiv.org/abs/1609.05158) upsampling** | FP32 → **FP16** | TF32 → **FP16** | 2.68&nbsp;→&nbsp;2.06 |
-| Attention | FlashAttention-2 → **[SageAttention 2.2](https://arxiv.org/abs/2505.21136)** | BF16 | BF16 → **INT8 QKᵀ, FP8 PV** | 2.06&nbsp;→&nbsp;1.63 |
-| Matmuls | bf16 linears → **FP8 rowwise via torch._scaled_mm** | BF16 → **FP8 weights, BF16 activations** | BF16 → **FP8** | 1.63&nbsp;→&nbsp;1.42 |
-| Compiler | PyTorch eager, 13 graphs → **one compiled graph** | – | – | 1.42&nbsp;→&nbsp;1.15 |
-| Host&nbsp;syncs | CPU↔GPU sync on every layer → **bookkeeping on the GPU** | – | – | 1.15&nbsp;→&nbsp;1.04 |
-| Kernel&nbsp;fusion | one kernel per operation → **fused norm, RoPE, residual and FP8 conversion** | – | – | 1.04&nbsp;→&nbsp;0.98 |
+| Decoder | [Wan 2.1 VAE](https://arxiv.org/abs/2503.20314) in fp32 → **fp16 with [sub-pixel](https://arxiv.org/abs/1609.05158) upsampling** | FP32 → **FP16** | TF32 → **FP16** | 2.68&nbsp;→&nbsp;≈2.06 |
+| Attention | FlashAttention-2 → **[SageAttention 2.2](https://arxiv.org/abs/2505.21136)** | BF16 | BF16 → **INT8 QKᵀ, FP8 PV** | ≈2.06&nbsp;→&nbsp;≈1.63 |
+| Matmuls | bf16 linears → **FP8 rowwise via torch._scaled_mm** | BF16 → **FP8 weights, BF16 activations** | BF16 → **FP8** | ≈1.63&nbsp;→&nbsp;≈1.42 |
+| Compiler | PyTorch eager, 13 graphs → **one compiled graph** | – | – | ≈1.42&nbsp;→&nbsp;≈1.15 |
+| Host&nbsp;syncs | CPU↔GPU sync on every layer → **bookkeeping on the GPU** | – | – | ≈1.15&nbsp;→&nbsp;≈1.04 |
+| Kernel&nbsp;fusion | one kernel per operation → **fused norm, RoPE, residual and FP8 conversion** | – | – | ≈1.04&nbsp;→&nbsp;0.98 |
 | **Total** | 6.0&nbsp;FPS&nbsp;→&nbsp;**16.1&nbsp;FPS** | | | **2.68&nbsp;→&nbsp;0.98** |
 <!-- /table:ladder -->
 
@@ -152,18 +150,18 @@ What's left runs in four library kernels, three of them near the RTX 5090's peak
 The table decodes the same latents two ways: the reference is the paper's fp32 decoder, "Ours" is our fp16 decoder. For example, PSNR 43.6 dB means a pixel differs from the reference by about 1.7 out of 255 on average, about the noise an mp4 encode adds. PSNR, SSIM and LPIPS compare the two frame by frame; the other metrics score each clip on its own. The last row is the DiT: its code changes give bit-identical latents when run in BF16 with FlashAttention-2. FP8 and SageAttention change the numbers slightly and are not in this table: SageAttention's first chunk matches FlashAttention-2 at cosine 0.999969, and FP8 with SageAttention moves first-chunk LPIPS by 0.005.
 
 <!-- table:quality -->
-| | Original paper's code | Ours |
-|---|---|---|
-| PSNR | reference | **43.6 dB** |
-| SSIM | reference | **0.981** |
-| LPIPS | reference | **0.004** |
-| MUSIQ | 68.98 | **68.99** |
-| CLIP-IQA | 0.592 | **0.590** |
-| Sharpness (Laplacian), first / last s | 1022 / 298 | **1023 / 298** |
-| Colourfulness, first / last s | 41.9 / 50.2 | **41.9 / 50.2** |
-| Brightness, first / last s | 0.692 / 0.384 | **0.692 / 0.384** |
-| Flicker | 0.0381 | **0.0381** |
-| DiT latents, code changes only (BF16, FlashAttention-2) | reference | **bit-identical** |
+| | What it measures | Original paper's code | Ours |
+|---|---|---|---|
+| PSNR | Average pixel difference from the reference, in decibels; higher is closer | reference | **43.6 dB** |
+| SSIM | How closely local structure and contrast match the reference; 1 is identical | reference | **0.981** |
+| LPIPS | How different the frames look to a network trained on human judgements; 0 is identical | reference | **0.004** |
+| MUSIQ | Image quality score from a model trained on human ratings; no reference | 68.98 | **68.99** |
+| CLIP-IQA | How much a frame looks like "a good photo" to CLIP; no reference | 0.592 | **0.590** |
+| Sharpness (Laplacian), first / last s | Edge detail; higher is sharper | 1022 / 298 | **1023 / 298** |
+| Colourfulness, first / last s | How saturated and varied the colours are | 41.9 / 50.2 | **41.9 / 50.2** |
+| Brightness, first / last s | Mean luminance, 0 to 1 | 0.692 / 0.384 | **0.692 / 0.384** |
+| Flicker | Average change between consecutive frames; lower is steadier | 0.0381 | **0.0381** |
+| DiT latents | Whether the DiT's output matches the paper's bit for bit, with our code changes run in BF16 and FlashAttention-2 | reference | **bit-identical** |
 <!-- /table:quality -->
 
 `OPTIMIZATIONS.md` is the full log. It has every experiment with its measurement, the profiles, and the levers that were tried and rejected.

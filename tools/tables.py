@@ -48,7 +48,7 @@ def md_baseline():
 def md_ladder():
     # Rows are stored in the order applied (the HTML ladder needs that). The README shows the
     # precision changes first, then the rest, each group by saving, and re-chains s/chunk in that
-    # order from each step's measured saving. Each cell is "before → **after**".
+    # order from each step's measured saving; only the first and last value are measured, the rest carry ≈. Each cell is "before → **after**".
     L = DATA["ladder"]
     nb = lambda x: x.replace(" ", "&nbsp;")
     pair = lambda a, b: a if a == b else f"{a} → **{b}**"
@@ -60,7 +60,8 @@ def md_ladder():
     out = ["| Step | Change | Stored in memory | Computed in | s/chunk |",
            "|---|---|---|---|---|"]
     s = L["start"]
-    for saved, r in rows:
+    n = len(rows)
+    for i, (saved, r) in enumerate(rows):
         after = r["after"]
         if r.get("after_url"):
             after = after.replace(r["after_link_text"], f"[{r['after_link_text']}]({r['after_url']})")
@@ -68,7 +69,7 @@ def md_ladder():
         if r.get("before_url"):
             t = r.get("before_link_text", before)
             before = before.replace(t, f"[{t}]({r['before_url']})")
-        out.append(f"| {nb(r['step'])} | {pair(before, after)} | {pair(*r['loaded'])} | {pair(*r['math'])} | {s:.2f}&nbsp;→&nbsp;{s - saved:.2f} |")
+        out.append(f"| {nb(r['step'])} | {pair(before, after)} | {pair(*r['loaded'])} | {pair(*r['math'])} | {'' if i == 0 else '≈'}{s:.2f}&nbsp;→&nbsp;{'' if i == n - 1 else '≈'}{s - saved:.2f} |")
         s -= saved
     t = L["total"]
     out.append(f"| **Total** | {nb(t['before'])}&nbsp;→&nbsp;**{nb(t['after'])}** | | | **{t['before_s']:.2f}&nbsp;→&nbsp;{t['after_s']:.2f}** |")
@@ -148,9 +149,9 @@ def html_roofline(who="ours"):
 def md_quality():
     # No links here on purpose: the README's "What those metrics mean" table right below this one
     # carries them, and nothing should appear twice. The blog still links via html_quality's cites.
-    out = ["| | Original paper's code | Ours |", "|---|---|---|"]
+    out = ["| | What it measures | Original paper's code | Ours |", "|---|---|---|---|"]
     for r in DATA["quality"]["rows"]:
-        out.append(f"| {r['metric']} | {r['before']} | **{r['after']}** |")
+        out.append(f"| {r['metric']} | {r['what']} | {r['before']} | **{r['after']}** |")
     return "\n".join(out)
 
 
