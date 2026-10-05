@@ -147,10 +147,10 @@ What's left runs in four library kernels, three of them near the RTX 5090's peak
 
 \* Limited by its softmax bookkeeping, not tensor throughput (§19–20).
 
-The table decodes the same latents two ways: the reference is the paper's fp32 decoder, "Ours" is our fp16 decoder. For example, PSNR 43.6 dB means a pixel differs from the reference by about 1.7 out of 255 on average, about the noise an mp4 encode adds. PSNR, SSIM and LPIPS compare the two frame by frame; the other metrics score each clip on its own. The last row is the DiT: its code changes give bit-identical latents when run in BF16 with FlashAttention-2. FP8 and SageAttention change the numbers slightly and are not in this table: SageAttention's first chunk matches FlashAttention-2 at cosine 0.999969, and FP8 with SageAttention moves first-chunk LPIPS by 0.005.
+### Quality
 
 <!-- table:quality -->
-| | What it measures | Original paper's code | Ours |
+| | What it measures | Paper (fp32 decoder) | Ours (fp16 decoder) |
 |---|---|---|---|
 | PSNR | Average pixel difference from the reference, in decibels; higher is closer | reference | **43.6 dB** |
 | SSIM | How closely local structure and contrast match the reference; 1 is identical | reference | **0.981** |
@@ -161,7 +161,7 @@ The table decodes the same latents two ways: the reference is the paper's fp32 d
 | Colourfulness, first / last s | How saturated and varied the colours are | 41.9 / 50.2 | **41.9 / 50.2** |
 | Brightness, first / last s | Mean luminance, 0 to 1 | 0.692 / 0.384 | **0.692 / 0.384** |
 | Flicker | Average change between consecutive frames; lower is steadier | 0.0381 | **0.0381** |
-| DiT latents | Whether the DiT's output matches the paper's bit for bit, with our code changes run in BF16 and FlashAttention-2 | reference | **bit-identical** |
+| DiT latents | Whether our rewritten DiT code matches the paper's bit for bit when both run the same BF16 math (FP8 and SageAttention off) | reference | **bit-identical** |
 <!-- /table:quality -->
 
 `OPTIMIZATIONS.md` is the full log. It has every experiment with its measurement, the profiles, and the levers that were tried and rejected.
@@ -173,10 +173,6 @@ The table decodes the same latents two ways: the reference is the paper's fp32 d
 | `stock` | the original paper's code | <!-- n:s_paper -->2.68<!-- /n --> | <!-- n:fps_paper -->6.0<!-- /n --> |
 | `exact` | `fast` with the time-embedding MLP computed as in the paper; still FP8 and SageAttention, so not bit identical | <!-- n:s_exact -->1.07<!-- /n --> | <!-- n:fps_exact -->14.8<!-- /n --> |
 | **`fast`** (default) | ours, FP8 linears, SageAttention, compiled and fused DiT, fp16 decoder | **<!-- n:s_ours -->0.98<!-- /n -->** | **<!-- n:fps_ours -->16.1<!-- /n -->** |
-
-The same seed does not give the same video twice on `fast`. Two identical runs differ by about 9.6
-levels out of 255 on average, because FP8 and the attention kernel are not bit reproducible and the
-difference compounds as the clip goes on. `exact` runs the same kernels, so it is not bit reproducible either. Latents bit identical to the paper's need FP8, SageAttention and the compiler off: `LINGBOT_FP8=0 LINGBOT_ATTN= LINGBOT_TORCH_COMPILE= LINGBOT_INDUCTOR_TUNE= lingbot clip --preset exact`.
 
 ## Tests
 

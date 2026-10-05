@@ -28,10 +28,13 @@ buffer (two revisions, −15/+35 ms, net zero; exp. 11); Sage KV quantisation (n
 TensorRT / second-stream VAE (bounded below the budget by the roofline; exp. 10); batching two
 players on one 5090 (compute-bound, 1.89× per chunk; exp. 16).
 
-Determinism: the `exact` preset (eager bf16 / FlashAttention-2, `LINGBOT_DIT_FUSION_EXACT_T=1`) is
-bit-identical run to run and across pods; the `fast` preset (FP8 + SageAttention + compile) is not
-run-to-run reproducible at the pixel level (mean |Δ| ≈ 9.6/255 between identical runs), which is
-why lossless claims for it are metric-based on the same latents, never byte comparisons.
+Determinism: the `fast` preset (FP8 + SageAttention + compile) is not run-to-run reproducible at
+the pixel level (mean |Δ| ≈ 9.6/255 between identical runs, compounding over the clip), which is
+why lossless claims for it are metric-based on the same latents, never byte comparisons. The
+`exact` preset is `fast` plus `LINGBOT_DIT_FUSION_EXACT_T=1`, so it runs the same kernels and is
+not bit-reproducible either. The bit-identical configuration is the eager bf16 / FlashAttention-2
+loop: `LINGBOT_FP8=0 LINGBOT_ATTN= LINGBOT_TORCH_COMPILE= LINGBOT_INDUCTOR_TUNE= lingbot clip
+--preset exact`, bit-identical to the paper's code run to run and across pods (exp. 10, 15).
 
 ---
 

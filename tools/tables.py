@@ -149,7 +149,7 @@ def html_roofline(who="ours"):
 def md_quality():
     # No links here on purpose: the README's "What those metrics mean" table right below this one
     # carries them, and nothing should appear twice. The blog still links via html_quality's cites.
-    out = ["| | What it measures | Original paper's code | Ours |", "|---|---|---|---|"]
+    out = ["| | What it measures | Paper (fp32 decoder) | Ours (fp16 decoder) |", "|---|---|---|---|"]
     for r in DATA["quality"]["rows"]:
         out.append(f"| {r['metric']} | {r['what']} | {r['before']} | **{r['after']}** |")
     return "\n".join(out)

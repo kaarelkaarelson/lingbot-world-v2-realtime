@@ -292,7 +292,7 @@
     "metric": "DiT latents",
     "before": "reference",
     "after": "bit-identical",
-    "what": "Whether the DiT's output matches the paper's bit for bit, with our code changes run in BF16 and FlashAttention-2"
+    "what": "Whether our rewritten DiT code matches the paper's bit for bit when both run the same BF16 math (FP8 and SageAttention off)"
    }
   ]
  },
