@@ -39,8 +39,6 @@ The model generates video by predicting one chunk of 16 frames at a time. For ea
 
 $$\text{floor} = \max\left(\frac{\text{FLOPs}}{\text{peak FLOP/s}},\ \frac{\text{bytes}}{\text{1,792 GB/s}}\right) \qquad \text{of speed of light} = \frac{\text{floor}}{\text{measured}}$$
 
-For example, attention: 151 TFLOP ÷ 838 TOPS = 0.180 s floor, against 0.288 s measured, is 63%.
-
 <!-- table:roofline -->
 | Operation | Precision and peak | Work / chunk | Bound | Floor | Measured | Of speed of light |
 |---|---|---|---|---|---|---|
