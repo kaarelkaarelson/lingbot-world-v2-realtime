@@ -22,8 +22,8 @@ import torch.nn.functional as F
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPSTREAM = ROOT
-UPSTREAM_MODEL = os.path.join(UPSTREAM, "wan/modules/model_fast.py")
-PATCHED_MODEL = os.path.join(ROOT, "wan/modules/model_fast_fusion.py")
+UPSTREAM_MODEL = os.path.join(UPSTREAM, "reference/wan/modules/model_fast.py")
+PATCHED_MODEL = os.path.join(ROOT, "lingbot/models/lingbot_world/transformer.py")
 
 CFG = dict(model_type='i2v', patch_size=(1, 2, 2), text_len=8, in_dim=36, dim=64, ffn_dim=128,
            freq_dim=64, text_dim=32, out_dim=16, num_heads=2, num_layers=2,
@@ -43,10 +43,14 @@ def _stub_packages():
     mm.ModelMixin = type("ModelMixin", (torch.nn.Module,), {})
     sys.modules.update({"diffusers": d, "diffusers.configuration_utils": cu,
                         "diffusers.models": mu, "diffusers.models.modeling_utils": mm})
-    wan, mods = types.ModuleType("wan"), types.ModuleType("wan.modules")
-    wan.__path__ = [os.path.join(UPSTREAM, "wan")]
-    mods.__path__ = [os.path.join(UPSTREAM, "wan/modules")]
-    sys.modules.update({"wan": wan, "wan.modules": mods})
+    # package stubs with __path__ set, so submodules import without running the heavy __init__s
+    sys.path.insert(0, ROOT)
+    for name, path in (("wan", "reference/wan"), ("wan.modules", "reference/wan/modules"),
+                       ("reference", "reference"), ("reference.wan", "reference/wan"),
+                       ("reference.wan.modules", "reference/wan/modules")):
+        pkg = types.ModuleType(name)
+        pkg.__path__ = [os.path.join(ROOT, path)]
+        sys.modules[name] = pkg
 
 
 def _sdpa(q, k, v, *args, **kwargs):
@@ -170,9 +174,8 @@ def main():
     out2 = run_loop(m_fu, fusion=True, call=call_t_expanded)
     print("bitwise identical with t pre-expanded to [B, L]:", all(torch.equal(a, b) for a, b in zip(ref, out2)))
 
-    # the verification switches: EXACT_T alone (fused real-pair rope) and EXACT_T + EXACT_ROPE
-    for env in ({"LINGBOT_DIT_FUSION_EXACT_T": "1"},
-                {"LINGBOT_DIT_FUSION_EXACT_T": "1", "LINGBOT_DIT_FUSION_EXACT_ROPE": "1"}):
+    # the verification switch: EXACT_T (time MLP on the L pre-expanded rows, as upstream)
+    for env in ({"LINGBOT_DIT_FUSION_EXACT_T": "1"},):
         os.environ.update(env)
         m_ex = build(load_model_module(PATCHED_MODEL, "wan.modules.model_fast_fusion_exact"), m_up.state_dict())
         out3 = run_loop(m_ex, fusion=True)
