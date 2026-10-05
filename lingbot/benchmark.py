@@ -4,7 +4,7 @@ The pipeline records a CUDA event when generation starts and one on the decoder 
 chunk's frames are decoded; nothing synchronizes inside the loop. From those times:
 
   throughput   16 frames / interval between consecutive chunks' frames being ready, steady state
-               (chunks 8+: the KV window is full and every graph is compiled); p50/p95/p99
+               (chunk index 5 on: the KV window is full and every graph is compiled); p50/p95/p99
   first frame  generation start -> first chunk's frames ready, as Self-Forcing reports latency
   MPPS         megapixels per second, for comparison across resolutions
 
@@ -14,7 +14,9 @@ look at when frames come out.
 """
 import statistics
 
-STEADY_FROM = 7  # chunk index; matches the --bench rule (chunks 8+)
+# chunk index; matches the --bench rule. Measured on one RTX 5090 (2026-10-05): compiles at chunks 0, 1, 4, the
+# KV window full by chunk 4, flat from chunk 5 on (0.623-0.627 s)
+STEADY_FROM = 5
 
 
 def _pct(xs, q):

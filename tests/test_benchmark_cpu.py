@@ -13,11 +13,11 @@ def ready(first=1500.0, interval=980.0, n=22, spikes=()):
 
 
 def test_steady_state_skips_warmup_chunks():
-    # chunks 1-7 are slow (window filling); only intervals ending at chunk index >= 7 count
+    # early chunks are slow (compiles, window filling); only intervals ending at chunk index >= 5 count
     r = ready(interval=980.0)
     r = [x + (2000.0 if i < 7 else 2000.0) for i, x in enumerate(r)]  # constant shift: intervals unchanged
     s = trial_stats(r, 16)
-    assert s["steady_chunks"] == 15 and s["interval_p50_ms"] == pytest.approx(980.0)
+    assert s["steady_chunks"] == 17 and s["interval_p50_ms"] == pytest.approx(980.0)
     assert s["fps"] == pytest.approx(16 / 0.98)
     assert s["first_frame_ms"] == pytest.approx(3500.0)
 
@@ -38,4 +38,4 @@ def test_median_of_trials_and_mpps():
 
 def test_too_few_chunks_rejected():
     with pytest.raises(ValueError):
-        trial_stats(ready(n=7), 16)
+        trial_stats(ready(n=5), 16)

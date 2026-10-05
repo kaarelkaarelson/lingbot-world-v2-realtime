@@ -171,12 +171,13 @@ def build_pipeline(args, cfg, rank, device):
 
 
 def _print_bench_summary(pipe, args, cfg):
-    """Steady-state chunk time (chunks 8+, or the last half) and FPS as played."""
+    """Steady-state chunk time (chunk index 5 on, as lingbot.benchmark) and FPS as played."""
     chunk_s = getattr(pipe, "bench_chunk_s", [])
     if not chunk_s:
         print("BENCH: no chunk timings recorded (pass --bench)")
         return
-    steady = chunk_s[7:] if len(chunk_s) > 8 else chunk_s[len(chunk_s) // 2:]
+    from lingbot.benchmark import STEADY_FROM
+    steady = chunk_s[STEADY_FROM:] if len(chunk_s) > STEADY_FROM else chunk_s[len(chunk_s) // 2:]
     steady_med = sorted(steady)[len(steady) // 2]
     frames_per_chunk = args.chunk_size * cfg.vae_stride[0]
     print(f"BENCH preset={PRESET} gpus={int(os.getenv('WORLD_SIZE', 1))} chunks={len(chunk_s)} "
