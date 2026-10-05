@@ -22,6 +22,7 @@ from wan.modules.model import (
 
 from lingbot.layers import kv_cache as kvc
 from lingbot.layers.attention import attention, flash_attention
+from lingbot.parallel import a2a_quant as a2aq
 
 # Verification switches (A/B against upstream latents):
 #   LINGBOT_DIT_FUSION_EXACT_T=1    time-embedding MLP on the L pre-expanded
@@ -34,6 +35,7 @@ from lingbot.layers.attention import attention, flash_attention
 #                                   fp64 (cos, sin) table is split once per
 #                                   forward into fp32 hi + lo parts
 _EXACT_T = os.environ.get("LINGBOT_DIT_FUSION_EXACT_T") == "1"
+_SIM_A2A8 = os.environ.get("LINGBOT_SIM_A2A8", "")  # "qk" or "qkv": see lingbot/parallel/a2a_quant.py
 _ROPE_FP32C = os.environ.get("LINGBOT_DIT_FUSION_ROPE") == "fp32c"
 
 
@@ -197,6 +199,12 @@ class CausalWanSelfAttention(nn.Module):
             frame_seqlen = grid_sizes[0][1] * grid_sizes[0][2]
         roped_query = causal_rope_apply(q, freqs).type_as(v)
         roped_key = causal_rope_apply(k, freqs).type_as(v)
+        if _SIM_A2A8:
+            # numerics of the 8-bit sequence-parallel exchange, on one GPU (lingbot/parallel/a2a_quant.py)
+            roped_query = a2aq.roundtrip_int8(roped_query)
+            roped_key = a2aq.roundtrip_int8(roped_key, smooth=True)
+            if _SIM_A2A8 == "qkv":
+                v = a2aq.roundtrip_fp8(v)
         sink_tokens = self.sink_size * frame_seqlen
         local_end_index, current_end = kvc.write(kv_cache, roped_key, v, current_start, sink_tokens,
                                                  self.local_attn_size)
