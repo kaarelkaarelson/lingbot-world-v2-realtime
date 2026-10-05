@@ -1,5 +1,7 @@
 # Kernel optimisation log — what worked and what did not
 
+> Paths in this log (`wan/image2video.py`, `wan/modules/*`, `generate.py`, `bench/...`) refer to the layout before the restructure; that code is at the `pre-cleanup` git tag. Where each piece lives now: `experiments/README.md` and the README's "Repository layout".
+
 This is the experiment record behind the numbers in the README: LingBot-World 2.0 (1.3B
 `causal_fast`) on one RTX 5090, from 5.5 FPS stock to 16.2 FPS as played with the original Wan 2.1
 decoder. It is copied from the lab repository

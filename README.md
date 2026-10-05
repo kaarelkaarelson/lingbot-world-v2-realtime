@@ -176,11 +176,25 @@ What's left runs in four library kernels, three of them near the RTX 5090's peak
 
 ## Tests
 
-`pytest tests/` runs on the CPU, no GPU needed. It checks the fused decoder and DiT against the stock modules and runs `lingbot play --dry` on a stand in model.
+`pytest tests/` runs on the CPU, no GPU needed. It checks the fused DiT and decoder against the paper's modules and against golden outputs recorded before the restructure (bit for bit), runs the whole generation loop with a tiny DiT and mock VAE to check the wiring, and runs `lingbot play --dry` on a stand-in model.
+
+## Repository layout
+
+| Path | What it is |
+|---|---|
+| `lingbot/models/lingbot_world/` | the model: fused DiT (`transformer.py`), fused decoder (`vae.py`), text encoder |
+| `lingbot/layers/` | building blocks shared by any model: attention backends, FP8 linear, KV cache |
+| `lingbot/pipelines/` | the generation loop, chunk by chunk |
+| `lingbot/parallel/`, `lingbot/configs/hardware.py` | multi-GPU layout, and the default layout per GPU model and count |
+| `lingbot/registry.py`, `lingbot/presets.py` | which model to build; `fast` / `exact` / `stock` runtime presets |
+| `lingbot/generate.py`, `lingbot/cli.py`, `lingbot/play/` | offline generation, the `lingbot` command, the live player |
+| `reference/` | the paper's code, unmodified: the `stock` baseline and the shared primitives |
+| `experiments/` | code from experiments that did not ship (see its README and `OPTIMIZATIONS.md`) |
+| `tests/`, `tools/` | CPU tests and golden outputs; README tables, roofline, pod checks |
 
 ## License and credit
 
-This repository is derived from [LingBot-World 2.0](https://github.com/Robbyant/lingbot-world-v2) by the Robbyant team, whose [paper](https://arxiv.org/abs/2607.07534) is by Zelin Gao and others. The model, the sampler and the examples are theirs. The [weights](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast) are theirs too and are not redistributed here. Upstream is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), and so is this repository, see `LICENSE.txt`. That means non commercial use, attribution, and the same license for anything built on it. It is provided as is, without warranty. My changes are the inference patches listed under Optimizations and the `lingbot` CLI, applied on upstream commit `1895d30`. The `wan/` directory is upstream's copy of [Wan2.2](https://github.com/Wan-Video/Wan2.2), which is Apache 2.0. The kernels used are [SageAttention](https://github.com/thu-ml/SageAttention), [torchao](https://github.com/pytorch/ao) and [FlashAttention](https://github.com/Dao-AILab/flash-attention).
+This repository is derived from [LingBot-World 2.0](https://github.com/Robbyant/lingbot-world-v2) by the Robbyant team, whose [paper](https://arxiv.org/abs/2607.07534) is by Zelin Gao and others. The model, the sampler and the examples are theirs. The [weights](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast) are theirs too and are not redistributed here. Upstream is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), and so is this repository, see `LICENSE.txt`. That means non commercial use, attribution, and the same license for anything built on it. It is provided as is, without warranty. My changes are the inference patches listed under Optimizations and the `lingbot` CLI, applied on upstream commit `1895d30`. The `reference/wan/` directory is upstream's copy of [Wan2.2](https://github.com/Wan-Video/Wan2.2), which is Apache 2.0. The kernels used are [SageAttention](https://github.com/thu-ml/SageAttention), [torchao](https://github.com/pytorch/ao) and [FlashAttention](https://github.com/Dao-AILab/flash-attention).
 
 ```bibtex
 @article{lingbot-world-v2,
