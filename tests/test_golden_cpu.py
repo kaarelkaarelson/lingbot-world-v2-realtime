@@ -2,7 +2,8 @@
 
 Runs the tiny-config 5-chunk causal loop from test_dit_fusion_cpu.py (seeded weights, CPU SDPA in
 place of FlashAttention/SageAttention) and compares every denoising forward with torch.equal against
-tests/golden/dit_fused.pt, for the default 1-row time MLP and for LINGBOT_DIT_FUSION_EXACT_T=1.
+tests/golden/dit_fused.pt, in four modes: default and fp32c RoPE, each with and without LINGBOT_DIT_FUSION_EXACT_T=1
+(fp32c is the fast preset, fp32c + EXACT_T the exact preset).
 
 Regenerate only when a numerics change is intended:  python tests/test_golden_cpu.py --regen
 """
@@ -21,13 +22,18 @@ def outputs():
     T._stub_packages()
     up = T.load_model_module(T.UPSTREAM_MODEL, "wan.modules.model_fast")
     state = T.build(up).state_dict()
-    out = {"default": T.run_loop(T.build(T.load_model_module(T.PATCHED_MODEL, "wan.modules.model_fast_fusion"), state), fusion=True)}
-    os.environ["LINGBOT_DIT_FUSION_EXACT_T"] = "1"
-    try:
-        m = T.build(T.load_model_module(T.PATCHED_MODEL, "wan.modules.model_fast_fusion_exact"), state)
-        out["exact_t"] = T.run_loop(m, fusion=True)
-    finally:
-        del os.environ["LINGBOT_DIT_FUSION_EXACT_T"]
+    out = {}
+    # fast preset = fp32c rope; exact preset = fp32c rope + EXACT_T
+    for mode, env in (("default", {}), ("exact_t", {"LINGBOT_DIT_FUSION_EXACT_T": "1"}),
+                      ("fp32c", {"LINGBOT_DIT_FUSION_ROPE": "fp32c"}),
+                      ("fp32c_exact_t", {"LINGBOT_DIT_FUSION_ROPE": "fp32c", "LINGBOT_DIT_FUSION_EXACT_T": "1"})):
+        os.environ.update(env)
+        try:
+            m = T.build(T.load_model_module(T.PATCHED_MODEL, f"wan.modules.model_fast_fusion_{mode}"), state)
+            out[mode] = T.run_loop(m, fusion=True)
+        finally:
+            for k in env:
+                del os.environ[k]
     return out
 
 
