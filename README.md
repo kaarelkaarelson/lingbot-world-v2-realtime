@@ -37,7 +37,12 @@ The model generates video by predicting one chunk of 16 frames at a time. For ea
 
 ## Speed of light
 
-Every operation has a floor, either its arithmetic divided by the peak of the precision it runs at, or its memory traffic divided by the bandwidth, whichever is larger. Those floors add up to 0.72 s per chunk and the chunk takes 0.98 s, so the stack reaches 74 % of what the card physically allows. Every large operation is compute bound, which means the gap that remains is inside the kernels rather than in how data moves. The original paper's code reaches 80 % of its own floor, 2.16 s.
+```
+floor             = max(FLOPs ÷ peak FLOP/s, bytes ÷ 1,792 GB/s)
+of speed of light = floor ÷ measured
+```
+
+For example, attention does 151 TFLOP per chunk (4 × 6,032 queries × 27,144 keys × 128 dims × 12 heads × 30 layers × 5 passes). At the INT8 peak of 838 TOPS that takes at least 0.180 s; it takes 0.288 s, so 0.180 ÷ 0.288 = 63 %.
 
 <!-- table:roofline -->
 | Operation | Precision and peak | Work / chunk | Bound | Floor | Measured | Of speed of light |
