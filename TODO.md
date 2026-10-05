@@ -1,5 +1,27 @@
 # To-do
 
+## Two GPUs: 2× RTX 5090 over PCIe (Phase 1, 2026-10-05)
+
+Link facts and every measurement: `2X_RTX5090_LEARNINGS.md`. No P2P on GeForce; the cards talk
+through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2e`, same pod).
+
+- [ ] **B1: DiT on card 0, decoder on card 1.** Send each chunk's 4 clean latents (0.77 MB) to card 1
+  and decode there while card 0 denoises the next chunk. Predicted ~25 FPS (1.55×); raises frame rate,
+  not latency. Lives in `lingbot/parallel/` as a layout in `ParallelConfig`.
+- [ ] **B2: sequence parallelism (Ulysses) with a copy-engine exchange, not NCCL all-to-all.** Wrap the
+  attention call: split tokens across the cards, exchange halves around attention with `copy_` on two
+  streams (181 µs per 9.3 MB exchange vs NCCL all-to-all's 484 µs; works with one process per card via
+  CUDA IPC). Predicted 19.5 FPS without overlap, up to 24 with it.
+- [ ] **B2 + B1 combined**: DiT split across both cards, decoder overlapped on one of them.
+- [ ] **Overlap of exchange and compute**: measure inside the real model (pieces pipelined against
+  attention), or with CUDA graphs; the Python micro-benchmark was launch-bound and inconclusive.
+- [ ] **Report NCCL's all-to-all drop on SHM** (10 GB/s at 4-10 MB, 25 GB/s above; NCCL 2.27.3 to
+  2.32.3, every protocol/algorithm/channel setting) upstream with `tools/linkbench/nccl.py`.
+- [ ] **Rerun `tools/linkbench/run.sh` on every new 2-GPU pod** (topology can differ: `PIX`, `NODE`, `SYS`).
+- [ ] **RTX PRO pair: check P2P on RunPod** (`torch.cuda.can_device_access_peer`) before planning on it.
+- Not feasible on a rented pod: the patched P2P driver (host kernel module), and it measures slower
+  (26/51 GB/s) than this host-memory path (45/65 GB/s). NCCL's copy-engine collectives are NVLink-only.
+
 ## Benchmark other engines that run this model (apples-to-apples FPS on one RTX 5090)
 
 Goal: put our 16.2 FPS "as played" (4 steps, 832×464, original Wan decoder) next to every other
