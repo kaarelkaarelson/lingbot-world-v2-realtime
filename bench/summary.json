@@ -92,14 +92,22 @@
   ]
  },
  "ladder": {
-  "source": "OPTIMIZATIONS.md exp 1, 9, 10, 12, 4, 5, 15; cumulative s/chunk in the order applied, last step closes to the measured total",
+  "source": "OPTIMIZATIONS.md exp 1, 9, 10, 12, 4, 5, 15; cumulative s/chunk in the order applied, last step closes to the measured total; README sorts the rows by saving, loaded = format the kernel reads from GPU memory, math = multiply inputs \u2192 accumulator (OPTIMIZATIONS.md \u00a74, \u00a75, \u00a79, \u00a712, \u00a719; wan/image2video.py FP8Linear, wan/modules/sage_kvq.py)",
   "start": 2.68,
   "rows": [
    {
     "step": "Host syncs",
     "before": "CPU\u2194GPU sync on every layer",
     "after": "bookkeeping on the GPU",
-    "after_s": 2.57
+    "after_s": 2.57,
+    "loaded": [
+     "unchanged",
+     "unchanged"
+    ],
+    "math": [
+     "unchanged",
+     "unchanged"
+    ]
    },
    {
     "step": "Decoder",
@@ -109,21 +117,43 @@
     "after_url": "https://arxiv.org/abs/1609.05158",
     "after_link_text": "sub-pixel",
     "after_s": 1.95,
-    "before_link_text": "Wan 2.1 VAE"
+    "before_link_text": "Wan 2.1 VAE",
+    "loaded": [
+     "FP32 weights and activations",
+     "FP16 weights and activations (weights converted once at load)"
+    ],
+    "math": [
+     "TF32 \u2192 FP32",
+     "FP16 \u2192 FP32"
+    ]
    },
    {
     "step": "Compiler",
-    "before": "PyTorch eager",
+    "before": "PyTorch eager, 13 graphs",
     "after": "one compiled graph",
-    "after_s": 1.68
+    "after_s": 1.68,
+    "loaded": [
+     "unchanged",
+     "unchanged"
+    ],
+    "math": [
+     "unchanged",
+     "unchanged"
+    ]
    },
    {
     "step": "Matmuls",
     "before": "bf16 linears",
-    "after": "FP8 rowwise via torchao",
-    "after_url": "https://github.com/pytorch/ao/tree/main/torchao/float8",
-    "after_link_text": "torchao",
-    "after_s": 1.47
+    "after": "FP8 rowwise via torch._scaled_mm",
+    "after_s": 1.47,
+    "loaded": [
+     "BF16 weights and activations",
+     "FP8 weights (converted once at load); BF16 activations, converted to FP8 each call"
+    ],
+    "math": [
+     "BF16 \u2192 FP32",
+     "FP8 \u2192 FP32"
+    ]
    },
    {
     "step": "Attention",
@@ -131,13 +161,29 @@
     "after": "SageAttention 2.2",
     "after_url": "https://arxiv.org/abs/2505.21136",
     "after_link_text": "SageAttention 2.2",
-    "after_s": 1.04
+    "after_s": 1.04,
+    "loaded": [
+     "Q, K, V in BF16",
+     "Q, K, V in BF16; converted each call to INT8 (Q, K) and FP8 (V)"
+    ],
+    "math": [
+     "QK\u1d40 and PV: BF16 \u2192 FP32",
+     "QK\u1d40: INT8 \u2192 INT32; PV: FP8 \u2192 FP16, added into FP32 every 64 keys"
+    ]
    },
    {
     "step": "Kernel fusion",
     "before": "one kernel per operation",
-    "after": "fused kernels for norm, RoPE, residual and FP8 quant",
-    "after_s": 0.98
+    "after": "fused kernels for norm, RoPE, residual and the per-call FP8 conversion",
+    "after_s": 0.98,
+    "loaded": [
+     "unchanged",
+     "unchanged"
+    ],
+    "math": [
+     "unchanged",
+     "unchanged"
+    ]
    }
   ],
   "total": {
@@ -154,25 +200,26 @@
     "kernel": "FP8 matmuls",
     "reached": "393 TFLOP/s",
     "peak": "419 TFLOP/s FP8",
-    "pct": "94 %"
+    "pct": "94%"
    },
    {
     "kernel": "Decoder convolutions",
     "reached": "176 TFLOP/s",
     "peak": "210 TFLOP/s FP16",
-    "pct": "84 %"
+    "pct": "84%"
    },
    {
     "kernel": "Norm, activation, residual",
     "reached": "~1.3 TB/s",
     "peak": "1.8 TB/s memory",
-    "pct": "~70 %"
+    "pct": "~70%"
    },
    {
     "kernel": "SageAttention",
     "reached": "524 TOPS",
     "peak": "838 TOPS INT8",
-    "pct": "63 %"
+    "pct": "63%",
+    "md_suffix": "\\*"
    }
   ]
  },

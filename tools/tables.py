@@ -39,16 +39,28 @@ def md_engines():
 def md_baseline():
     out = ["| | Original paper's code | Ours |", "|---|---|---|"]
     for r in DATA["baseline_vs_ours"]["rows"]:
+        if r.get("big"):  # FPS and s/chunk already sit in the ladder's Total row
+            continue
         out.append(f"| {r['metric']} | {r['before']} | **{r['after']}** |")
     return "\n".join(out)
 
 
 def md_ladder():
+    # Rows are stored in the order applied (the HTML ladder needs that). The README shows the
+    # precision changes first, then the rest, each group by saving, and re-chains s/chunk in that
+    # order from each step's measured saving. Each cell is "before<br>**after**".
     L = DATA["ladder"]
     nb = lambda x: x.replace(" ", "&nbsp;")
-    out = ["| Step | Before | After | s/chunk |", "|---|---|---|---|"]
-    prev = L["start"]
+    pair = lambda a, b: a if a == b else f"{a}<br>**{b}**"
+    rows, prev = [], L["start"]
     for r in L["rows"]:
+        rows.append((prev - r["after_s"], r))
+        prev = r["after_s"]
+    rows.sort(key=lambda x: (x[1]["loaded"][0] == "unchanged", -x[0]))
+    out = ["| Step | Change | Stored in GPU memory | Tensor-core math: inputs → accumulator | s/chunk |",
+           "|---|---|---|---|---|"]
+    s = L["start"]
+    for saved, r in rows:
         after = r["after"]
         if r.get("after_url"):
             after = after.replace(r["after_link_text"], f"[{r['after_link_text']}]({r['after_url']})")
@@ -56,17 +68,17 @@ def md_ladder():
         if r.get("before_url"):
             t = r.get("before_link_text", before)
             before = before.replace(t, f"[{t}]({r['before_url']})")
-        out.append(f"| {nb(r['step'])} | {before} | {after} | {prev:.2f}&nbsp;→&nbsp;{r['after_s']:.2f} |")
-        prev = r["after_s"]
+        out.append(f"| {nb(r['step'])} | {pair(before, after)} | {pair(*r['loaded'])} | {pair(*r['math'])} | {s:.2f}&nbsp;→&nbsp;{s - saved:.2f} |")
+        s -= saved
     t = L["total"]
-    out.append(f"| **Total** | {nb(t['before'])} | **{nb(t['after'])}** | **{t['before_s']:.2f}&nbsp;→&nbsp;{t['after_s']:.2f}** |")
+    out.append(f"| **Total** | {t['before_s']:.2f}&nbsp;→&nbsp;**{t['after_s']:.2f}&nbsp;s**, {nb(t['before'])}&nbsp;→&nbsp;**{nb(t['after'])}** | | | **{t['before_s']:.2f}&nbsp;→&nbsp;{t['after_s']:.2f}** |")
     return "\n".join(out)
 
 
 def md_peaks():
     out = ["| Kernel | Reached | Peak on RTX 5090 | of peak |", "|---|---|---|---|"]
     for r in DATA["peaks"]["rows"]:
-        out.append(f"| {r['kernel']} | {r['reached']} | {r['peak']} | **{r['pct']}** |")
+        out.append(f"| {r['kernel']}{r.get('md_suffix', '')} | {r['reached']} | {r['peak']} | **{r['pct']}** |")
     return "\n".join(out)
 
 

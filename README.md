@@ -25,6 +25,16 @@ A 1.3B world model running at **<!-- n:fps_ours -->16.1<!-- /n --> FPS on one RT
 
 Measured with `lingbot bench` on a stock RunPod RTX 5090 (2026-09-17).
 
+## How the world model works
+
+The model generates video by predicting one chunk of 16 frames at a time. For each chunk:
+
+1. **Take the inputs:** 4 camera poses for this chunk, one per 4 frames. The start image and text prompt are given once per rollout: the prompt is used in every chunk, the start image (encoded into a latent) only in the first; after that it lives on in memory.
+2. **Start from noise:** 16 × 4 × 58 × 104 random numbers, the size of 4 compressed *latent* frames (one per 4 video frames).
+3. **Denoise 4 times.** Each step is one pass of the 1.3B transformer. Its inputs are the noisy chunk, the noise level (100%, 94%, 83%, 63%), the camera poses as a 3D ray per pixel, memory (by default the first 6 and the latest 8 latent frames made so far), the prompt and, in the first chunk, the start image. It returns a guess of the clean chunk; after steps 1 to 3 noise is mixed back in at the next, lower level, and the guess from step 4 is the result.
+4. **Save to memory:** one more pass over the clean chunk at 0% noise, so later chunks can look back at it.
+5. **Decode:** the VAE decoder turns the 4 latent frames into 16 RGB frames.
+
 ## Speed of light
 
 Every operation has a floor, either its arithmetic divided by the peak of the precision it runs at, or its memory traffic divided by the bandwidth, whichever is larger. Those floors add up to 0.72 s per chunk and the chunk takes 0.98 s, so the stack reaches 74 % of what the card physically allows. Every large operation is compute bound, which means the gap that remains is inside the kernels rather than in how data moves. The original paper's code reaches 80 % of its own floor, 2.16 s.
@@ -100,29 +110,25 @@ in total however many streams share it.
 
 ## Optimizations
 
-Nothing about the model changed. The checkpoint, the sampler and the decoder are upstream's, with the same 4 steps, chunks of 4 latents and a KV window of 18 frames. I worked through the stack from the top down, cheapest and most general layer first, measured each step, and stopped at the kernel boundary. The table shows seconds per chunk after each step in the order they were applied. A chunk is 16 frames, one second of video.
+The model is unchanged: same checkpoint, sampler, decoder, 4 steps, 4-latent chunks and 18-frame KV window. Each row is one change: precision changes first, then the rest, each by saving; top line before, bold line after. A chunk is 16 frames, one second of video. The steps were measured in a different order (host syncs, decoder, compiler, matmuls, attention, fusion), so the s/chunk values between the first and last row chain each step's measured saving and are estimates; FP8 in particular only pays under the compiler. The residual stream, norms and softmax stay FP32 throughout.
 
 <!-- table:ladder -->
-| Step | Before | After | s/chunk |
-|---|---|---|---|
-| Host&nbsp;syncs | CPU↔GPU sync on every layer | bookkeeping on the GPU | 2.68&nbsp;→&nbsp;2.57 |
-| Decoder | [Wan 2.1 VAE](https://arxiv.org/abs/2503.20314) in fp32 | fp16 with [sub-pixel](https://arxiv.org/abs/1609.05158) upsampling | 2.57&nbsp;→&nbsp;1.95 |
-| Compiler | PyTorch eager | one compiled graph | 1.95&nbsp;→&nbsp;1.68 |
-| Matmuls | bf16 linears | FP8 rowwise via [torchao](https://github.com/pytorch/ao/tree/main/torchao/float8) | 1.68&nbsp;→&nbsp;1.47 |
-| Attention | FlashAttention-2 | [SageAttention 2.2](https://arxiv.org/abs/2505.21136) | 1.47&nbsp;→&nbsp;1.04 |
-| Kernel&nbsp;fusion | one kernel per operation | fused kernels for norm, RoPE, residual and FP8 quant | 1.04&nbsp;→&nbsp;0.98 |
-| **Total** | 6.0&nbsp;FPS | **16.1&nbsp;FPS** | **2.68&nbsp;→&nbsp;0.98** |
+| Step | Change | Stored in GPU memory | Tensor-core math: inputs → accumulator | s/chunk |
+|---|---|---|---|---|
+| Decoder | [Wan 2.1 VAE](https://arxiv.org/abs/2503.20314) in fp32<br>**fp16 with [sub-pixel](https://arxiv.org/abs/1609.05158) upsampling** | FP32 weights and activations<br>**FP16 weights and activations (weights converted once at load)** | TF32 → FP32<br>**FP16 → FP32** | 2.68&nbsp;→&nbsp;2.06 |
+| Attention | FlashAttention-2<br>**[SageAttention 2.2](https://arxiv.org/abs/2505.21136)** | Q, K, V in BF16<br>**Q, K, V in BF16; converted each call to INT8 (Q, K) and FP8 (V)** | QKᵀ and PV: BF16 → FP32<br>**QKᵀ: INT8 → INT32; PV: FP8 → FP16, added into FP32 every 64 keys** | 2.06&nbsp;→&nbsp;1.63 |
+| Matmuls | bf16 linears<br>**FP8 rowwise via torch._scaled_mm** | BF16 weights and activations<br>**FP8 weights (converted once at load); BF16 activations, converted to FP8 each call** | BF16 → FP32<br>**FP8 → FP32** | 1.63&nbsp;→&nbsp;1.42 |
+| Compiler | PyTorch eager, 13 graphs<br>**one compiled graph** | unchanged | unchanged | 1.42&nbsp;→&nbsp;1.15 |
+| Host&nbsp;syncs | CPU↔GPU sync on every layer<br>**bookkeeping on the GPU** | unchanged | unchanged | 1.15&nbsp;→&nbsp;1.04 |
+| Kernel&nbsp;fusion | one kernel per operation<br>**fused kernels for norm, RoPE, residual and the per-call FP8 conversion** | unchanged | unchanged | 1.04&nbsp;→&nbsp;0.98 |
+| **Total** | 2.68&nbsp;→&nbsp;**0.98&nbsp;s**, 6.0&nbsp;FPS&nbsp;→&nbsp;**16.1&nbsp;FPS** | | | **2.68&nbsp;→&nbsp;0.98** |
 <!-- /table:ladder -->
 
-\* `torch.compile` traces the model into a graph and fuses the small ops around it (norm, RoPE, residual adds) into fewer, larger kernels; it doesn't touch FlashAttention or the GEMMs, which stay calls into hand-tuned CUDA libraries. Tracing breaks wherever control flow reads a tensor's value, and the DiT forward started at 13 graphs and 12 breaks per call. Making the grid size and step count plain Python ints, precomputing the RoPE table, and caching the per-chunk camera-MLP output cut that to one graph, zero breaks (`OPTIMIZATIONS.md` §2, §10).
-
-The table compares the original paper's code with ours, per chunk. GPU busy and kernel launches come from profiler traces of both, described in sections 13 and 17 of `OPTIMIZATIONS.md`. Host syncs are counted over three chunks.
+Per chunk, against the paper's code (profiler traces in `OPTIMIZATIONS.md` §13, §17; host syncs counted over three chunks):
 
 <!-- table:baseline -->
 | | Original paper's code | Ours |
 |---|---|---|
-| FPS | 6.0 | **16.1** |
-| s / chunk | 2.68 | **0.98** |
 | DiT | 1.62 s | **0.64 s** |
 | Decoder | 1.06 s | **0.34 s** |
 | GPU busy | 90% | **98%** |
@@ -130,18 +136,22 @@ The table compares the original paper's code with ours, per chunk. GPU busy and 
 | Host syncs | 110 | **2** |
 <!-- /table:baseline -->
 
-What is left runs in four kernels written by others, and three of them are near the card's peak. Attention has the most room. A hand written kernel at 90 % of peak would gain about one frame per second, so there is none. The details are in section 17 of `OPTIMIZATIONS.md`. The peaks are from NVIDIA's RTX 5090 specification.
+What's left runs in four library kernels, three of them near the RTX 5090's peak (NVIDIA spec). Attention has the most headroom, but a custom kernel at 90% of peak would add only ~1 FPS (§17).
 
 <!-- table:peaks -->
 | Kernel | Reached | Peak on RTX 5090 | of peak |
 |---|---|---|---|
-| FP8 matmuls | 393 TFLOP/s | 419 TFLOP/s FP8 | **94 %** |
-| Decoder convolutions | 176 TFLOP/s | 210 TFLOP/s FP16 | **84 %** |
-| Norm, activation, residual | ~1.3 TB/s | 1.8 TB/s memory | **~70 %** |
-| SageAttention | 524 TOPS | 838 TOPS INT8 | **63 %** |
+| FP8 matmuls | 393 TFLOP/s | 419 TFLOP/s FP8 | **94%** |
+| Decoder convolutions | 176 TFLOP/s | 210 TFLOP/s FP16 | **84%** |
+| Norm, activation, residual | ~1.3 TB/s | 1.8 TB/s memory | **~70%** |
+| SageAttention\* | 524 TOPS | 838 TOPS INT8 | **63%** |
 <!-- /table:peaks -->
 
-The result is lossless. Four of the six steps are bit identical to the paper's code, and FP8 and the attention kernel were checked on identical inputs. The attention kernel was measured again on a loop where nothing else varies, and its first chunk of latents matches FlashAttention-2 to a cosine of 0.999969, so the kernel itself is lossless and everything after that is the rollout drifting. PSNR, SSIM and LPIPS compare the same latents decoded by the paper's fp32 decoder and by ours. The rest are no reference metrics on the generated clips, measured on the first and last second. The numbers are in `quality_summary.tsv` from experiment 15.
+\* Limited by its softmax bookkeeping, not tensor throughput (§19–20).
+
+The output is lossless. Four of the six changes are bit-identical. FP8 and SageAttention were checked on identical inputs: SageAttention's first chunk matches FlashAttention-2 at cosine 0.999969.
+
+PSNR, SSIM and LPIPS compare the same latents decoded by both decoders. The other metrics score each clip on its own (first and last second), because the model is autoregressive: a small numeric change gives a different but equally coherent video, so frame-by-frame comparison late in a clip measures scene drift, not damage. Data: `quality_summary.tsv` (experiment 15).
 
 <!-- table:quality -->
 | | Original paper's code | Ours |
@@ -157,28 +167,6 @@ The result is lossless. Four of the six steps are bit identical to the paper's c
 | Flicker | 0.0381 | **0.0381** |
 | DiT latents, exact preset | reference | **bit-identical** |
 <!-- /table:quality -->
-
-What those metrics mean. The first three need a reference frame to compare against, so they only
-say something when both clips show the same thing. The rest score a clip on its own.
-
-| Metric | What it measures | Reference | Better |
-|---|---|---|---|
-| PSNR | Average pixel error, in decibels. Strict, and it punishes a one pixel shift as hard as real damage. | needed | higher |
-| [SSIM](https://doi.org/10.1109/TIP.2003.819861) | Local structure, contrast and luminance rather than raw pixel values. | needed | higher |
-| [LPIPS](https://arxiv.org/abs/1801.03924) | Distance between two images as a pretrained vision network sees them, fitted to human judgements of which distortion looks closer. The most reliable of the three here. | needed | lower |
-| [MUSIQ](https://arxiv.org/abs/2108.05997) | A quality score from a transformer trained on human ratings. | none | higher |
-| [CLIP-IQA](https://arxiv.org/abs/2207.12396) | How close the frame sits to "a good photo" rather than "a bad photo" in CLIP's embedding space. | none | higher |
-| Sharpness | Edge energy, the variance of a Laplacian filter. It rises for fine detail and for artifacts alike, so read it next to the others and never on its own. | none | context |
-| Colourfulness | Spread and saturation of colour. | none | context |
-| Brightness | Mean luminance. | none | context |
-| Flicker | Mean change between consecutive frames, a stand in for temporal stability. | none | lower |
-
-The split matters more than it looks, because the model is autoregressive and every chunk is
-conditioned on the ones before it. Change a kernel or a precision and you do not get a worse version
-of the same video, you get a different video that is just as coherent, so a reference metric late in
-a clip is comparing two different scenes and reporting the difference as damage. That is why the
-attention kernel above is checked on the first chunk, before the two runs drift apart.
-
 
 `OPTIMIZATIONS.md` is the full log. It has every experiment with its measurement, the profiles, and the levers that were tried and rejected.
 
