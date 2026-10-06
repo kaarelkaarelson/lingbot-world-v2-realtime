@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="98" viewBox="0 0 760 98" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">
+<rect width="760" height="98" fill="#ffffff"/>
+<text x="140" y="23.0" text-anchor="end" fill="#222222">card 0</text>
+<rect x="150" y="6" width="594" height="26" rx="3" fill="#ececec"/>
+<rect x="151.0" y="6" width="123.2" height="26" rx="3" fill="#3a6ea5"/>
+<text x="212.6" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 1</text>
+<rect x="276.2" y="6" width="123.2" height="26" rx="3" fill="#3a6ea5"/>
+<text x="337.8" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 2</text>
+<rect x="401.4" y="6" width="123.2" height="26" rx="3" fill="#3a6ea5"/>
+<text x="463.0" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 3</text>
+<rect x="526.7" y="6" width="123.2" height="26" rx="3" fill="#3a6ea5"/>
+<text x="588.3" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 4</text>
+<rect x="651.9" y="6" width="91.1" height="26" rx="3" fill="#3a6ea5"/>
+<text x="697.4" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 5</text>
+<text x="140" y="57.0" text-anchor="end" fill="#222222">card 1</text>
+<rect x="150" y="40" width="594" height="26" rx="3" fill="#ececec"/>
+<rect x="276.2" y="40" width="65.3" height="26" rx="3" fill="#8c2f39"/>
+<text x="308.9" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 1</text>
+<rect x="401.4" y="40" width="65.3" height="26" rx="3" fill="#8c2f39"/>
+<text x="434.1" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 2</text>
+<rect x="526.7" y="40" width="65.3" height="26" rx="3" fill="#8c2f39"/>
+<text x="559.3" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 3</text>
+<rect x="651.9" y="40" width="65.3" height="26" rx="3" fill="#8c2f39"/>
+<text x="684.5" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 4</text>
+<text x="150.0" y="84" text-anchor="middle" fill="#666666">0 s</text>
+<text x="249.0" y="84" text-anchor="middle" fill="#666666">0.5 s</text>
+<text x="348.0" y="84" text-anchor="middle" fill="#666666">1 s</text>
+<text x="447.0" y="84" text-anchor="middle" fill="#666666">1.5 s</text>
+<text x="546.0" y="84" text-anchor="middle" fill="#666666">2 s</text>
+<text x="645.0" y="84" text-anchor="middle" fill="#666666">2.5 s</text>
+<text x="744.0" y="84" text-anchor="middle" fill="#666666">3 s</text>
+</svg>

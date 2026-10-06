@@ -51,6 +51,28 @@ On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
 | … + no host sync per forward + 48 SMs for card 1's DiT share | 29.2 |
 | **… + copy-free q\|k\|v assembly (`LINGBOT_SPLIT_ZEROCOPY=1`)** | **29.8** |
 
+### The three layouts at a glance
+
+| Layout | Card 0 | Card 1 | Measured | FPS |
+|---|---|---|---|---|
+| Classic split 6:6 | half the DiT (6 heads, half the tokens), then the decoder | the other half of the DiT; idle while card 0 decodes | 500 W pod, slow CPU | 14.0 |
+| Pipeline (B1) | the whole DiT | the decoder, one chunk behind | fast-CPU pod | 25.3 |
+| **Split 10:2 (best)** | 10 of 12 heads, 5/6 of the tokens | 2 heads, 1/6 of the tokens on 48 SMs; the decoder, one chunk behind, on the other 122 SMs | fast-CPU pod | **29.8** |
+
+Classic split 6:6
+
+![Classic split 6:6: both cards run the DiT, then card 0 decodes while card 1 waits](docs/img/layout_classic_6_6.svg)
+
+Pipeline (B1)
+
+![B1: card 0 runs the DiT back to back, card 1 decodes the previous chunk](docs/img/layout_b1.svg)
+
+Split 10:2 (best)
+
+![Split 10:2: both cards run the DiT of the same chunk; card 1 also decodes the previous chunk on its own SMs](docs/img/layout_split_10_2.svg)
+
+Bars are to scale from each layout's measured chunk time; the classic split was measured only on the slower pod.
+
 ## How the world model works
 
 The model generates video by predicting one chunk of 16 frames at a time. For each chunk:
