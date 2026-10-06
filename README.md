@@ -59,7 +59,7 @@ On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
 | Pipeline (B1) | full DiT | VAE decoder\* | fast-CPU pod | 25.3 |
 | **Split 10:2 (best)** | 5/6 of the attention heads | 1/6 of the attention heads + VAE decoder\* | fast-CPU pod | **29.8** |
 
-\* One chunk behind: the VAE decoder turns chunk n into frames while the DiT is already generating chunk n+1.
+\* The VAE decoder is one chunk behind, meaning it turns chunk n into frames while the DiT is generating chunk n+1.
 
 Classic split 6:6
 
