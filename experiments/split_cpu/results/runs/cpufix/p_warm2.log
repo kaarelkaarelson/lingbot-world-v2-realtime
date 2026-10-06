@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 05:32:37,526] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:07,  1.13it/s] 20%|##        | 2/10 [00:01<00:06,  1.16it/s] 30%|###       | 3/10 [00:02<00:05,  1.18it/s] 40%|####      | 4/10 [00:03<00:05,  1.18it/s] 50%|#####     | 5/10 [00:04<00:04,  1.17it/s] 60%|######    | 6/10 [00:05<00:03,  1.16it/s] 70%|#######   | 7/10 [00:06<00:02,  1.16it/s] 80%|########  | 8/10 [00:06<00:01,  1.16it/s] 90%|######### | 9/10 [00:07<00:00,  1.16it/s]100%|##########| 10/10 [00:08<00:00,  1.16it/s]100%|##########| 10/10 [00:08<00:00,  1.16it/s]
+[2026-10-06 05:32:47,093] INFO: Saving generated video to /workspace/runs/cpufix/p_warm2.mp4
+BENCH_E2E trial 1: 18.42 FPS (interval p50 868.5 ms, p95 873.2, p99 873.7; 5 steady chunks), first frame 1769 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 18.42 FPS, 7.11 MPPS, interval p95 873.2 ms, first frame 1769 ms (cold: includes compile)
+[worker] run took 12.8 s
+

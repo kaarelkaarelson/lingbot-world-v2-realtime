@@ -1,0 +1,13 @@
+xg_cold: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 18.08 FPS, 6.98 MPPS, interval p95 909.7 ms, first frame 24957 ms (cold: includes compile)
+xg_warm: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 17.00 FPS, 6.56 MPPS, interval p95 949.2 ms, first frame 1963 ms (cold: includes compile)
+/workspace/cpu_fix.sh: line 12: kill: (4935) - No such process
+py-spy:     0: Permission denied (os error 13)
+    1: Permission denied (os error 13)
+xg_warm2: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 16.74 FPS, 6.46 MPPS, interval p95 965.5 ms, first frame 1916 ms (cold: includes compile)
+x_cold: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 19.53 FPS, 7.54 MPPS, interval p95 823.6 ms, first frame 24150 ms (cold: includes compile)
+x_warm: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 19.20 FPS, 7.41 MPPS, interval p95 926.9 ms, first frame 1723 ms (cold: includes compile)
+b1g_cold: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 23.98 FPS, 9.26 MPPS, interval p95 668.0 ms, first frame 74083 ms (cold: includes compile)
+b1g_warm: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 23.77 FPS, 9.18 MPPS, interval p95 675.2 ms, first frame 1684 ms (cold: includes compile)
+stopped lingbot-worker-47486533121c.sock
+tail: option used in invalid context -- 3
+CPUFIX DONE

@@ -1,0 +1,18 @@
+[worker] stopping lingbot-worker-4eaa5ce97eed.sock (different code hash)
+[worker] starting worker 47486533121c (cold start: load + compile on first run); log /tmp/lingbot-worker-47486533121c.log
+[2026-10-06 05:27:04,929] INFO: loading weights/lingbot-world-v2-14b-causal-fast/Wan2.1_VAE.pth
+[2026-10-06 05:27:05,769] INFO: loading weights/lingbot-world-v2-14b-causal-fast/Wan2.1_VAE.pth
+[2026-10-06 05:27:06,650] INFO: Fused decoder on cuda:1 (compile=max-autotune-no-cudagraphs)
+[2026-10-06 05:27:06,650] INFO: Loading WanModelFast from weights/lingbot-world-v2-1.3b-causal-fast
+[2026-10-06 05:27:06,650] INFO: config.json not found in weights/lingbot-world-v2-1.3b-causal-fast; building WanModelFast from the task config and loading safetensors weights.
+[2026-10-06 05:27:08,997] INFO: FP8 rowwise enabled on 420 of 420 Linear layers
+[2026-10-06 05:27:08,997] INFO: Inductor: multi_kernel=1, coordinate_descent_tuning, realize_reads_threshold=8
+[2026-10-06 05:27:10,224] INFO: torch.compile enabled (mode=1)
+[worker] pipeline built in 6 s (kept for later runs)
+[2026-10-06 05:27:10,483] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [01:05<09:49, 65.54s/it] 20%|##        | 2/10 [01:12<04:09, 31.14s/it] 30%|###       | 3/10 [01:13<02:00, 17.16s/it] 40%|####      | 4/10 [01:13<01:03, 10.62s/it] 50%|#####     | 5/10 [01:18<00:41,  8.36s/it] 60%|######    | 6/10 [01:18<00:22,  5.75s/it] 70%|#######   | 7/10 [01:19<00:12,  4.09s/it] 80%|########  | 8/10 [01:20<00:05,  3.00s/it] 90%|######### | 9/10 [01:20<00:02,  2.27s/it]100%|##########| 10/10 [01:21<00:00,  1.77s/it]100%|##########| 10/10 [01:21<00:00,  8.14s/it]
+[2026-10-06 05:28:40,566] INFO: Saving generated video to /workspace/runs/cpufix/b1g_cold.mp4
+BENCH_E2E trial 1: 23.98 FPS (interval p50 667.2 ms, p95 668.0, p99 668.0; 5 steady chunks), first frame 74083 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 23.98 FPS, 9.26 MPPS, interval p95 668.0 ms, first frame 74083 ms (cold: includes compile)
+[worker] run took 93.2 s
+

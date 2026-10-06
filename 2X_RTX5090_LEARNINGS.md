@@ -179,6 +179,36 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    args>` keeps weights loaded and the model compiled per code hash: a repeat run took 14 s instead of
    ~150 s, switching to B1 `--bench_e2e` in the same worker 38 s; results match direct runs (0.675 vs 0.666
    s per chunk, 24.04 vs 24.19 FPS). `experiments/mxfp8/worker_test_vast_2026-10-06.tsv`, `CLAUDE.md`.
+21. **The full-pipeline split was CPU-bound; three switches put it past B1.** 10:2 split with green
+   contexts, decoder on card 1, warm worker, Vast pod. Steady chunk time was set by one Python thread:
+   0.53 s of CPU per chunk for the split DiT (warm py-spy) against ~0.5 s of GPU per card. Of that, 0.22 s
+   went into calls to the compiled stages (`_pre`/`_post`: guard checks, then Inductor's Python wrapper
+   launching each kernel), 0.10 s into the card-to-card transfers, 0.07 s into SageAttention's Python
+   wrapper. A steady chunk issues 20,600 GPU operations (one card: ~7,200); the CPU spends ~44 us per
+   operation, of which ~9 us is the CUDA launch itself.
+
+   | Change (cumulative where marked) | Warm FPS, 3 runs | Median |
+   |---|---|---|
+   | Split as first built | — | 17.64 |
+   | Reuse transfer buffers and events (no per-call allocation) | 19.04 / 18.81 / 18.95 | 18.95 |
+   | + `LINGBOT_SPLIT_CPPWRAP=1` (Inductor `cpp_wrapper`) | 20.38 / 22.43 / 22.65 | 22.43 |
+   | + `LINGBOT_SPLIT_SKIPGUARD=50` alone | 19.49 / 16.76 / 17.74 | 17.74 |
+   | + `LINGBOT_SPLIT_PIECES=2` alone | 19.61 / 19.47 / 19.27 | 19.47 |
+   | **+ all three** | **24.42 / 25.03 / 25.79** | **25.03** |
+   | B1, same pod | — | 24.04 |
+
+   Every row matches the baseline split at ~43 dB first-chunk PSNR (LPIPS 0.002), the same as two
+   separate processes of identical code, so it is inside the noise band. Guard skipping and 2 pieces do
+   little alone and a lot with `cpp_wrapper`; why is not measured. `experiments/split_cpu/results/`.
+22. **Profile warm processes, not cold ones.** A cold-process py-spy blamed the decoder for 0.44 s of CPU
+   per chunk; it was its first-call compile and autotune. The decoder's steady cost is ~11 ms per chunk.
+   Profile through the worker (`LINGBOT_WORKER_PYSPY=1`, analyse `_warm_run` only); `py-spy --pid` attach
+   is blocked in containers. Two consequences: a decoder CUDA graph saves nothing (measured: B1 24.0 →
+   23.8 FPS, and its last chunk came out wrong in the pipeline, reverted), and pinning the worker to either
+   CPU socket changes nothing (16.3-19.1 FPS in all three placements).
+23. **This host's run-to-run spread is wide.** The same code in the same warm worker ran 16.3-19.1 FPS
+   across runs, and one profiled run hit 26.1 FPS that never repeated. Within a run the steady interval is
+   stable (p50 and p95 within 1 %). Compare candidates on medians of 3 warm runs.
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:

@@ -1,0 +1,6 @@
+p_cold: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 19.14 FPS, 7.39 MPPS, interval p95 842.6 ms, first frame 25126 ms (cold: includes compile)
+p_warm1: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 26.13 FPS, 10.09 MPPS, interval p95 616.5 ms, first frame 1718 ms (cold: includes compile)
+p_warm2: BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 18.42 FPS, 7.11 MPPS, interval p95 873.2 ms, first frame 1769 ms (cold: includes compile)
+stopped lingbot-worker-08dd570d310a.sock
+/tmp/lingbot-worker-08dd570d310a-053131.pyspy.txt
+PROFWARM DONE

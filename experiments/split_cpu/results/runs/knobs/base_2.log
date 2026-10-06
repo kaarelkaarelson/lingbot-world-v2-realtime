@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 05:39:08,555] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:07,  1.13it/s] 20%|##        | 2/10 [00:01<00:05,  1.40it/s] 30%|###       | 3/10 [00:02<00:04,  1.52it/s] 40%|####      | 4/10 [00:02<00:03,  1.58it/s] 50%|#####     | 5/10 [00:03<00:03,  1.60it/s] 60%|######    | 6/10 [00:03<00:02,  1.53it/s] 70%|#######   | 7/10 [00:04<00:02,  1.39it/s] 80%|########  | 8/10 [00:05<00:01,  1.31it/s] 90%|######### | 9/10 [00:06<00:00,  1.27it/s]100%|##########| 10/10 [00:07<00:00,  1.24it/s]100%|##########| 10/10 [00:07<00:00,  1.35it/s]
+[2026-10-06 05:39:16,918] INFO: Saving generated video to /workspace/runs/knobs/base_2.mp4
+BENCH_E2E trial 1: 18.81 FPS (interval p50 850.8 ms, p95 878.7, p99 884.0; 5 steady chunks), first frame 1779 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 18.81 FPS, 7.26 MPPS, interval p95 878.7 ms, first frame 1779 ms (cold: includes compile)
+[worker] run took 11.6 s
+

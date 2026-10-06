@@ -1,0 +1,13 @@
+cold: 19.08 FPS (interval p50 838.8 ms
+worker 9117 affinity: pid 9117's current affinity list: 0-191
+all_1: 18.13 FPS (interval p50 882.7 ms
+all_2: 18.68 FPS (interval p50 856.7 ms
+all_3: 16.34 FPS (interval p50 979.3 ms
+node0_1: 16.87 FPS (interval p50 948.4 ms
+node0_2: 16.92 FPS (interval p50 945.4 ms
+node0_3: 17.14 FPS (interval p50 933.5 ms
+node3_1: 17.29 FPS (interval p50 925.3 ms
+node3_2: 18.67 FPS (interval p50 856.8 ms
+node3_3: 17.52 FPS (interval p50 913.5 ms
+stopped lingbot-worker-be9166685011.sock
+PIN DONE

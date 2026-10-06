@@ -21,10 +21,19 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 
 - [x] **B1: DiT on card 0, decoder on card 1.** 25.69 FPS vs 16.86 on one card (1.52×, predicted
   1.55×), byte-identical to one card in the deterministic config (`--decoder_gpu 1`, 2026-10-05).
-- [ ] **Build the 10:2 split + green contexts into the pipeline.** Layer test: 0.497 vs 0.579 s per chunk
-  (-14 %, ~30 FPS projected; learning 15). Needs: two model replicas in one process, card 1's DiT share
-  and decoder on 40 / 130-SM green-context streams (`greenctx.py`), patched SageAttention, exchange by
-  pinned staging in 4 pieces. Then measure real FPS and confirm the output matches B1 within Sage noise.
+- [x] **Build the 10:2 split + green contexts into the pipeline.** Built (`LINGBOT_SPLIT=10:2`,
+  `lingbot/parallel/split_dit.py`). With `LINGBOT_SPLIT_CPPWRAP=1 LINGBOT_SPLIT_SKIPGUARD=50
+  LINGBOT_SPLIT_PIECES=2`: **25.03 FPS vs B1 24.04** on the Vast pod, quality inside the noise band
+  (learning 21). Still CPU-bound; the GPU ceiling is ~28-29 FPS.
+- [ ] **CUDA graphs per layer stage for the split** (`LINGBOT_SPLIT_GRAPH=pp|all`, the vLLM piecewise
+  pattern). Written, never run. First: `pp` must give frames bit-identical to the eager split; then
+  `all` (Sage in graphs is deterministic but not bit-identical to eager Sage); then FPS with and without
+  the three switches. Watch: capture cost (each `torch.cuda.graph` syncs and collects; graphs are
+  dropped and recaptured every generate()), graph memory, the "running eager" warning.
+- [ ] **One process per card** (`LINGBOT_SPLIT_MP=1`, `lingbot/parallel/split_mp.py`, CUDA IPC exchange).
+  Written, never run. Catch: green contexts can't partition a card between two processes, so card 1's
+  DiT share and the decoder would time-slice. Test with `--decoder_gpu 0` and `1`; if it helps, move the
+  decoder into the helper process (learnings, open question 7).
 - [x] **MXFP8 instead of rowwise FP8 for the DiT linears: measured, dropped** (learning 18). Slower in the
   model (B1 20.04 vs 24.19 FPS) and more drift; FFN-only -1.5 % with a quality cost. Only worth another look
   with quantization fused into the producing kernel.
