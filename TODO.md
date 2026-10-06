@@ -7,11 +7,11 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 
 - [x] **B1: DiT on card 0, decoder on card 1.** 25.69 FPS vs 16.86 on one card (1.52×, predicted
   1.55×), byte-identical to one card in the deterministic config (`--decoder_gpu 1`, 2026-10-05).
-- [ ] **B3-balanced: build into the pipeline.** One-layer measurement (learning 11): the 9:3 split with
-  4-piece pipelined transfers runs a layer in 3.05 ms vs 3.86 on one card; with the decoder in card 1's
-  idle time the projected chunk is ~0.49 s vs B1's 0.58 (about 29-30 FPS from 25.7). Needs: two model
-  replicas in one process, token-local parts compiled per card, exchange by pinned staging in pieces,
-  SageAttention on the default stream, decoder on card 1 at low stream priority.
+- [x] **B3-balanced (9:3 + decoder on card 1): measured, loses to B1** (0.753 vs 0.579 s per chunk,
+  learning 13). The DiT split alone is 21 % faster per layer, but the decoder starves card 1's DiT kernels
+  and card 0 waits on them. Worth revisiting only after both: (1) a SageAttention build that launches on
+  the caller's stream, so the DiT can run at high priority; (2) fewer tokens on card 1 (e.g. 10:2 heads).
+  Upper bound then ~0.50 s per chunk (+15 %).
 - [x] **Head-group overlap (#3): measured, a loss** (3.89-4.12 ms per layer with 9:3). Fewer heads per
   SageAttention call leave SMs idle. Pipelining each message in pieces is the overlap that pays.
 - B2 (even split, decoder after the DiT) is dropped: ~19.5 FPS, slower than B1.

@@ -126,6 +126,15 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    Card 1 is busy 1.01 ms per layer, leaving ~2 ms for the decoder (needs 2.23). An earlier reading of
    "no gain" averaged 8 layers from a cold start and was wrong. `experiments/overlap_layer/`
    (`steady.py`, `breakdown.py`, `results/`).
+13. **With the decoder on card 1, the 9:3 split loses to B1 (0.753 vs 0.579 s per chunk).** Measured with
+   the real compiled decoder running on card 1 next to the split layers: the layer goes from 3.08 to
+   10.41 ms. Card 1's DiT kernels slow 2.2× (1.01 -> 2.25 ms per layer) because the decoder's long
+   convolutions fill its SMs, and card 0 waits on card 1 twice per layer, so the delay lands on card 0's
+   critical path; the decoder itself only slows 16 % (355 -> 413 ms per chunk). Stream priorities cannot
+   fix it today: SageAttention's CUDA kernels launch on the legacy default stream (wrong results on any
+   other stream, with or without a device guard), so the DiT must stay on stream 0, which has the lowest
+   priority. Even perfectly scheduled, card 1 needs 150 × 1.01 ms + 0.355 s = 0.505 s per chunk: at most
+   +15 % over B1. `experiments/overlap_layer/with_decoder.py`.
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:

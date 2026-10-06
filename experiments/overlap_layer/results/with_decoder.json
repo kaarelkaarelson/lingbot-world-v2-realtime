@@ -1,0 +1,11 @@
+{
+ "dec_alone_wall_ms": 354.6449890136719,
+ "dec_kernels": 571,
+ "split_alone_ms": 3.0824639797210693,
+ "split_with_dec_ms": 10.411968231201172,
+ "card1_dit_ms_per_layer_with_dec": 2.245724,
+ "dec_frac_in_window": 0.36488286454845476,
+ "window_ms": 150.65408898925782,
+ "dec_shared_ms_per_chunk": 412.88343089416753,
+ "chunk_s": 0.7530188570121715
+}
