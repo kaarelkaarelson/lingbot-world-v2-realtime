@@ -48,7 +48,8 @@ On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
 |---|---|
 | Pipeline (B1) | 25.3 |
 | Sequence split 10:2, all of the above | 27.7 |
-| **… + no host sync per forward + 48 SMs for card 1's DiT share** | **29.2** |
+| … + no host sync per forward + 48 SMs for card 1's DiT share | 29.2 |
+| **… + copy-free q\|k\|v assembly (`LINGBOT_SPLIT_ZEROCOPY=1`)** | **29.8** |
 
 ## How the world model works
 
