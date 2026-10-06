@@ -217,8 +217,19 @@ def main():
         args.base_seed = seed[0]
 
     logging.info(f"Generation job args: {args}")
-    img = Image.open(args.image).convert("RGB")
     pipe = build_pipeline(args, cfg, rank, device)
+    run_generation(args, pipe, cfg, rank, device, world_size)
+
+    torch.cuda.synchronize()
+    if dist.is_initialized():
+        dist.barrier()
+        dist.destroy_process_group()
+    logging.info("Finished.")
+
+
+def run_generation(args, pipe, cfg, rank=0, device=0, world_size=1):
+    """Generate, save and print bench results with an already-built pipeline (also used by lingbot.worker)."""
+    img = Image.open(args.image).convert("RGB")
     logging.info("Generating video ...")
     ready = []
     for rollout in range(args.warmup + args.trials if args.bench_e2e else 1):  # the first --warmup rollouts are untimed
@@ -246,12 +257,6 @@ def main():
             per, med = summarize(ready, args.chunk_size * cfg.vae_stride[0], h, w)
             gpus = world_size + (args.decoder_gpu is not None and args.decoder_gpu != device)
             print("\n".join(format_lines(per, med, PRESET, gpus, h, w, cold=args.warmup == 0)))
-
-    torch.cuda.synchronize()
-    if dist.is_initialized():
-        dist.barrier()
-        dist.destroy_process_group()
-    logging.info("Finished.")
 
 
 if __name__ == "__main__":

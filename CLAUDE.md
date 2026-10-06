@@ -1,0 +1,17 @@
+# lingbot-world-v2-realtime
+
+## Commands
+
+WHEN running more than one benchmark or generation on a GPU pod, you MUST go through the warm worker instead of `python -m lingbot.generate` -- a fresh process re-loads weights and re-traces the model (~1.5-2.5 min of cold start per run; ~10 s is generation).
+
+```bash
+python -m lingbot.worker run -- --preset fast --bench --frame_num 157 --image examples/03/image.jpg --action_path examples/03 --prompt "$(cat examples/03/prompt.txt)"
+python -m lingbot.worker status   # which worker (code hash) is alive
+python -m lingbot.worker stop     # free the GPUs when done
+```
+
+- `run` takes the same arguments as `lingbot.generate`. Runs warm: `--bench`, `--bench_e2e`, `--frame_num`, `--decoder_gpu`, prompt, image, seed, output file.
+- A new code hash (any change under `lingbot/` or `reference/`, the preset, `LINGBOT_*` env, visible GPUs) starts a fresh worker and stops the old one. Expect one cold start per code version.
+- Keep both GPUs visible (don't set `CUDA_VISIBLE_DEVICES` per run): it is part of the hash, so changing it restarts the worker. Use `--decoder_gpu 1` for two-card runs.
+- Not supported: `--preset stock` and `torchrun`; run `python -m lingbot.generate` directly for those.
+- Worker logs: `/tmp/lingbot-worker-<hash>.log`.
