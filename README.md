@@ -9,7 +9,7 @@ A 1.3B world model running at **<!-- n:fps_ours -->16.1<!-- /n --> FPS on one RT
 
 ![lingbot play dragon at 16 fps](docs/dragon_16fps.gif)
 
-## Performance vs other engines
+## 1× RTX 5090: performance vs other engines
 
 <!-- table:engines -->
 | Engine | s / chunk | FPS | Ours vs it |
