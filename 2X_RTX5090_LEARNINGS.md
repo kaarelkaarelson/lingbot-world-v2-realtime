@@ -165,6 +165,20 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    channels (`dim=24`), so it runs through our own fused compiled decoder: 39.8 vs 366 ms per 16-frame
    chunk. On identical latents vs the full VAE: PSNR 31.3 dB, LPIPS 0.10 (vs source 30.5 dB / 0.122;
    full VAE 34.9 / 0.017). Not usable under a lossless rule. `experiments/overlap_layer/lightvae_test.py`.
+18. **MXFP8 as implemented is a loss; drop it.** The speed gap in learning 16 is real hardware (plain FP8 with
+   FP32 accumulate runs at half rate on consumer Blackwell, block-scaled MXFP8 does not: FlashInfer RFC #3628
+   measured ~102 vs ~202 TFLOP/s on sm_120), but in the model the per-32 activation quantization and scale
+   swizzle (plain PyTorch, `LINGBOT_FP8=mx`) cost more than the GEMMs save, and power-of-two scales are less
+   accurate than our exact per-row scales. One card: 0.895 vs 0.666 s per chunk; B1: 20.04 vs 24.19 FPS;
+   first chunk LPIPS 0.040 vs a 0.030 noise pair, whole-clip LPIPS 0.19 vs 0.10. FFN only (`mx_ffn`): -1.5 %
+   DiT time, first-chunk LPIPS 0.033, whole-clip 0.18: not lossless for 1.5 %. Revisit only with
+   quantization fused into the producing kernel. `experiments/mxfp8/results_vast_2026-10-06.tsv`.
+19. **Baselines on the Vast pod (500 W cap):** one card 0.666 s per chunk DiT, 15.7 FPS as played; B1 24.19
+   FPS (RunPod: 25.69). Compare split results here against these.
+20. **The warm bench worker removes the per-run cold start.** `python -m lingbot.worker run -- <generate
+   args>` keeps weights loaded and the model compiled per code hash: a repeat run took 14 s instead of
+   ~150 s, switching to B1 `--bench_e2e` in the same worker 38 s; results match direct runs (0.675 vs 0.666
+   s per chunk, 24.04 vs 24.19 FPS). `experiments/mxfp8/worker_test_vast_2026-10-06.tsv`, `CLAUDE.md`.
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:

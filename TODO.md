@@ -6,7 +6,8 @@ Measured on the Vast pod (2026-10-06): a ~2.5 min run is ~10 s of generation; th
 loading (~30-50 s), Dynamo tracing (~35-50 s, redone in every process) and Inductor compile (0 s warm, ~250 s
 cold for new graphs). Inductor already caches by graph hash; loading and tracing are what repeat.
 
-- [ ] One long-lived worker per **code hash** (git tree + `LINGBOT_*` env): keeps weights loaded and the model
+- [x] Built: `lingbot/worker.py` (learning 20). Repeat runs 14 s instead of ~150 s, results match direct runs.
+- [x] One long-lived worker per **code hash** (git tree + `LINGBOT_*` env): keeps weights loaded and the model
   compiled; runs every config that doesn't change compiled code (chunk count, decoder card, prompt, repeats)
   in ~10-20 s instead of ~2.5 min. A changed hash starts a new worker (load + trace ~1.5 min; unchanged kernels
   still hit Inductor's cache). Restart on any change so a worker never serves stale code.
@@ -24,8 +25,9 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
   (-14 %, ~30 FPS projected; learning 15). Needs: two model replicas in one process, card 1's DiT share
   and decoder on 40 / 130-SM green-context streams (`greenctx.py`), patched SageAttention, exchange by
   pinned staging in 4 pieces. Then measure real FPS and confirm the output matches B1 within Sage noise.
-- [ ] **MXFP8 instead of rowwise FP8 for the DiT linears** (learning 16): 1.35-1.5x faster GEMMs, same
-  precision class. Quality check against `fast` before adopting.
+- [x] **MXFP8 instead of rowwise FP8 for the DiT linears: measured, dropped** (learning 18). Slower in the
+  model (B1 20.04 vs 24.19 FPS) and more drift; FFN-only -1.5 % with a quality cost. Only worth another look
+  with quantization fused into the producing kernel.
 - [x] **B3-balanced (split + decoder on card 1): measured, loses to B1** even with the SageAttention
   stream patch and DiT priority (best: 10:2 at 0.622 vs 0.579 s per chunk; learnings 13-14). Revisit only
   where the decoder can get its own SMs (MPS or CUDA green contexts, needs a VM or bare metal).
