@@ -1,0 +1,27 @@
+[2026-10-06 00:15:00,531] INFO: Generation job args: Namespace(preset='fast', bench=True, bench_e2e=False, trials=1, warmup=0, task='i2v-1.3B', size='480*832', frame_num=157, chunk_size=4, ckpt_dir='weights/lingbot-world-v2-1.3b-causal-fast', assets_dir='weights/lingbot-world-v2-14b-causal-fast', offload_model=False, t5_cpu=False, decoder_gpu=None, ulysses_size=1, dit_fsdp=False, t5_fsdp=False, save_file='/workspace/runs/a2a8/qk3.mp4', save_dir='output', prompt='A serene lakeside scene with a lone tree standing in calm water, surrounded by distant snow-capped mountains under a bright blue sky with drifting white clouds — gentle ripples reflect the tree and sky, creating a tranquil, meditative atmosphere.', image='examples/03/image.jpg', action_path='examples/03', base_seed=42, sample_shift=5.0, local_attn_size=18, sink_size=6, max_attention_size=None)
+[2026-10-06 00:15:01,104] INFO: loading weights/lingbot-world-v2-14b-causal-fast/Wan2.1_VAE.pth
+[2026-10-06 00:15:01,987] INFO: Fused decoder (compile=max-autotune-no-cudagraphs)
+[2026-10-06 00:15:01,987] INFO: Loading WanModelFast from weights/lingbot-world-v2-1.3b-causal-fast
+[2026-10-06 00:15:01,987] INFO: config.json not found in weights/lingbot-world-v2-1.3b-causal-fast; building WanModelFast from the task config and loading safetensors weights.
+There are modules in WanModelFast that should be kept in float32: []. Casting directly with `to()` can lead to inconsistent results; set `torch_dtype` in `from_pretrained()` instead to keep these modules in float32.
+[2026-10-06 00:15:04,301] INFO: FP8 rowwise enabled on 420 of 420 Linear layers
+[2026-10-06 00:15:04,302] INFO: Inductor: multi_kernel=1, coordinate_descent_tuning, realize_reads_threshold=8
+[2026-10-06 00:15:05,532] INFO: torch.compile enabled (mode=1)
+[2026-10-06 00:15:05,533] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s][2026-10-06 00:16:16,057] INFO: BENCH chunk=0 chunk_s=62.374 loop_s=62.374
+ 10%|█         | 1/10 [01:02<09:21, 62.37s/it][2026-10-06 00:16:40,266] INFO: BENCH chunk=1 chunk_s=24.209 loop_s=86.583
+ 20%|██        | 2/10 [01:26<05:19, 39.92s/it][2026-10-06 00:16:40,821] INFO: BENCH chunk=2 chunk_s=0.554 loop_s=87.137
+ 30%|███       | 3/10 [01:27<02:33, 21.95s/it][2026-10-06 00:16:41,456] INFO: BENCH chunk=3 chunk_s=0.635 loop_s=87.772
+ 40%|████      | 4/10 [01:27<01:21, 13.53s/it][2026-10-06 00:17:00,188] INFO: BENCH chunk=4 chunk_s=18.732 loop_s=106.504
+ 50%|█████     | 5/10 [01:46<01:17, 15.41s/it][2026-10-06 00:17:00,874] INFO: BENCH chunk=5 chunk_s=0.686 loop_s=107.190
+ 60%|██████    | 6/10 [01:47<00:41, 10.40s/it][2026-10-06 00:17:01,560] INFO: BENCH chunk=6 chunk_s=0.687 loop_s=107.877
+ 70%|███████   | 7/10 [01:47<00:21,  7.23s/it][2026-10-06 00:17:02,247] INFO: BENCH chunk=7 chunk_s=0.687 loop_s=108.564
+ 80%|████████  | 8/10 [01:48<00:10,  5.14s/it][2026-10-06 00:17:02,934] INFO: BENCH chunk=8 chunk_s=0.687 loop_s=109.251
+ 90%|█████████ | 9/10 [01:49<00:03,  3.75s/it][2026-10-06 00:17:03,622] INFO: BENCH chunk=9 chunk_s=0.688 loop_s=109.939
+100%|██████████| 10/10 [01:49<00:00,  2.81s/it]100%|██████████| 10/10 [01:49<00:00, 10.99s/it]
+[2026-10-06 00:17:21,186] INFO: BENCH vae_decode_s=3.500
+[2026-10-06 00:17:21,188] INFO: Saving generated video to /workspace/runs/a2a8/qk3.mp4
+BENCH preset=fast gpus=1 chunks=10 dit_s_per_chunk(first)=62.374 steady_median=0.687 -> denoise-loop FPS 23.3
+BENCH vae_decode_s_per_chunk=0.350 -> as-played FPS 15.4 (real time = 16)
+BENCH chunk_s=62.374 24.209 0.554 0.635 18.732 0.686 0.687 0.687 0.687 0.688
+[2026-10-06 00:17:24,284] INFO: Finished.
