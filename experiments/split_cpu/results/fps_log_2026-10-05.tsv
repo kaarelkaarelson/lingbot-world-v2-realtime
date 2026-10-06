@@ -11,3 +11,8 @@ date	pod	layout	config	warm_fps_runs	fps_median	quality_vs_ref	notes
 2026-10-05	vast 54397113	split 10:2 + GC	+ decoder CUDA graph (reverted)	17.00/16.74	-	last chunk wrong (9-18 dB)	reverted
 2026-10-05	vast 54397113	B1	+ decoder CUDA graph (reverted)	23.77	-	last chunk wrong	reverted
 2026-10-05	vast 54397113	split 10:2 + GC	worker pinned to socket of card 0 / card 1 / any	16.9-17.1 / 17.3-18.7 / 16.3-18.7	-	-	pinning no effect
+2026-10-06	vast 54497707 (EPYC 9454, 575 W, PCIe5 x16)	B1	torch 2.8 cu128	25.32/25.25/25.18	25.25	reference	fast CPU pod
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches	torch 2.8 cu128	27.77/27.73/27.71	27.73	30.9 dB / 0.015 first chunk vs B1	GPU-bound on card 0
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches	torch 2.14 cu130 + flash 2.8.3	27.17/27.12/27.05	27.12	30.8 dB / 0.017 vs B1	cu130 -2.2%
+2026-10-06	vast 54497707	B1, multi_kernel off	torch 2.8 cu128	25.01/24.98/24.83	24.98	29.8 dB vs B1 mk on	
+2026-10-06	vast 54497707	B1, multi_kernel off	torch 2.14 cu130 + flash 2.8.3	25.24/25.16/25.11	25.16	28.0 dB vs cu128 same config	multi_kernel on crashes on cu130

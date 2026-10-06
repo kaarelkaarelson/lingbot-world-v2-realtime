@@ -234,6 +234,15 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    blocking), which is also where the 14 ms of CPU-attributed GPU idle comes from: likely a host sync per
    forward, unconfirmed. Raw files: `experiments/split_cpu/results/norway_2026-10-06/`; the nsys report is
    kept outside the repo (`traces/split_norway_warm.nsys-rep`).
+25. **Torch 2.14 + CUDA 13.0 is no faster here; stay on torch 2.8 + cu128.** Same pod, same configs, median of
+   3 warm runs: split 27.12 FPS on cu130 vs 27.73 on cu128 (-2.2 %); B1 with `multi_kernel` off 25.16 vs 24.98
+   (+0.7 %, noise). The comparison needs FlashAttention on both stacks: the reference calls `flash_attention()`
+   directly for cross-attention (`reference/wan/modules/model*.py`), so without the wheel the first cu130 run
+   silently used SDPA (since fixed: `lingbot/layers/attention.py` falls back explicitly). cu130 needs a
+   community wheel (mjun0812, flash_attn 2.8.3+cu130torch2.14), SageAttention rebuilt as C++20, and
+   `LINGBOT_MULTI_KERNEL=0` for the whole-model compile (torch 2.14's Triton crashes in multi_kernel's cache
+   key). First chunk, cu130 split vs B1: 30.8 dB, LPIPS 0.017 (passes); same config across stacks: 28-29 dB,
+   the same size of change as switching `multi_kernel` off alone (29.8 dB).
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:
