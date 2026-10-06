@@ -36,6 +36,17 @@ from lingbot.parallel import a2a_quant as a2aq
 #                                   forward into fp32 hi + lo parts
 _EXACT_T = os.environ.get("LINGBOT_DIT_FUSION_EXACT_T") == "1"
 _SIM_A2A8 = os.environ.get("LINGBOT_SIM_A2A8", "")  # "qk" or "qkv": see lingbot/parallel/a2a_quant.py
+_DUMP_QKV = os.environ.get("LINGBOT_DUMP_QKV", "")  # dir: save one forward's attention inputs (experiments/a2a8)
+_dump_calls = [0]
+
+
+def _dump_qkv(q, k, v, forward=30, layers=(0, 10, 20, 29), num_layers=30):
+    # forward 30 = chunk 6, first denoise step (5 forwards per chunk): the KV window is full by then
+    i = _dump_calls[0]
+    _dump_calls[0] += 1
+    if i // num_layers == forward and i % num_layers in layers:
+        os.makedirs(_DUMP_QKV, exist_ok=True)
+        torch.save({"q": q.cpu(), "k": k.cpu(), "v": v.cpu()}, os.path.join(_DUMP_QKV, f"layer{i % num_layers:02d}.pt"))
 _ROPE_FP32C = os.environ.get("LINGBOT_DIT_FUSION_ROPE") == "fp32c"
 
 
@@ -209,6 +220,8 @@ class CausalWanSelfAttention(nn.Module):
         local_end_index, current_end = kvc.write(kv_cache, roped_key, v, current_start, sink_tokens,
                                                  self.local_attn_size)
         k_cache, v_cache = kvc.window(kv_cache, local_end_index, max_attention_size)
+        if _DUMP_QKV:
+            _dump_qkv(roped_query, k_cache, v_cache)
         x = attention(roped_query, k_cache, v_cache)
         kvc.commit(kv_cache, current_end, local_end_index)
 
