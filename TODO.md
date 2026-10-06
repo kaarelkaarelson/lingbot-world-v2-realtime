@@ -7,11 +7,11 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 
 - [x] **B1: DiT on card 0, decoder on card 1.** 25.69 FPS vs 16.86 on one card (1.52×, predicted
   1.55×), byte-identical to one card in the deterministic config (`--decoder_gpu 1`, 2026-10-05).
-- [x] **B3-balanced (9:3 + decoder on card 1): measured, loses to B1** (0.753 vs 0.579 s per chunk,
-  learning 13). The DiT split alone is 21 % faster per layer, but the decoder starves card 1's DiT kernels
-  and card 0 waits on them. Worth revisiting only after both: (1) a SageAttention build that launches on
-  the caller's stream, so the DiT can run at high priority; (2) fewer tokens on card 1 (e.g. 10:2 heads).
-  Upper bound then ~0.50 s per chunk (+15 %).
+- [x] **B3-balanced (split + decoder on card 1): measured, loses to B1** even with the SageAttention
+  stream patch and DiT priority (best: 10:2 at 0.622 vs 0.579 s per chunk; learnings 13-14). Revisit only
+  where the decoder can get its own SMs (MPS or CUDA green contexts, needs a VM or bare metal).
+- [ ] **Upstream the SageAttention stream fix** (`patches/sageattention-current-stream.patch`): all 21
+  launches ignore the current stream, so Sage is wrong on any non-default stream. Report to thu-ml.
 - [x] **Head-group overlap (#3): measured, a loss** (3.89-4.12 ms per layer with 9:3). Fewer heads per
   SageAttention call leave SMs idle. Pipelining each message in pieces is the overlap that pays.
 - B2 (even split, decoder after the DiT) is dropped: ~19.5 FPS, slower than B1.

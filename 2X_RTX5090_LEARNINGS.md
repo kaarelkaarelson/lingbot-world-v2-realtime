@@ -135,6 +135,18 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    other stream, with or without a device guard), so the DiT must stay on stream 0, which has the lowest
    priority. Even perfectly scheduled, card 1 needs 150 × 1.01 ms + 0.355 s = 0.505 s per chunk: at most
    +15 % over B1. `experiments/overlap_layer/with_decoder.py`.
+14. **The exact bottleneck is head-of-line blocking on card 1, and the SageAttention stream patch only
+   partly fixes it.** Before the patch, card 1's 34 DiT kernels in one layer waited 31.35 ms to start (ran
+   2.30 ms, 1.08 alone) behind a cuDNN 3D convolution of the decoder (`sm80_xmma_fprop_implicit_gemm`,
+   36,192 blocks, ~4.7 ms): at equal priority the block scheduler drains the earlier kernel's queued
+   blocks first. SageAttention launched all 21 of its CUDA kernels without a stream (legacy default
+   stream), so the DiT could not leave stream 0. Patched to launch on the current stream
+   (`patches/sageattention-current-stream.patch`, same results, max diff 0.0), the DiT runs at priority -5:
+   waits drop to 2.31 ms per layer, the layer with the decoder from 10.35 to 5.07 ms, the chunk from
+   0.741 to 0.634 s. Resident decoder blocks still share card 1's SMs, so its DiT kernels run ~2× slower.
+   With the decoder on card 1 every split loses to B1 (0.579 s): 9:3 0.634, 10:2 0.622, 11:1 0.659.
+   Confining the decoder to its own SMs (MPS, CUDA green contexts) is the remaining lever; the container
+   does not allow it. `experiments/overlap_layer/sched_analysis.py`, `with_decoder.py` (`HIPRIO=1`, `H0`).
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:
