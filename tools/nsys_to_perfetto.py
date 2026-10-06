@@ -5,8 +5,8 @@
 
 Tracks: the busiest CPU thread (its CUDA API calls and NVTX ranges, nested chunk / forward / layer / stage), and per
 GPU one track per stream, named by what runs on it (DiT, decoder, copies). Each kernel and memcpy has an arrow from
-the CUDA call that launched it. `--open` serves the file once on 127.0.0.1:9001 and opens ui.perfetto.dev on it
-(Perfetto's own `open_trace_in_ui`, fetched to ~/.local/bin if missing); the trace stays on this machine.
+the CUDA call that launched it. `--open` serves the file once on 127.0.0.1:9001 and opens ui.perfetto.dev on it with
+every track group expanded (as Perfetto's `open_trace_in_ui` does, plus a startup command); the trace stays local.
 Standard library only.
 """
 import argparse
@@ -19,7 +19,8 @@ import subprocess
 import sys
 
 COPY = {1: "HtoD", 2: "DtoH", 8: "DtoD", 10: "PtoP"}
-OTIU = os.path.expanduser("~/.local/bin/open_trace_in_ui")
+# expand every track group (per-GPU streams, CPU NVTX levels) once the trace loads
+EXPAND_ALL = [{"id": "dev.perfetto.ExpandTracksByRegex", "args": [".*"]}]
 
 
 def _sqlite(path):
@@ -94,13 +95,47 @@ def convert(db, out):
     return len(ev)
 
 
-def open_in_ui(path):
-    if not os.path.exists(OTIU):
-        os.makedirs(os.path.dirname(OTIU), exist_ok=True)
-        subprocess.run(["curl", "-sSfL", "-o", OTIU, "https://github.com/google/perfetto/raw/master/tools/open_trace_in_ui"],
-                       check=True)
-        os.chmod(OTIU, 0o755)
-    subprocess.run([sys.executable, OTIU, "-i", path], check=True)  # returns once the browser has fetched the file
+def open_in_ui(path, commands=EXPAND_ALL):
+    """Serve `path` once on 127.0.0.1:9001 (the only local origin ui.perfetto.dev's CSP allows; same as Perfetto's
+    open_trace_in_ui) and open the UI on it, running `commands` (UI automation) once the trace has loaded."""
+    import http.server
+    import socketserver
+    import urllib.parse
+    import webbrowser
+    path = os.path.abspath(path)
+    fname = os.path.basename(path)
+
+    class H(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *a, **k):
+            super().__init__(*a, directory=os.path.dirname(path), **k)
+
+        def end_headers(self):
+            self.send_header("Access-Control-Allow-Origin", "https://ui.perfetto.dev")
+            self.send_header("Cache-Control", "no-cache")
+            super().end_headers()
+
+        def do_GET(self):
+            if self.path != "/" + fname:
+                return self.send_error(404)
+            self.server.done = True
+            super().do_GET()
+
+        def do_POST(self):
+            self.send_error(404)
+
+        def log_message(self, *a):
+            pass
+
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("127.0.0.1", 9001), H) as httpd:
+        q = f"url=http://127.0.0.1:9001/{fname}"
+        if commands:
+            q += "&startupCommands=" + urllib.parse.quote(json.dumps(commands))
+        webbrowser.open_new_tab(f"https://ui.perfetto.dev/#!/?{q}")
+        httpd.done = False
+        while not httpd.done:
+            httpd.handle_request()
+    print("opened in ui.perfetto.dev")
 
 
 def main():
