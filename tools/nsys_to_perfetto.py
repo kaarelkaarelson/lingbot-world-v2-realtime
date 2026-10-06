@@ -109,7 +109,7 @@ def convert(db, out, sms=None, flops=None):
             lvl = 0 if t.startswith("chunk") else 1 if t in ("fwd", "decode") else 2 if t[:1] == "L" and t[1:].isdigit() else 3
             ev.append(dict(ph="X", pid=1, tid=10 + lvl, ts=us(st), dur=(en - st) / 1000, name=t, cat="nvtx"))
     ev += _counters(K, c, us, by_stream)
-    ev += _interference(K, S, us, by_stream, ev)
+    ev += _interference(K, S, us, by_stream, ev, _slots(K, R, c, main))
     if flops:
         ev += _layer_mfu(K, R, c, S, main, us, flops,
                          lambda d, s_: sms.get((d, s_), gpu[d][1]) / gpu[d][1] if d in gpu else 1.0)
@@ -140,11 +140,40 @@ def _pin_percent_axes(ev):
     return [dict(ph="C", pid=p, name=n, ts=e["ts"] - 0.001, args={list(e["args"])[0]: 100}) for (p, n), e in first.items()]
 
 
-def _interference(K, S, us, by_stream, ev, bin_ns=1_000_000, min_ns=20_000):
+def _slots(K, R, c, main):
+    """Position of each kernel in the program: (innermost NVTX range name open on the launching thread, n-th kernel of
+    the same name inside that range instance). One kernel name (e.g. a GEMM) runs many sizes with the same launch
+    shape; its position tells them apart. Empty when the capture has no NVTX ranges."""
+    import bisect
+    if "NVTX_EVENTS" not in _tables(c):
+        return {}
+    cols = {r[1] for r in c.execute("pragma table_info(NVTX_EVENTS)")}
+    tx = "coalesce(text, (select value from StringIds where id = textId))" if "textId" in cols else "text"
+    N = sorted((st, en, t) for st, en, t, g in c.execute(f"select start, end, {tx}, globalTid from NVTX_EVENTS "
+               "where end is not null and eventType in (59, 60)") if g == main and t)
+    leaf = [x for i, x in enumerate(N) if not (i + 1 < len(N) and N[i + 1][0] < x[1])]  # ranges with nothing nested
+    starts = [x[0] for x in leaf]
+    call = {cid: st for g, st, en, n, cid in R if g == main}
+    count, out = collections.Counter(), {}
+    for k in sorted(K, key=lambda k: call.get(k[6], 0)):
+        t = call.get(k[6])
+        if t is None:
+            continue
+        i = bisect.bisect_right(starts, t) - 1
+        if i < 0 or t > leaf[i][1]:
+            continue
+        key = (k[0], k[1], i, k[4])
+        out[(k[0], k[1], k[2])] = (leaf[i][2], count[key])
+        count[key] += 1
+    return out
+
+
+def _interference(K, S, us, by_stream, ev, slots, bin_ns=1_000_000, min_ns=20_000):
     """Co-running kernels on other compute streams of the same GPU (e.g. a decoder next to a DiT share on separate
     green-context SMs) still share L2 and DRAM bandwidth. For every kernel >= 20 us: the co-runner kernel class that
-    overlapped it most, and its slowdown vs the median duration of the same kernel on the same stream when nothing
-    overlapped. Added to the kernel's args, plus a per-stream counter track (time-weighted slowdown % per 1 ms)."""
+    overlapped it most, and its slowdown vs the median duration of the same kernel (same name and launch shape: one
+    GEMM kernel name runs many sizes with one launch shape, so also its position: NVTX stage + n-th of that name) on
+    the same stream when nothing overlapped. Added to the kernel's args, plus a per-stream counter track (time-weighted slowdown % per 1 ms)."""
     import bisect
     import re
     cls = lambda n: re.sub(r"[_<(].*$", "", (n or "kernel").split("::")[-1])[:24]
@@ -168,26 +197,30 @@ def _interference(K, S, us, by_stream, ev, bin_ns=1_000_000, min_ns=20_000):
                     best[cls(S.get(o[4]))] += min(o[3], en) - max(o[2], st)
                 i -= 1
             ov.append(best.most_common(1)[0][0] if best else None)
+        shape = lambda k: (k[4], k[7], k[8], slots.get((k[0], k[1], k[2])))  # name, grid, block, position
         base = collections.defaultdict(list)
         for k, o in zip(ks, ov):
             if o is None:
-                base[k[4]].append(k[3] - k[2])
+                base[shape(k)].append(k[3] - k[2])
         med = {n: sorted(v)[len(v) // 2] for n, v in base.items() if len(v) >= 5}
         t0, nb = min(k[2] for k in K), (max(k[3] for k in K) - min(k[2] for k in K)) // bin_ns + 1
         act, ref = [0] * nb, [0] * nb
         for k, o in zip(ks, ov):
             dur = k[3] - k[2]
-            if dur < min_ns or k[4] not in med:
+            if dur < min_ns or shape(k) not in med:
                 continue
-            slow_args[(d, s, k[2])] = dict(co_running=o or "nothing", slowdown_vs_alone_pct=round(100 * (dur / med[k[4]] - 1), 1))
+            m = med[shape(k)]
+            slow_args[(d, s, k[2])] = dict(co_running=o or "nothing", slowdown_vs_alone_pct=round(100 * (dur / m - 1), 1))
             b = (k[2] - t0) // bin_ns
             act[b] += dur
-            ref[b] += med[k[4]]
+            ref[b] += m
         nm = _stream_name(by_stream[(d, s)])
+        name = f"interference: slowdown % {nm} (stream {s})"
         for i in range(nb):
             if ref[i]:
-                out.append(dict(ph="C", pid=100 + d, ts=us(t0 + i * bin_ns), name=f"interference: slowdown % {nm} (stream {s})",
+                out.append(dict(ph="C", pid=100 + d, ts=us(t0 + i * bin_ns), name=name,
                                 args={"slowdown %": round(100 * (act[i] / ref[i] - 1), 1)}))
+        out.append(dict(ph="C", pid=100 + d, ts=us(max(k[3] for k in ks)), name=name, args={"slowdown %": 0}))  # end at the stream's last kernel
     t_first = min(k[2] for k in K)
     for e in ev:
         if e.get("cat") == "kernel":
