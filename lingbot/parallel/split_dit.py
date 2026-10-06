@@ -22,7 +22,15 @@ from lingbot.layers import kv_cache as kvc
 from lingbot.layers.attention import attention
 from lingbot.models.lingbot_world import transformer as T
 from lingbot.profiling import nvtx
-from wan.modules.model import sinusoidal_embedding_1d
+
+
+def sinusoidal_embedding_1d(dim, position):
+    # wan's version builds arange on the CPU and copies it over: a pageable H2D copy that blocks the CPU once per forward
+    half = dim // 2
+    position = position.type(torch.float64)
+    sinusoid = torch.outer(position, torch.pow(10000, -torch.arange(half, device=position.device, dtype=torch.float64).div(half)))
+    return torch.cat([torch.cos(sinusoid), torch.sin(sinusoid)], dim=1)
+
 
 PIECES = int(os.environ.get("LINGBOT_SPLIT_PIECES", "4"))
 # CPU-side knobs (the split is launch-bound): the compiled stages launch their kernels from generated C++ instead
