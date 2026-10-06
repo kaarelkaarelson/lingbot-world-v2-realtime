@@ -97,10 +97,12 @@ def _inductor_tune():
     may change -> fp32-ulp differences, not bitwise. realize_reads_threshold keeps the norm2
     LN+modulation output inlined so its FP8 amax fuses."""
     import torch._inductor.config as inductor_config
-    inductor_config.triton.multi_kernel = 1
+    # LINGBOT_MULTI_KERNEL=0: off (torch 2.14's Triton crashes in multi_kernel's cache key for the whole-model compile)
+    mk = int(os.environ.get("LINGBOT_MULTI_KERNEL", "1"))
+    inductor_config.triton.multi_kernel = mk
     inductor_config.coordinate_descent_tuning = True
     inductor_config.realize_reads_threshold = 8
-    logging.info("Inductor: multi_kernel=1, coordinate_descent_tuning, realize_reads_threshold=8")
+    logging.info(f"Inductor: multi_kernel={mk}, coordinate_descent_tuning, realize_reads_threshold=8")
 
 
 def _dit_kwargs_from_config(config, extra=None):
