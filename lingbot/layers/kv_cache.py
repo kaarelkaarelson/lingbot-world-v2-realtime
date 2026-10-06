@@ -56,6 +56,9 @@ def evict(kv_cache, sink_tokens, evicted, rolled):
         kv_cache["k"][:, sink_tokens + evicted:sink_tokens + evicted + rolled].clone()
     kv_cache["v"][:, sink_tokens:sink_tokens + rolled] = \
         kv_cache["v"][:, sink_tokens + evicted:sink_tokens + evicted + rolled].clone()
+    if "pq_vmax" in kv_cache:                    # per-block V min/max of the pre-quantised Sage path
+        from lingbot.layers import sage_preq
+        sage_preq.refresh(kv_cache, sink_tokens)
 
 
 def write(kv_cache, k, v, current_start, sink_tokens, local_attn_size):

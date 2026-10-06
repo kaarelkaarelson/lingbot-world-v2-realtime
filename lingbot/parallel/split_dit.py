@@ -44,6 +44,14 @@ ZEROCOPY = os.environ.get("LINGBOT_SPLIT_ZEROCOPY") == "1"
 # CUDA graphs for the steady-state forwards (KV window full): "pp" the compiled stages (+ the cat feeding them),
 # "1"/"all" also the attention section (KV write, SageAttention); the card-to-card exchange stays eager
 GRAPH = {"1": "all", "all": "all", "pp": "pp"}.get(os.environ.get("LINGBOT_SPLIT_GRAPH", "0"))
+# 1: SageAttention's V quantisation (transpose / min-max / fp8) in one kernel straight from the KV cache, bit-identical
+# (lingbot/layers/sage_preq.py); needs LINGBOT_ATTN=sage
+PREQ = os.environ.get("LINGBOT_SAGE_PREQ") == "1"
+if PREQ and os.environ.get("LINGBOT_ATTN") != "sage":
+    logging.warning("LINGBOT_SAGE_PREQ=1 needs LINGBOT_ATTN=sage: ignored")
+    PREQ = False
+if PREQ:
+    from lingbot.layers import sage_preq
 _LN = [f"L{i}" for i in range(256)]                      # NVTX layer names (LINGBOT_NVTX=1)
 
 
@@ -427,8 +435,11 @@ class SplitDiT:
             start, end = fixed
             kc["k"][:, start:end] = k
             kc["v"][:, start:end] = v
-        k_win, v_win = kvc.window(kc, end, max_attention_size)
-        a = attention(q, k_win, v_win)[0]                  # [L, my heads, d]
+        if PREQ and sage_preq.usable(q, kc, end, max_attention_size):
+            a = sage_preq.attend(q, kc, end - k.shape[1], end)[0]
+        else:
+            k_win, v_win = kvc.window(kc, end, max_attention_size)
+            a = attention(q, k_win, v_win)[0]              # [L, my heads, d]
         if fixed is None:
             kvc.commit(kc, cur_end, end)
         return a[tok[c].start:tok[c].stop], a[tok[1 - c].start:tok[1 - c].stop].contiguous()
