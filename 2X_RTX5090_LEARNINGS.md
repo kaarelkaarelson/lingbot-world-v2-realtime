@@ -281,6 +281,21 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    run it on the default stream or its output is read before it is written. Driving two cards from one
    Python thread is CPU-bound on this host (engineering-sample Xeon, 15 µs per kernel launch).
 
+28. **The five card-0 levers, measured (Vast EPYC pod, median of 3 warm runs, 10:2 split, card 1 DiT 48 SMs).**
+
+   | Lever | Result |
+   |---|---|
+   | Copy-free q\|k\|v assembly (`LINGBOT_SPLIT_ZEROCOPY=1`) | **+0.85 %** (29.50 -> 29.75), kept |
+   | Sage register cap 168 / 128 (wave tail) | kernel **-32 % / -55 %** (spills); bit-identical; dead |
+   | Sage split-KV, 2 splits | cu130 build: +5.3 % pipeline; **cu128 build: -0.8 %** (its unsplit kernel is already 1.68 vs 1.92 ms/call) |
+   | Fused Sage V prep (`LINGBOT_SAGE_PREQ=1`) | no gain, last chunk diverges: bug; dropped |
+   | 9:3 heads, card 1 DiT on 56 / 64 SMs | **-6 %** (28.1 / 28.4 vs 29.9) |
+   | Remaining gaps | 14 ms per chunk; card 0's kernels are 519 of 541 ms |
+
+   Best: **29.8-29.9 FPS** (torch 2.8, copy-free on), vs B1 25.3 on this pod. The same Sage source compiled with CUDA
+   13.0 runs 13 % slower than with CUDA 12.8 on card 0's shape, which likely explains the cu130 stack's -2 % in
+   learning 25. Logs: `experiments/split_cpu/results/norway_2026-10-06/levers_2026-10-06.log`.
+
 ## What it means for splitting LingBot-World 2.0 across the two cards
 
 One card today: DiT 0.64 s + decoder 0.34 s per 16-frame chunk, 16.3 FPS. Each DiT chunk is five

@@ -1,0 +1,16 @@
+[worker] starting worker d48b33980ea9 (cold start: load + compile on first run); log /tmp/lingbot-worker-d48b33980ea9.log
+[2026-10-06 16:53:10,755] INFO: loading weights/lingbot-world-v2-14b-causal-fast/Wan2.1_VAE.pth
+[2026-10-06 16:53:11,167] INFO: loading weights/lingbot-world-v2-14b-causal-fast/Wan2.1_VAE.pth
+[2026-10-06 16:53:11,692] INFO: Fused decoder on cuda:1 (compile=max-autotune-no-cudagraphs)
+[2026-10-06 16:53:11,692] INFO: Loading WanModelFast from weights/lingbot-world-v2-1.3b-causal-fast
+[2026-10-06 16:53:11,692] INFO: config.json not found in weights/lingbot-world-v2-1.3b-causal-fast; building WanModelFast from the task config and loading safetensors weights.
+[2026-10-06 16:53:12,953] INFO: FP8 rowwise enabled on 420 of 420 Linear layers
+[2026-10-06 16:53:13,940] INFO: DiT split 10:2 across cuda:0/1; card 1: 48 SMs DiT, 122 SMs decoder
+[worker] pipeline built in 3 s (kept for later runs)
+[2026-10-06 16:53:14,093] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:32<04:56, 32.95s/it] 20%|##        | 2/10 [00:33<01:50, 13.77s/it] 30%|###       | 3/10 [00:33<00:53,  7.68s/it] 40%|####      | 4/10 [00:34<00:29,  4.84s/it] 50%|#####     | 5/10 [00:34<00:16,  3.29s/it] 60%|######    | 6/10 [00:35<00:09,  2.35s/it] 70%|#######   | 7/10 [00:35<00:05,  1.76s/it] 80%|########  | 8/10 [00:36<00:02,  1.37s/it] 90%|######### | 9/10 [00:36<00:01,  1.11s/it]100%|##########| 10/10 [00:37<00:00,  1.07it/s]100%|##########| 10/10 [00:37<00:00,  3.74s/it]
+[2026-10-06 16:53:59,020] INFO: Saving generated video to /workspace/runs/zc/zc1_cold.mp4
+BENCH_E2E trial 1: 29.93 FPS (interval p50 534.6 ms, p95 536.4, p99 536.5; 5 steady chunks), first frame 40208 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 29.93 FPS, 11.55 MPPS, interval p95 536.4 ms, first frame 40208 ms (cold: includes compile)
+[worker] run took 46.4 s
+

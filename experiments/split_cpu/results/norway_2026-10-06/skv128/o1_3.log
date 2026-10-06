@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 17:25:34,494] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:03,  2.96it/s] 20%|##        | 2/10 [00:00<00:02,  2.91it/s] 30%|###       | 3/10 [00:01<00:02,  2.58it/s] 40%|####      | 4/10 [00:01<00:02,  2.32it/s] 50%|#####     | 5/10 [00:02<00:02,  2.13it/s] 60%|######    | 6/10 [00:02<00:01,  2.03it/s] 70%|#######   | 7/10 [00:03<00:01,  1.97it/s] 80%|########  | 8/10 [00:03<00:01,  1.94it/s] 90%|######### | 9/10 [00:04<00:00,  1.91it/s]100%|##########| 10/10 [00:04<00:00,  1.89it/s]100%|##########| 10/10 [00:04<00:00,  2.06it/s]
+[2026-10-06 17:25:40,100] INFO: Saving generated video to /workspace/runs/skv128/o1_3.mp4
+BENCH_E2E trial 1: 29.77 FPS (interval p50 537.5 ms, p95 538.3, p99 538.4; 5 steady chunks), first frame 1007 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 29.77 FPS, 11.49 MPPS, interval p95 538.3 ms, first frame 1007 ms (cold: includes compile)
+[worker] run took 7.7 s
+

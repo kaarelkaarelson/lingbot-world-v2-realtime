@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 17:02:11,830] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:03,  2.99it/s] 20%|##        | 2/10 [00:00<00:02,  2.91it/s] 30%|###       | 3/10 [00:01<00:02,  2.58it/s] 40%|####      | 4/10 [00:01<00:02,  2.33it/s] 50%|#####     | 5/10 [00:02<00:02,  2.14it/s] 60%|######    | 6/10 [00:02<00:01,  2.04it/s] 70%|#######   | 7/10 [00:03<00:01,  1.98it/s] 80%|########  | 8/10 [00:03<00:01,  1.94it/s] 90%|######### | 9/10 [00:04<00:00,  1.92it/s]100%|##########| 10/10 [00:04<00:00,  1.90it/s]100%|##########| 10/10 [00:04<00:00,  2.07it/s]
+[2026-10-06 17:02:17,402] INFO: Saving generated video to /workspace/runs/l345/p0_2.mp4
+BENCH_E2E trial 1: 29.90 FPS (interval p50 535.1 ms, p95 536.2, p99 536.3; 5 steady chunks), first frame 994 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 29.90 FPS, 11.54 MPPS, interval p95 536.2 ms, first frame 994 ms (cold: includes compile)
+[worker] run took 7.4 s
+

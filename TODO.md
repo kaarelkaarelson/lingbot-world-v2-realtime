@@ -25,7 +25,13 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
   `lingbot/parallel/split_dit.py`). With `LINGBOT_SPLIT_CPPWRAP=1 LINGBOT_SPLIT_SKIPGUARD=50
   LINGBOT_SPLIT_PIECES=2`: **25.03 FPS vs B1 24.04** on the Vast pod, quality inside the noise band
   (learning 21). Still CPU-bound; the GPU ceiling is ~28-29 FPS.
-- [ ] **Card 0's SageAttention wave tail** (highest single item). Card 0 launches 480 attention blocks; at 255
+- [x] **Card 0's SageAttention wave tail: measured, no lossless fix that pays on the cu128 stack.** (1) Smaller
+  query tile: does not help by construction (registers limit warps per SM, not blocks). (2) Register cap: 168 regs
+  -32 %, 128 regs -55 % kernel time (spills); bit-identical. (3) Split-KV kernel (`experiments/bench_attn/splitkv/`,
+  `SAGE_SPLITKV=S`): accuracy passes (as close to bf16 SDPA as unsplit); on the cu130 build +12.5 % kernel / +5.3 %
+  pipeline (28.48 -> 29.98 FPS), but the cu130 build of Sage is slow (1.92 vs 1.68 ms/call on the cu128 build) and on
+  cu128 split-KV is -4 % kernel / -0.8 % pipeline. Original notes follow.
+- [ ] (superseded) **Card 0's SageAttention wave tail** (highest single item). Card 0 launches 480 attention blocks; at 255
   registers per thread only 2 fit per SM, so 340 run at once and the second wave is 140 blocks: 1.41 waves, last
   wave 71 % full, so the kernel cannot exceed ~70.5 % of peak (measured 64 %, ~91 % inside the waves). One card
   (576 blocks, 1.69 waves, 85 %) is better off; the 10:2 split made the tail worse. Fixes, cheapest first:
@@ -36,7 +42,8 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 - [x] **Token share decoupled from the head split: measured, a loss.** `LINGBOT_SPLIT_TOK`: card 0 at 0.80 / 0.78 /
   0.76 / 0.74 of the tokens gave 28.25 / 27.60 / 27.01 / 25.05 FPS vs 29.2 at the head ratio (0.833). Card 1 has no
   spare capacity for token-local work even on 48 SMs. Untested: the other direction (card 0 above 0.833).
-- [ ] **Copy-free q|k|v assembly** (`LINGBOT_SPLIT_ZEROCOPY=1`): built, untested. Drops the pre-attention `cat`
+- [x] **Copy-free q|k|v assembly** (`LINGBOT_SPLIT_ZEROCOPY=1`): +0.85 % (29.50 -> 29.75 FPS), 43 dB vs off
+  (cross-process band). Keep on. Was: built, untested. Drops the pre-attention `cat`
   and the send-side `.contiguous()`; the output-side cat only moved into a compiled stage. Gate: bit-identical to
   `=0` in one worker, then 3 warm runs.
 - [ ] **Make the decoder interfere less: prefer Triton convolutions, fuse its elementwise kernels.** Card 1's DiT
@@ -44,6 +51,10 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
   conv +23 / +27 %, Triton fused elementwise/norm +44 / +35 %. Memory-bandwidth contention: the most memory-bound
   kernels hurt most. cuDNN convs are 32 % of decoder time; restricting the decoder's autotune to Triton conv
   templates is a config change. The decoder has ~165 ms of slack per chunk to absorb a slower kernel.
+- [x] **Fused Sage V prep (`LINGBOT_SAGE_PREQ=1`): no gain** (29.78 vs 29.90 FPS) and its last chunk diverges
+  (18.8 dB): a correctness bug; dropped. **9:3 heads with card 1 DiT on 56 / 64 SMs: a loss** (28.1 / 28.4 FPS vs
+  29.9 at 10:2). **Remaining gaps after copy-free: 14 ms per chunk** on card 0 (critical path: card 0's kernels 519
+  of 541 ms). The split is now kernel-bound on card 0.
 - [ ] **Spread the decoder** (fewer SMs, no burst): the decoder overlaps 4 of 5 forwards and slows card 1's DiT
   kernels 10-17 % (shared L2 / DRAM bandwidth; green contexts split only SMs). Worth it only if card 1 still makes
   card 0 wait at 48 SMs: check the 48-SM capture (`traces/split_sms48_warm.sqlite`) first.
