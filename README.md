@@ -166,6 +166,18 @@ What's left runs in four library kernels, three of them near the RTX 5090's peak
 
 `OPTIMIZATIONS.md` is the full log. It has every experiment with its measurement, the profiles, and the levers that were tried and rejected.
 
+## Two GPUs (2× RTX 5090, PCIe, no P2P)
+
+What worked. Details and the negative results: [`2X_RTX5090_LEARNINGS.md`](2X_RTX5090_LEARNINGS.md).
+
+| Result | Change | Measured |
+|---|---|---|
+| **Decoder on card 1** (pipeline parallelism, B1) | DiT on card 0, decoder on card 1, 0.77 MB of latents per chunk between them | 16.8 → **25.69 FPS** (1.52×), byte-identical to one card |
+| DiT split 9:3 (sequence parallelism) | card 0: 75 % of tokens and 9 heads; card 1 the rest; q/k/v and outputs exchanged per layer through host memory in 4 pipelined pieces | 3.86 → **3.05 ms per layer** (−21 %), one real layer, DiT only |
+| Green contexts on card 1 | card 1's SMs split 40 / 130 between its DiT share (10:2) and the decoder, so the decoder can't block the DiT's kernels | 0.579 → **0.497 s per chunk** (−14 %), one real layer, 12 deep |
+| SageAttention stream fix | all 21 kernel launches use the current stream ([`patches/`](patches/sageattention-current-stream.patch)), so the DiT can run at high priority | kernel wait-to-start 31.35 → **2.31 ms** per layer; same output |
+| Warm bench worker | `python -m lingbot.worker run -- …` keeps weights and compiled model per code hash | repeat run **14 s** instead of ~150 s, same numbers |
+
 ## Presets
 
 | `--preset` | What runs | s / chunk | FPS |
