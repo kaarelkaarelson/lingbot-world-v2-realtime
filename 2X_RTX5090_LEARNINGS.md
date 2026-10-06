@@ -263,6 +263,16 @@ These are predictions from link benchmarks and single-card kernel times; the mod
    | 18.5 MB | 321 µs | 330 µs | 388 µs |
    | 64 MB | 1,022 µs | 1,045 µs | 1,304 µs |
 
+   That answers the transfer cost only.
+7. **Does one process per card lift the CPU limit, and can the decoder keep its SM partition then?**
+   The single-process split is launch-bound: one Python thread spends ~0.53 s per chunk launching
+   both cards' work, while each card needs ~0.5 s of GPU time (warm py-spy profile, Vast pod,
+   2026-10-05). xDiT and StreamDiffusionV2 run one process per GPU, which would roughly halve the
+   CPU work per thread. The catch: green contexts belong to one process's CUDA context. If card 1's
+   DiT share runs in a helper process and the decoder stays in the main process, they can't share
+   one SM partition split, so the decoder may need to move into the helper process. Being built
+   (`LINGBOT_SPLIT_MP`); untested.
+
 ## Caveats
 
 - One pod, one session. Another 2× 5090 host can wire its cards differently (`PIX`, `PHB` or `SYS`
