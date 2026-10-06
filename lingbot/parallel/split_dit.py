@@ -11,7 +11,9 @@ Same computation as one card up to floating-point order (2X_RTX5090_LEARNINGS.md
 SageAttention build that launches on the current stream (patches/sageattention-current-stream.patch).
 """
 import copy
+import logging
 import os
+from types import SimpleNamespace
 
 import torch
 import torch.nn.functional as F
@@ -26,12 +28,29 @@ PIECES = int(os.environ.get("LINGBOT_SPLIT_PIECES", "4"))
 # of the Python wrapper; after SKIPGUARD forwards (shapes settled), Dynamo checks only the guards that pick a graph
 _OPTS = {"cpp_wrapper": True} if os.environ.get("LINGBOT_SPLIT_CPPWRAP") == "1" else None
 SKIPGUARD = int(os.environ.get("LINGBOT_SPLIT_SKIPGUARD", "0"))
+# CUDA graphs for the steady-state forwards (KV window full): "pp" the compiled stages (+ the cat feeding them),
+# "1"/"all" also the attention section (KV write, SageAttention); the card-to-card exchange stays eager
+GRAPH = {"1": "all", "all": "all", "pp": "pp"}.get(os.environ.get("LINGBOT_SPLIT_GRAPH", "0"))
 
 
 def _slice_rope(rope, a, b):
     if isinstance(rope, torch.Tensor):
         return rope[:, a:b]
     return type(rope)(_slice_rope(r, a, b) for r in rope)
+
+
+def _like(rope):
+    if isinstance(rope, torch.Tensor):
+        return torch.empty_like(rope)
+    return type(rope)(_like(r) for r in rope)
+
+
+def _copy_tree(dst, src):
+    if isinstance(dst, torch.Tensor):
+        dst.copy_(src)
+    else:
+        for d, s in zip(dst, src):
+            _copy_tree(d, s)
 
 
 class _Slot:
@@ -171,11 +190,19 @@ class SplitDiT:
         self.comp = [torch.cuda.current_stream(self.devs[0]), dit1]
         self.xch = _Exchange(self.devs, self.comp)
         self._kv, self._kv_src, self._ca = None, None, [None, None]
+        self._gv, self._gv_warned = None, set()
+        if GRAPH:
+            self._pool = []
+            for d in self.devs:
+                with torch.cuda.device(d):
+                    self._pool.append(torch.cuda.graph_pool_handle())
+            # the legacy default stream (card 0's comp) cannot capture: capture on a side stream, replay on comp
+            self._cap = [s if s.cuda_stream else torch.cuda.Stream(device=s.device) for s in self.comp]
 
     # --- caches ---------------------------------------------------------------------------------------------
     def init_crossattn_cache(self, context, crossattn_cache):
         # called once per generate(): start the per-card self-attention and camera caches fresh too
-        self._kv_src = None
+        self._kv_src = self._gv = None                      # graphs bake in the cache addresses
         self.m[0].init_crossattn_cache(context, crossattn_cache)
         self._ca[0] = crossattn_cache
         with torch.cuda.stream(self.comp[1]):
@@ -194,7 +221,7 @@ class SplitDiT:
             with torch.cuda.stream(self.comp[c]):           # allocated where it is used
                 kv.append(kvc.allocate(L, [shape[0], shape[1], len(self.heads[c]), shape[3]], kv_cache[0]["k"].dtype,
                                        self.devs[c]))
-        self._kv = kv
+        self._kv, self._gv = kv, None
         self._cam = [[None] * L, [None] * L]
         self._kv_src = kv_cache
 
@@ -240,8 +267,12 @@ class SplitDiT:
                 s["rope"] = _slice_rope(s["rope"], tok[c].start, tok[c].stop)
                 s["pl"] = None if s["pl"] is None else s["pl"][:, tok[c].start:tok[c].stop]
         frame_seqlen = st[0]["frame_seqlen"]
-        for li in range(len(self.m[0].blocks)):
-            xs = self._layer(li, xs, st, tok, current_start, max_attention_size, frame_seqlen, cam_first_call)
+        V = self._graph_variant(xs, st, current_start, max_attention_size, frame_seqlen) if GRAPH else None
+        if V is not None:
+            xs = self._layers_graph(V, xs, st, tok, current_start, max_attention_size, frame_seqlen, cam_first_call)
+        else:
+            for li in range(len(self.m[0].blocks)):
+                xs = self._layer(li, xs, st, tok, current_start, max_attention_size, frame_seqlen, cam_first_call)
         outs = []
         for c in (0, 1):
             with torch.cuda.stream(comp[c]):
@@ -290,22 +321,12 @@ class SplitDiT:
             inbox[p] = self.xch(c, pk)
         attn_own, back = [None, None], [None, None]
         for c in (0, 1):                                   # my heads over all tokens: KV cache, SageAttention
-            oh, blk = self.heads[c], self.m[c].blocks[li]
-            sa = blk.self_attn
+            oh = self.heads[c]
             with torch.cuda.stream(comp[c]):
-                own = qkv[c][:, :, oh.start:oh.stop]
                 buf, ev = inbox[c]
                 comp[c].wait_event(ev)
-                full = torch.cat([own, buf], dim=1) if c == 0 else torch.cat([buf, own], dim=1)  # global token order
-                q, k, v = (full[i].unsqueeze(0) for i in range(3))
-                kc = self._kv[c][li]
-                end, cur_end = kvc.write(kc, k, v, current_start, sa.sink_size * frame_seqlen, sa.local_attn_size)
-                k_win, v_win = kvc.window(kc, end, max_attention_size)
-                a = attention(q, k_win, v_win)[0]          # [L, my heads, d]
-                kvc.commit(kc, cur_end, end)
-                mine = a[tok[c].start:tok[c].stop]
-                back[c] = a[tok[1 - c].start:tok[1 - c].stop].contiguous()
-                attn_own[c] = mine
+                attn_own[c], back[c] = self._attend(c, li, qkv[c][:, :, oh.start:oh.stop], buf, tok, current_start,
+                                                    max_attention_size, frame_seqlen)
         self.xch.release()                                 # inbox consumed
         recv = [None, None]
         for c in (0, 1):
@@ -325,3 +346,156 @@ class SplitDiT:
                 out[c] = _post(blk, xs[c], attn, st[c]["e0"], cs, csh, ca["k"], ca["v"])
         self.xch.release()                                 # recv consumed
         return out
+
+    def _attend(self, c, li, own, buf, tok, current_start, max_attention_size, frame_seqlen, fixed=None):
+        # `fixed` = (start, end) of the K/V write in the cache (steady state, graph path: eviction already done)
+        sa = self.m[c].blocks[li].self_attn
+        full = torch.cat([own, buf], dim=1) if c == 0 else torch.cat([buf, own], dim=1)  # global token order
+        q, k, v = (full[i].unsqueeze(0) for i in range(3))
+        kc = self._kv[c][li]
+        if fixed is None:
+            end, cur_end = kvc.write(kc, k, v, current_start, sa.sink_size * frame_seqlen, sa.local_attn_size)
+        else:
+            start, end = fixed
+            kc["k"][:, start:end] = k
+            kc["v"][:, start:end] = v
+        k_win, v_win = kvc.window(kc, end, max_attention_size)
+        a = attention(q, k_win, v_win)[0]                  # [L, my heads, d]
+        if fixed is None:
+            kvc.commit(kc, cur_end, end)
+        return a[tok[c].start:tok[c].stop], a[tok[1 - c].start:tok[1 - c].stop].contiguous()
+
+    # --- CUDA graphs (LINGBOT_SPLIT_GRAPH) --------------------------------------------------------------------
+    def _graph_variant(self, xs, st, current_start, max_attention_size, frame_seqlen):
+        """The static buffers + graph cache when this forward is steady state (window full, so every KV offset is
+        fixed), else None (growing window, other shapes): eager."""
+        sa = self.m[0].blocks[0].self_attn
+        kc = self._kv[0][0]
+        if sa.local_attn_size == -1:
+            return None
+        if kvc.plan(kc, st[0]["L"], current_start, sa.sink_size * frame_seqlen, sa.local_attn_size)[3] \
+                != kc["k"].shape[1]:
+            return None
+        key = (xs[0].shape, xs[1].shape, st[0]["e0"].shape, st[0]["e0"].dtype, max_attention_size, frame_seqlen)
+        if self._gv is None:
+            n = len(self.m[0].blocks)
+            self._gv = SimpleNamespace(key=key, g=[{}, {}], x=[None, None], e0=[None, None], rope=[None, None],
+                                       pl=[None, None], attn=[None, None], cam=[[None] * n, [None] * n])
+        if self._gv.key != key:
+            if key not in self._gv_warned:
+                self._gv_warned.add(key)
+                logging.warning(f"SplitDiT graphs: steady forward with new shapes {key}, running eager")
+            return None
+        return self._gv
+
+    def _graph(self, V, c, key, fn):
+        e = V.g[c].get(key)
+        if e is None:
+            fn()                                           # warm up (compile, autotune, workspaces) before capture
+            g = torch.cuda.CUDAGraph()
+            with torch.cuda.graph(g, pool=self._pool[c], stream=self._cap[c], capture_error_mode="thread_local"):
+                out = fn()
+            e = V.g[c][key] = (g, out)
+        e[0].replay()
+        return e[1]
+
+    def _layers_graph(self, V, xs, st, tok, current_start, max_attention_size, frame_seqlen, cam_first_call):
+        # Per card and layer li two graphs, exchanges and event waits eager between them:
+        #   P(li): cat(attn heads) + _post(li-1) + _pre(li) + the peer's q|k|v slice (P(0): _pre only; P(L): _post only)
+        #   A(li): cat(own, peer heads) + KV write at fixed offsets + window + SageAttention + token slices ("all")
+        # Inputs that change per forward live in static buffers refreshed here; graph outputs stay in the pool.
+        comp, alls = self.comp, GRAPH == "all"
+        L, L_tok = len(self.m[0].blocks), st[0]["L"]
+        for c in (0, 1):
+            with torch.cuda.stream(comp[c]):
+                s = st[c]
+                if V.x[c] is None:
+                    V.x[c], V.e0[c], V.rope[c] = torch.empty_like(xs[c]), torch.empty_like(s["e0"]), _like(s["rope"])
+                V.x[c].copy_(xs[c])
+                V.e0[c].copy_(s["e0"])
+                _copy_tree(V.rope[c], s["rope"])
+                for li in range(L):                        # camera modulation: eager results (other forwards) -> static
+                    cam, vc = self._cam[c][li], V.cam[c][li]
+                    if cam is not vc:
+                        if vc is None:
+                            vc = V.cam[c][li] = tuple(t.clone() for t in cam)
+                        else:
+                            vc[0].copy_(cam[0])
+                            vc[1].copy_(cam[1])
+                        self._cam[c][li] = vc
+                if cam_first_call and s["pl"] is not None:
+                    if V.pl[c] is None:
+                        V.pl[c] = torch.empty_like(s["pl"])
+                    V.pl[c].copy_(s["pl"])
+                    for li in range(L):
+                        blk, vc = self.m[c].blocks[li], V.cam[c][li]
+
+                        def cam_fn(blk=blk, vc=vc, pl=V.pl[c]):
+                            cs, csh = _cam(blk, pl)
+                            vc[0].copy_(cs)
+                            vc[1].copy_(csh)
+                        self._graph(V, c, ("C", li), cam_fn)
+        xin, pend = list(V.x), [None, None]                # pend[c]: (attn_own, recv buf) of the layer before
+        for li in range(L + 1):
+            outs = [None, None]
+            for c in (0, 1):                               # [cat +] _post(li-1) + _pre(li)
+                blks, ca_, vc = self.m[c].blocks, self._ca[c], V.cam[c]
+                with torch.cuda.stream(comp[c]):
+                    attn, parts, ptr = None, None, 0
+                    if li:
+                        attn_own, (buf, ev) = pend[c]
+                        comp[c].wait_event(ev)
+                        parts = [attn_own, buf] if c == 0 else [buf, attn_own]   # heads 0..h0-1, then h0..H-1
+                        if alls:
+                            ptr = buf.data_ptr()
+                        elif V.attn[c] is None:
+                            V.attn[c] = attn = torch.cat(parts, dim=1)
+                        else:
+                            attn = torch.cat(parts, dim=1, out=V.attn[c])
+
+                    def pp_fn(c=c, li=li, x=xin[c], attn=attn, parts=parts):
+                        if li:
+                            a = attn if attn is not None else torch.cat(parts, dim=1)
+                            ca = ca_[li - 1]
+                            x = _post(blks[li - 1], x, a, V.e0[c], vc[li - 1][0], vc[li - 1][1], ca["k"], ca["v"])
+                        if li == L:
+                            return (x,)
+                        qkv = _pre(blks[li], x, V.e0[c], V.rope[c])
+                        ph = self.heads[1 - c]
+                        return x, qkv, qkv[:, :, ph.start:ph.stop].contiguous()
+                    outs[c] = self._graph(V, c, ("P", li, ptr), pp_fn)
+            if li:
+                self.xch.release()                         # recv consumed
+            xin = [o[0] for o in outs]
+            if li == L:
+                return xin
+            inbox = [None, None]
+            for c in (0, 1):                               # send the peer's heads of my tokens
+                inbox[1 - c] = self.xch(c, outs[c][2])
+            attn_own, back = [None, None], [None, None]
+            for c in (0, 1):                               # my heads over all tokens: KV cache, SageAttention
+                oh, kc = self.heads[c], self._kv[c][li]
+                sa = self.m[c].blocks[li].self_attn
+                with torch.cuda.stream(comp[c]):
+                    buf, ev = inbox[c]
+                    comp[c].wait_event(ev)
+                    own = outs[c][1][:, :, oh.start:oh.stop]
+                    if not alls:
+                        attn_own[c], back[c] = self._attend(c, li, own, buf, tok, current_start,
+                                                            max_attention_size, frame_seqlen)
+                        continue
+                    sink = sa.sink_size * frame_seqlen
+                    evicted, rolled, start, end, cur_end = kvc.plan(kc, L_tok, current_start, sink, sa.local_attn_size)
+                    if evicted:                            # 1 forward in 5: the window shifts, eagerly
+                        kvc.evict(kc, sink, evicted, rolled)
+
+                    def attn_fn(c=c, li=li, own=own, buf=buf, fixed=(start, end)):
+                        return self._attend(c, li, own, buf, tok, current_start, max_attention_size, frame_seqlen,
+                                            fixed)
+                    attn_own[c], back[c] = self._graph(V, c, ("A", li, start, end, buf.data_ptr()), attn_fn)
+                    kc["global_end_int"], kc["local_end_int"] = cur_end, end   # the tensor indices go stale; unread
+            self.xch.release()                             # inbox consumed
+            recv = [None, None]
+            for c in (0, 1):
+                recv[1 - c] = self.xch(c, back[c])
+            pend = [(attn_own[c], recv[c]) for c in (0, 1)]
