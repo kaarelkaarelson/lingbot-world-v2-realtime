@@ -8,13 +8,10 @@ set the chunk time (519 of 541 ms); card 1 is ~26 % idle. What was tried and why
 
 ## 1. Bring a pod up (instance 54497707 was destroyed on 2026-10-06: start from a new one, ~20-30 min)
 
-```bash
-vastai start instance 54497707          # see the vast-pod-guide skill; IP/port: vastai show instance 54497707 --raw
-ssh -p <port> root@<ip>
-cd /workspace/repo && git pull
-```
-
-If the instance is gone: new pod per the `vast-pod-guide` skill (EPYC 9454-class CPU, PCIe 5.0 x16, `cuda-12.8.1-auto`),
+Rent a new pod per the `vast-pod-guide` skill (EPYC 9454-class CPU, PCIe 5.0 x16, one socket, template image
+`vastai/pytorch:cuda-12.8.1-auto`, >= 45 GB disk; the Norway host m:53317 was the best seen). Then on the pod:
+`git clone -b refactor/structure https://github.com/kaarelkaarelson/lingbot-world-v2-realtime.git /workspace/repo`,
+`bash tools/podcheck.sh`, `HF_TOKEN=... bash setup.sh`,
 `setup.sh`, then install the patched Sage wheel from the Mac (`~/lingbot-world-v2-realtime-wt/wheels/sageattention-2.2.0-1currentstream-*.whl`),
 `pip install "cuda-bindings==12.8.*" lpips`, and regenerate the B1 reference video (`runs/s0/b1_1.mp4`) with one B1 run.
 
