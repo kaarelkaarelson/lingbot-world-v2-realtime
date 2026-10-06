@@ -109,6 +109,7 @@ def convert(db, out, sms=None, flops=None):
             lvl = 0 if t.startswith("chunk") else 1 if t in ("fwd", "decode") else 2 if t[:1] == "L" and t[1:].isdigit() else 3
             ev.append(dict(ph="X", pid=1, tid=10 + lvl, ts=us(st), dur=(en - st) / 1000, name=t, cat="nvtx"))
     ev += _counters(K, c, us, by_stream)
+    ev += _interference(K, S, us, by_stream, ev)
     if flops:
         ev += _layer_mfu(K, R, c, S, main, us, flops,
                          lambda d, s_: sms.get((d, s_), gpu[d][1]) / gpu[d][1] if d in gpu else 1.0)
@@ -137,6 +138,63 @@ def _pin_percent_axes(ev):
             if k not in first or e["ts"] < first[k]["ts"]:
                 first[k] = e
     return [dict(ph="C", pid=p, name=n, ts=e["ts"] - 0.001, args={list(e["args"])[0]: 100}) for (p, n), e in first.items()]
+
+
+def _interference(K, S, us, by_stream, ev, bin_ns=1_000_000, min_ns=20_000):
+    """Co-running kernels on other compute streams of the same GPU (e.g. a decoder next to a DiT share on separate
+    green-context SMs) still share L2 and DRAM bandwidth. For every kernel >= 20 us: the co-runner kernel class that
+    overlapped it most, and its slowdown vs the median duration of the same kernel on the same stream when nothing
+    overlapped. Added to the kernel's args, plus a per-stream counter track (time-weighted slowdown % per 1 ms)."""
+    import bisect
+    import re
+    cls = lambda n: re.sub(r"[_<(].*$", "", (n or "kernel").split("::")[-1])[:24]
+    by = collections.defaultdict(list)
+    for k in K:
+        by[(k[0], k[1])].append(k)
+    compute = {key for key, names in by_stream.items() if names}
+    out, slow_args = [], {}
+    for (d, s), ks in by.items():
+        others = sorted(k for (dd, ss), kk in by.items() if dd == d and ss != s and (dd, ss) in compute for k in kk)
+        if not others:
+            continue
+        starts = [o[2] for o in others]
+        ov = []
+        for k in ks:
+            st, en = k[2], k[3]
+            i, best = bisect.bisect_right(starts, en) - 1, collections.Counter()
+            while i >= 0 and i > bisect.bisect_right(starts, st) - 200:
+                o = others[i]
+                if o[3] > st:
+                    best[cls(S.get(o[4]))] += min(o[3], en) - max(o[2], st)
+                i -= 1
+            ov.append(best.most_common(1)[0][0] if best else None)
+        base = collections.defaultdict(list)
+        for k, o in zip(ks, ov):
+            if o is None:
+                base[k[4]].append(k[3] - k[2])
+        med = {n: sorted(v)[len(v) // 2] for n, v in base.items() if len(v) >= 5}
+        t0, nb = min(k[2] for k in K), (max(k[3] for k in K) - min(k[2] for k in K)) // bin_ns + 1
+        act, ref = [0] * nb, [0] * nb
+        for k, o in zip(ks, ov):
+            dur = k[3] - k[2]
+            if dur < min_ns or k[4] not in med:
+                continue
+            slow_args[(d, s, k[2])] = dict(co_running=o or "nothing", slowdown_vs_alone_pct=round(100 * (dur / med[k[4]] - 1), 1))
+            b = (k[2] - t0) // bin_ns
+            act[b] += dur
+            ref[b] += med[k[4]]
+        nm = _stream_name(by_stream[(d, s)])
+        for i in range(nb):
+            if ref[i]:
+                out.append(dict(ph="C", pid=100 + d, ts=us(t0 + i * bin_ns), name=f"interference: slowdown % {nm} (stream {s})",
+                                args={"slowdown %": round(100 * (act[i] / ref[i] - 1), 1)}))
+    t_first = min(k[2] for k in K)
+    for e in ev:
+        if e.get("cat") == "kernel":
+            a = slow_args.get((e["pid"] - 100, e["tid"], round(e["ts"] * 1000) + t_first))
+            if a:
+                e["args"].update(a)
+    return out
 
 
 def _counters(K, c, us, by_stream, bin_ns=1_000_000):
