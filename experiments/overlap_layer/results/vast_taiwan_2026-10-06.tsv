@@ -1,0 +1,17 @@
+# One DiT layer at real shapes (6,032 tokens, 27,144-token KV window, FP8 projections, SageAttention, FlashAttention
+# cross-attention, compiled token-local parts), 30 layers each with own weights. GPU-only time: CPU queued ahead
+# behind a sleep kernel. Vast m:150233, 2x RTX 5090 at 500 W, PCIe 5.0 x16, no P2P, cards on different sockets.
+config	exchange	groups	pieces	gpu_ms_per_layer	dit_s_per_chunk
+one card	-	-	-	3.86	0.579
+split 6:6	none (compute only)	1	-	1.98	0.297
+split 6:6	none (compute only)	2	-	2.26	0.339
+split 6:6	none (compute only)	3	-	2.80	0.420
+split 9:3	none (compute only)	1	-	2.97	0.446
+split 9:3	none (compute only)	3	-	3.34	0.501
+split 6:6	pinned staging	1	1	3.71-4.76	0.557-0.714
+split 6:6	pinned staging	2	1	4.96-5.30	0.744-0.795
+split 6:6	pinned staging	3	1	5.67-5.69	0.851-0.854
+split 6:6	pinned staging	1	2-8	4.02-4.55	0.603-0.683
+split 9:3	pinned staging	1	1	4.40-4.48	0.660-0.672
+split 9:3	pinned staging	3	1	5.08-5.15	0.762-0.773
+split 9:3	pinned staging	1	2-8	4.06-4.14	0.609-0.621

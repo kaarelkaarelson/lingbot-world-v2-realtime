@@ -7,14 +7,10 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 
 - [x] **B1: DiT on card 0, decoder on card 1.** 25.69 FPS vs 16.86 on one card (1.52×, predicted
   1.55×), byte-identical to one card in the deterministic config (`--decoder_gpu 1`, 2026-10-05).
-- [ ] **B3-balanced: uneven sequence parallelism, decoder on card 1.** Card 0 takes 9 of 12 heads and 75 %
-  of the tokens, card 1 takes 3 heads plus the decoder; both then carry ~0.48 s per chunk. Needs Ulysses
-  in our fast DiT first (only `reference/` has it). Without overlap it only ties B1 (exchange is
-  145-186 ms per chunk); with overlap the ceiling is ~33 FPS.
-- [ ] **Overlap the exchange with attention**, a few heads at a time, so attention starts on the heads
-  that have arrived. This is what makes B3-balanced worth building. Measure on one real layer
-  (real Sage, real `copy_` exchange) before building the full layout; the Python micro-benchmark was
-  launch-bound and inconclusive.
+- [x] **B3-balanced and overlap: measured, not worth building into the model** (2026-10-06). On one real
+  layer the 9:3 split takes 4.06-4.48 ms vs 3.86 ms on one card once the exchange is included, and
+  head-group overlap makes it slower (learning 11). Revisit only on hardware with P2P or NVLink, where
+  the exchange is several times cheaper; `experiments/overlap_layer/real_layer.py` reruns in minutes.
 - B2 (even split, decoder after the DiT) is dropped: ~19.5 FPS, slower than B1.
 - [ ] **Deferred: lossless 8-bit q/k exchange.** The version that dequantizes on the receiver is not
   lossless: +10-14 % attention error with q, k in 8 bits, +36-47 % with v too (learning 9). A lossless

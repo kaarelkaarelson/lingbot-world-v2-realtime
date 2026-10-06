@@ -116,6 +116,19 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    97-121. Its cards are also capped at 500 W (default 575), which makes the model 7 % slower
    (0.667 vs 0.624 s per chunk) while a short matmul still reaches 227 TFLOP/s. Read the power limit
    (`nvidia-smi -q -d POWER`) and topology on every new pod.
+11. **Splitting the DiT across the two cards does not pay over this link.** One DiT layer at real shapes
+   (FP8 projections, SageAttention, local cross-attention, compiled token-local parts), GPU time only:
+   one card 3.86 ms; split 6:6 1.98 ms without the exchange but 3.7-4.8 ms with it; the 9:3 split for
+   B3-balanced 2.97 ms without, 4.06-4.48 ms with. The exchange (one packed q|k|v and one output message
+   per layer, pinned host staging) costs 1.7-2.8 ms per layer in place, about twice the microbenchmark.
+   Overlapping it with attention in head groups makes things worse: fewer heads per SageAttention call
+   leave SMs idle (+13-41 % compute) and each group adds messages. B1 (DiT whole on one card, decoder on
+   the other) stays the best two-card layout. `experiments/overlap_layer/`.
+12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
+   9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
+   staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:
+   run it on the default stream or its output is read before it is written. Driving two cards from one
+   Python thread is CPU-bound on this host (engineering-sample Xeon, 15 µs per kernel launch).
 
 ## What it means for splitting LingBot-World 2.0 across the two cards
 
