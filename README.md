@@ -55,9 +55,9 @@ On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
 
 | Layout | Card 0 | Card 1 | Measured | FPS |
 |---|---|---|---|---|
-| Classic split 6:6 | half the DiT (6 heads, half the tokens), then the decoder | the other half of the DiT; idle while card 0 decodes | 500 W pod, slow CPU | 14.0 |
+| Classic split 6:6 | 1/2 of the DiT (6 of 12 heads, 1/2 of the tokens), then the decoder | the other 1/2 of the DiT; idle while card 0 decodes | 500 W pod, slow CPU | 14.0 |
 | Pipeline (B1) | the whole DiT | the decoder, one chunk behind | fast-CPU pod | 25.3 |
-| **Split 10:2 (best)** | 10 of 12 heads, 5/6 of the tokens | 2 heads, 1/6 of the tokens on 48 SMs; the decoder, one chunk behind, on the other 122 SMs | fast-CPU pod | **29.8** |
+| **Split 10:2 (best)** | 10/12 of the heads, 5/6 of the tokens | 2/12 of the heads, 1/6 of the tokens, on 48/170 SMs; the decoder, one chunk behind, on the other 122/170 SMs | fast-CPU pod | **29.8** |
 
 Classic split 6:6
 
