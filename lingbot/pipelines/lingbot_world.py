@@ -224,7 +224,10 @@ class LingBotWorldPipeline:
         # (lingbot/parallel/split_dit.py); it compiles its own token-local stages
         split = os.environ.get("LINGBOT_SPLIT")
         if split:
-            from lingbot.parallel.split_dit import SplitDiT
+            if os.environ.get("LINGBOT_SPLIT_MP") == "1":  # one process per card (lingbot/parallel/split_mp.py)
+                from lingbot.parallel.split_mp import SplitDiTMP as SplitDiT
+            else:
+                from lingbot.parallel.split_dit import SplitDiT
             # decoder on card 1 shares it through SM partitions; decoder on card 0 runs after the DiT (classic split)
             sms = int(os.environ.get("LINGBOT_SPLIT_SMS", "40")) if decoder_device_id == 1 else 0
             self.model = SplitDiT(self.model, h0=int(split.split(":")[0]), dit_sms=sms)
