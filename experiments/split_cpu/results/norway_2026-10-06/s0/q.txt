@@ -1,0 +1,13 @@
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=AlexNet_Weights.IMAGENET1K_V1`. You can also use `weights=AlexNet_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+Downloading: "https://download.pytorch.org/models/alexnet-owt-7be5be79.pth" to /root/.cache/torch/hub/checkpoints/alexnet-owt-7be5be79.pth
+  0%|          | 0.00/233M [00:00<?, ?B/s]  1%|          | 2.50M/233M [00:00<00:09, 26.0MB/s]  6%|▌         | 13.8M/233M [00:00<00:02, 79.6MB/s] 11%|█         | 25.0M/233M [00:00<00:02, 96.7MB/s] 16%|█▌        | 36.2M/233M [00:00<00:01, 105MB/s]  20%|██        | 47.5M/233M [00:00<00:01, 109MB/s] 25%|██▌       | 58.8M/233M [00:00<00:01, 112MB/s] 30%|███       | 70.0M/233M [00:00<00:01, 114MB/s] 35%|███▍      | 81.2M/233M [00:00<00:01, 115MB/s] 40%|███▉      | 92.5M/233M [00:00<00:01, 115MB/s] 45%|████▍     | 104M/233M [00:01<00:01, 116MB/s]  49%|████▉     | 115M/233M [00:01<00:01, 116MB/s] 54%|█████▍    | 126M/233M [00:01<00:00, 117MB/s] 59%|█████▉    | 138M/233M [00:01<00:00, 117MB/s] 64%|██████▍   | 149M/233M [00:01<00:00, 117MB/s] 69%|██████▊   | 160M/233M [00:01<00:00, 117MB/s] 73%|███████▎  | 171M/233M [00:01<00:00, 117MB/s] 78%|███████▊  | 182M/233M [00:01<00:00, 117MB/s] 83%|████████▎ | 194M/233M [00:01<00:00, 117MB/s] 88%|████████▊ | 205M/233M [00:01<00:00, 117MB/s] 93%|█████████▎| 216M/233M [00:02<00:00, 117MB/s] 98%|█████████▊| 228M/233M [00:02<00:00, 117MB/s]100%|██████████| 233M/233M [00:02<00:00, 113MB/s]
+s_1:b1_1	frames 157	per-chunk PSNR 30.9 26.2 25.7 27.5 24.7 24.1 23.8 23.3 23.4 28.8
+b1_2:b1_1	frames 157	per-chunk PSNR 148.1 148.1 148.1 148.1 148.1 148.1 148.1 148.1 66.2 31.6
+s_2:s_1	frames 157	per-chunk PSNR 148.1 148.1 148.1 148.1 148.1 148.1 148.1 148.1 148.1 148.1
+pair	frames	psnr_chunk1	lpips_chunk1	psnr_clip	meandiff_clip_255	lpips_clip	psnr_last_chunk	lpips_last_chunk	sharp_chunk1	sharp_chunk1_ref	sharp_clip	sharp_clip_ref	flicker	flicker_ref
+s_1:b1_1	157	30.87	0.0148	25.83	7.55	0.1415	28.83	0.7533	907	894	887	745	8.89	8.92
+b1_2:b1_1	157	148.13	0.0000	128.28	1.49	0.0445	31.58	0.4427	894	894	634	745	8.60	8.92
+s_2:s_1	157	148.13	0.0000	148.13	0.00	0.0000	148.13	0.0000	907	907	887	887	8.89	8.89

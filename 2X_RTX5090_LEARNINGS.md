@@ -209,6 +209,31 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
 23. **This host's run-to-run spread is wide.** The same code in the same warm worker ran 16.3-19.1 FPS
    across runs, and one profiled run hit 26.1 FPS that never repeated. Within a run the steady interval is
    stable (p50 and p95 within 1 %). Compare candidates on medians of 3 warm runs.
+24. **On a fast CPU the split is GPU-bound, on card 0.** Vast 54497707 (EPYC 9454, 3.8 us per eager op,
+   575 W, PCIe 5.0 x16 at 56 GB/s on both cards, one socket), torch 2.8 stack, warm worker:
+
+   | | Warm FPS (3 runs) | Steady chunk |
+   |---|---|---|
+   | B1 | 25.32 / 25.25 / 25.18 | 633 ms |
+   | Split 10:2 + green contexts + the three switches | **27.77 / 27.73 / 27.71** | **577 ms** |
+
+   First chunk vs B1: 30.9 dB, LPIPS 0.015. Nsight Systems on warm chunks 6-8 (583 ms per chunk under the
+   profiler, so it barely distorts), `critical_path.py`:
+
+   | Resource, per chunk | Measured | Speed of light (estimate) |
+   |---|---|---|
+   | Card 0 DiT stream (170 SMs, 10 heads, 5/6 tokens) | busy 521 ms (89.6 %): Sage attention 212, FP8 GEMMs 158, Sage prep 33, fused elementwise ~70, cat 13, cross-attention 13 | GEMMs ~150 ms at 419 TFLOP/s (~95 %); attention ~150 ms at 838 TOPS (71 %) |
+   | Card 1 DiT stream (40 SMs, 2 heads, 1/6 tokens) | busy 488 ms (84 %): Sage 212, FP8 GEMMs 157 | balanced against card 0 by design |
+   | Card 1 decoder (130 SMs) | 397-417 ms (70 %) | runs beside card 1's DiT share |
+   | Transfers | 3.2 GB each way, 59 ms each way at 54 GB/s; q\|k\|v message 7.7 MB in 224 us | 56 GB/s measured link: ~97 % |
+   | CPU thread | ~0.18 s busy per chunk (py-spy, excluding waits); launch lead p50 9.3 ms | hidden: kernels are queued ~9 ms ahead |
+
+   Critical path on card 0: **card 0 compute 513 ms (88 %)**, transfers 28 ms (5 %), waiting for card 1
+   23 ms (4 %), CPU 14 ms (2.4 %). The CPU is no longer the bound; card 0's kernels are, with card 1 close
+   behind. The CPU's waits sit in `sinusoidal_embedding_1d` at the start of each forward (37 ms per call of
+   blocking), which is also where the 14 ms of CPU-attributed GPU idle comes from: likely a host sync per
+   forward, unconfirmed. Raw files: `experiments/split_cpu/results/norway_2026-10-06/`; the nsys report is
+   kept outside the repo (`traces/split_norway_warm.nsys-rep`).
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:

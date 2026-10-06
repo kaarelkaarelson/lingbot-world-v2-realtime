@@ -1,0 +1,37 @@
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+AI agents: READ /etc/vast-agents-guide.md (also linked as ./AGENTS.md) before acting on or describing this instance: it is the operating guide. ('vast-capabilities' shows live state only, not the guide.)
+== gpu
+NVIDIA GeForce RTX 5090, 595.84, 1, 5, 575.00 W, 3090 MHz
+NVIDIA GeForce RTX 5090, 595.84, 1, 5, 575.00 W, 3090 MHz
+== cuInit
+cuda ok, NVIDIA GeForce RTX 5090
+== throttle (bf16 matmul under load, every GPU)
+gpu 0: bf16 matmul 231 TFLOP/s (need >= 170); under load: sm clock, power, throttle reasons = 2430 MHz, 65.96 W, 0x0000000000000000, Not Active, Not Active, Not Active
+gpu 1: bf16 matmul 231 TFLOP/s (need >= 170); under load: sm clock, power, throttle reasons = 180 MHz, 22.89 W, 0x0000000000000000, Not Active, Not Active, Not Active
+== power cap
+gpu 0: power limit 575.00 W (default 575.00 W)
+gpu 1: power limit 575.00 W (default 575.00 W)
+== cpu (launch speed: PyTorch inference is often launch-bound)
+model: AMD EPYC 9454 48-Core Processor; 96 usable cores; 1 socket(s)
+cgroup cpu quota: 92.2 cores (cpu.max = 9216000 100000): parallel compile and data loading are throttled
+3.8 us per tiny eager op (fast desktop/server CPUs: ~4-7 us)
+== multi-gpu
+P2P 0<->1: NO: card-to-card traffic stages through host memory
+gpu 0: pinned host->card 56.2 GB/s, card->host 56.5 GB/s (PCIe 5 x16 ~50, gen 4 ~25)
+gpu 1: pinned host->card 56.7 GB/s, card->host 56.4 GB/s (PCIe 5 x16 ~50, gen 4 ~25)
+	[4mGPU0	GPU1	CPU Affinity	NUMA Affinity	GPU NUMA ID[0m
+GPU0	 X 	NODE	0-95	0		N/A
+GPU1	NODE	 X 	0-95	0		N/A
+(SYS = GPUs on different CPU sockets; NODE/PHB/PIX = same socket)
+== counters (Nsight Compute)
+ncu unavailable (ERR_NVGPUCTRPERM or no nvcc): profiling not possible here, benchmarking is
+== disk
+overlay          45G   35G   11G  76% /
+NOTE: 11 GB free, under the 30 GB fresh-setup rule, but the repo is already provisioned - not a blocker
+== network (10 s from Hugging Face)
+download 37 MB/s (one connection); full weights (~15 GB) take ~3 min with parallel downloads
+== existing state
+repo present at /workspace/repo: skip setup.sh
+
+VERDICT: green, proceed
