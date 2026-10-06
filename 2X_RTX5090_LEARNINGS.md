@@ -269,6 +269,10 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    - **Waiting per chunk:** card 0 ~50 ms (meeting points 37: before attention for the peer's q|k|v, after it for
      the peer's outputs; ~1.6 ms hole at each forward start 8), card 1 ~92 ms (mostly ~450 us before each attention,
      waiting for card 0's q|k|v, because its projections cover only 1/6 of the tokens).
+   - **Which decoder kernels cause it:** card 1 FP8 GEMM / Sage slowdown by the decoder kernel overlapping it:
+     Triton conv +9 / +11 %, cuDNN conv +23 / +27 %, Triton fused elementwise/norm +44 / +35 % (decoder idle =
+     baseline). The ranking follows memory-boundness: bandwidth (DRAM/L2) contention, not SM sharing. Per-layer
+     MFU is jagged because each layer overlaps a different decoder kernel.
    - Next levers: spread the decoder (fewer SMs, no burst), overlap the meeting-point waits (send heads in groups),
      fix card 0's attention wave tail (head split or KV-split kernel).
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per

@@ -39,6 +39,11 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 - [ ] **Copy-free q|k|v assembly** (`LINGBOT_SPLIT_ZEROCOPY=1`): built, untested. Drops the pre-attention `cat`
   and the send-side `.contiguous()`; the output-side cat only moved into a compiled stage. Gate: bit-identical to
   `=0` in one worker, then 3 warm runs.
+- [ ] **Make the decoder interfere less: prefer Triton convolutions, fuse its elementwise kernels.** Card 1's DiT
+  kernels slow by which decoder kernel overlaps them (40-SM capture): Triton conv +9 % (GEMM) / +11 % (Sage), cuDNN
+  conv +23 / +27 %, Triton fused elementwise/norm +44 / +35 %. Memory-bandwidth contention: the most memory-bound
+  kernels hurt most. cuDNN convs are 32 % of decoder time; restricting the decoder's autotune to Triton conv
+  templates is a config change. The decoder has ~165 ms of slack per chunk to absorb a slower kernel.
 - [ ] **Spread the decoder** (fewer SMs, no burst): the decoder overlaps 4 of 5 forwards and slows card 1's DiT
   kernels 10-17 % (shared L2 / DRAM bandwidth; green contexts split only SMs). Worth it only if card 1 still makes
   card 0 wait at 48 SMs: check the 48-SM capture (`traces/split_sms48_warm.sqlite`) first.
