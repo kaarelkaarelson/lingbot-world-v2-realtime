@@ -1,5 +1,18 @@
 # To-do
 
+## Bench harness: warm workers keyed by code hash (after the split build)
+
+Measured on the Vast pod (2026-10-06): a ~2.5 min run is ~10 s of generation; the rest is start-up, weight
+loading (~30-50 s), Dynamo tracing (~35-50 s, redone in every process) and Inductor compile (0 s warm, ~250 s
+cold for new graphs). Inductor already caches by graph hash; loading and tracing are what repeat.
+
+- [ ] One long-lived worker per **code hash** (git tree + `LINGBOT_*` env): keeps weights loaded and the model
+  compiled; runs every config that doesn't change compiled code (chunk count, decoder card, prompt, repeats)
+  in ~10-20 s instead of ~2.5 min. A changed hash starts a new worker (load + trace ~1.5 min; unchanged kernels
+  still hit Inductor's cache). Restart on any change so a worker never serves stale code.
+- [ ] Prompt-embedding cache keyed by a hash of the prompt.
+- [ ] Group sweep entries by code hash, not by preset (supersedes the per-preset `--sweep` design).
+
 ## Two GPUs: 2× RTX 5090 over PCIe (Phase 1, 2026-10-05)
 
 Link facts and every measurement: `2X_RTX5090_LEARNINGS.md`. No P2P on GeForce; the cards talk
