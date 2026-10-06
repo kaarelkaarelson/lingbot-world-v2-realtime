@@ -38,6 +38,9 @@ PIECES = int(os.environ.get("LINGBOT_SPLIT_PIECES", "4"))
 _OPTS = {"cpp_wrapper": True} if os.environ.get("LINGBOT_SPLIT_CPPWRAP") == "1" else None
 SKIPGUARD = int(os.environ.get("LINGBOT_SPLIT_SKIPGUARD", "0"))
 TOK = float(os.environ.get("LINGBOT_SPLIT_TOK", "0"))
+# 1: q|k|v of both cards lands in place in one global-order buffer per card (no cat / .contiguous() around the
+# exchange); the returned heads are concatenated inside the compiled _post. Eager layers only (not GRAPH).
+ZEROCOPY = os.environ.get("LINGBOT_SPLIT_ZEROCOPY") == "1"
 # CUDA graphs for the steady-state forwards (KV window full): "pp" the compiled stages (+ the cat feeding them),
 # "1"/"all" also the attention section (KV write, SageAttention); the card-to-card exchange stays eager
 GRAPH = {"1": "all", "all": "all", "pp": "pp"}.get(os.environ.get("LINGBOT_SPLIT_GRAPH", "0"))
@@ -65,7 +68,7 @@ def _copy_tree(dst, src):
 
 
 class _Slot:
-    __slots__ = ("p", "host", "dst", "out", "hp", "dp", "done", "free", "used")
+    __slots__ = ("p", "host", "dst", "out", "hp", "cp", "done", "free", "used")
 
 
 class _Exchange:
@@ -75,7 +78,9 @@ class _Exchange:
     `release()`s, made once every received buffer has been consumed on comp[p]) each call takes a fresh slot, so
     slots are never shared by live buffers; the cursor restarts after `release()`. A reused slot is ordered on
     both sides: H2D waits `free` (recorded on comp[p] at release: consumers are done reading dst) and D2H waits
-    `done` (the previous H2D finished reading the host buffer).
+    `done` (the previous H2D finished reading the host buffer). With `dst` (a view [n, ...] of a caller buffer whose
+    leading-index slices are contiguous) the H2D pieces land in it directly; the caller's consumer must run on
+    comp[p] before the next `release()`, which is what orders the next layer's writes after its reads.
     """
 
     def __init__(self, devs, comp):
@@ -86,7 +91,7 @@ class _Exchange:
         self.d2h = [torch.cuda.Event() for _ in devs]
         self.slots, self.cur, self.live, self.bounds = {}, {}, [], {}
 
-    def _slot(self, c, p, key, src):
+    def _slot(self, c, p, key, src, dst=None):
         n = self.cur.get(key, 0)
         self.cur[key] = n + 1
         lst = self.slots.setdefault(key, [])
@@ -100,11 +105,18 @@ class _Exchange:
             bd = self.bounds[numel] = [(i, i + step) for i in range(0, numel, step)]
         s.p = p
         s.host = torch.empty(numel, dtype=src.dtype, pin_memory=True)
-        with torch.cuda.stream(self.recv[p]):
-            s.dst = torch.empty(numel, dtype=src.dtype, device=self.devs[p])
-        s.out = s.dst.view(src.shape)
         s.hp = [s.host[i:j] for i, j in bd]
-        s.dp = [s.dst[i:j] for i, j in bd]
+        if dst is None:
+            with torch.cuda.stream(self.recv[p]):
+                s.dst = torch.empty(numel, dtype=src.dtype, device=self.devs[p])
+            s.out = s.dst.view(src.shape)
+            s.cp = [[(h, s.dst[i:j])] for h, (i, j) in zip(s.hp, bd)]
+        else:
+            s.out = dst
+            m = numel // dst.shape[0]
+            seg = [dst[k].reshape(-1) for k in range(dst.shape[0])]
+            s.cp = [[(s.host[max(i, k * m):min(j, (k + 1) * m)], seg[k][max(i, k * m) - k * m:min(j, (k + 1) * m) - k * m])
+                     for k in range(i // m, (j - 1) // m + 1)] for i, j in bd]
         s.done, s.free, s.used = torch.cuda.Event(), torch.cuda.Event(), False
         lst.append(s)
         return s
@@ -115,10 +127,11 @@ class _Exchange:
         self.live.clear()
         self.cur.clear()
 
-    def __call__(self, c, src):
+    def __call__(self, c, src, dst=None):
         p = 1 - c
         flat = src.reshape(-1)
-        s = self._slot(c, p, (c, src.shape, src.dtype), src)
+        key = (c, src.shape, src.dtype) + (() if dst is None else (dst.data_ptr(),))
+        s = self._slot(c, p, key, src, dst)
         self.live.append(s)
         sc, rp = self.send[c], self.recv[p]
         self.ready[c].record(self.comp[c])
@@ -135,15 +148,15 @@ class _Exchange:
                 ev.record(sc)
             rp.wait_event(ev)
             with torch.cuda.stream(rp):
-                s.dp[k].copy_(s.hp[k], non_blocking=True)
+                for h, d in s.cp[k]:
+                    d.copy_(h, non_blocking=True)
         s.done.record(rp)
         return s.out, s.done
 
 
 # token-local stages, compiled once per card and shape (the block is a module argument, so all 30 layers share
 # a graph); SageAttention and the exchange run between them
-@torch.compile(dynamic=False, options=_OPTS)
-def _pre(blk, x, e0, rope):
+def _pre_impl(blk, x, e0, rope):
     with torch.amp.autocast('cuda', dtype=torch.float32):
         e = (blk.modulation.unsqueeze(0) + e0).chunk(6, dim=2)
     sa = blk.self_attn
@@ -157,8 +170,17 @@ def _pre(blk, x, e0, rope):
     return torch.stack([q[0], k[0], v[0]])            # [3, tokens, heads, d]
 
 
+_pre = torch.compile(_pre_impl, dynamic=False, options=_OPTS)
+
+
 @torch.compile(dynamic=False, options=_OPTS)
-def _post(blk, x, attn, e0, cam_scale, cam_shift, ca_k, ca_v):
+def _pre_split(blk, x, e0, rope, oh, ph):
+    # my heads (a view) and the peer's heads (contiguous: the send needs no copy kernel of its own)
+    qkv = _pre_impl(blk, x, e0, rope)
+    return qkv[:, :, oh[0]:oh[1]], qkv[:, :, ph[0]:ph[1]].contiguous()
+
+
+def _post_impl(blk, x, attn, e0, cam_scale, cam_shift, ca_k, ca_v):
     with torch.amp.autocast('cuda', dtype=torch.float32):
         e = (blk.modulation.unsqueeze(0) + e0).chunk(6, dim=2)
     y = blk.self_attn.o(attn.flatten(-2).unsqueeze(0))
@@ -174,6 +196,14 @@ def _post(blk, x, attn, e0, cam_scale, cam_shift, ca_k, ca_v):
     with torch.amp.autocast('cuda', dtype=torch.float32):
         x = x + yf * e[5].squeeze(2)
     return x
+
+
+_post = torch.compile(_post_impl, dynamic=False, options=_OPTS)
+
+
+@torch.compile(dynamic=False, options=_OPTS)
+def _post_cat(blk, x, a0, a1, e0, cam_scale, cam_shift, ca_k, ca_v):
+    return _post_impl(blk, x, torch.cat([a0, a1], dim=1), e0, cam_scale, cam_shift, ca_k, ca_v)
 
 
 @torch.compile(dynamic=False, options=_OPTS)
@@ -200,7 +230,7 @@ class SplitDiT:
             self.sms = (torch.cuda.get_device_properties(1).multi_processor_count, 0)
         self.comp = [torch.cuda.current_stream(self.devs[0]), dit1]
         self.xch = _Exchange(self.devs, self.comp)
-        self._kv, self._kv_src, self._ca = None, None, [None, None]
+        self._kv, self._kv_src, self._ca, self._F = None, None, [None, None], None
         self._gv, self._gv_warned = None, set()
         if GRAPH:
             self._pool = []
@@ -327,22 +357,30 @@ class SplitDiT:
 
     def _layer(self, li, xs, st, tok, current_start, max_attention_size, frame_seqlen, cam_first_call):
         devs, comp, H = self.devs, self.comp, self.m[0].num_heads
-        qkv, inbox = [None, None], [None, None]
+        qkv, inbox, dst = [None, None], [None, None], None
         for c in (0, 1):                                   # projections; send the peer's heads of my tokens
-            p, ph = 1 - c, self.heads[1 - c]
+            p, ph, oh, tc = 1 - c, self.heads[1 - c], self.heads[c], tok[c]
             with torch.cuda.stream(comp[c]), nvtx("pre"):
-                qkv[c] = _pre(self.m[c].blocks[li], xs[c], st[c]["e0"], st[c]["rope"])
-                pk = qkv[c][:, :, ph.start:ph.stop].contiguous()
+                if ZEROCOPY:
+                    qkv[c], pk = _pre_split(self.m[c].blocks[li], xs[c], st[c]["e0"], st[c]["rope"],
+                                            (oh.start, oh.stop), (ph.start, ph.stop))
+                    F = self._full(qkv[c], tok[1].stop)
+                    F[c][:, tc.start:tc.stop].copy_(qkv[c])
+                    dst = F[p][:, tc.start:tc.stop]
+                else:
+                    qkv[c] = _pre(self.m[c].blocks[li], xs[c], st[c]["e0"], st[c]["rope"])
+                    pk = qkv[c][:, :, ph.start:ph.stop].contiguous()
             with nvtx("send_qkv"):
-                inbox[p] = self.xch(c, pk)
+                inbox[p] = self.xch(c, pk, dst)
         attn_own, back = [None, None], [None, None]
         for c in (0, 1):                                   # my heads over all tokens: KV cache, SageAttention
             oh = self.heads[c]
             with torch.cuda.stream(comp[c]), nvtx("attn"):
                 buf, ev = inbox[c]
                 comp[c].wait_event(ev)
-                attn_own[c], back[c] = self._attend(c, li, qkv[c][:, :, oh.start:oh.stop], buf, tok, current_start,
-                                                    max_attention_size, frame_seqlen)
+                attn_own[c], back[c] = self._attend(c, li, qkv[c] if ZEROCOPY else qkv[c][:, :, oh.start:oh.stop], buf,
+                                                    tok, current_start, max_attention_size, frame_seqlen,
+                                                    full=self._F[c] if ZEROCOPY else None)
         self.xch.release()                                 # inbox consumed
         recv = [None, None]
         for c in (0, 1):
@@ -355,19 +393,32 @@ class SplitDiT:
                 buf, ev = recv[c]
                 comp[c].wait_event(ev)
                 parts = [attn_own[c], buf] if c == 0 else [buf, attn_own[c]]   # heads 0..h0-1, then h0..H-1
-                attn = torch.cat(parts, dim=1)              # [my tokens, H, d]
                 if cam_first_call and st[c]["pl"] is not None:
                     self._cam[c][li] = _cam(blk, st[c]["pl"])
                 cs, csh = self._cam[c][li]
                 ca = self._ca[c][li]
-                out[c] = _post(blk, xs[c], attn, st[c]["e0"], cs, csh, ca["k"], ca["v"])
+                if ZEROCOPY:                                # [my tokens, H, d] assembled inside the compiled stage
+                    out[c] = _post_cat(blk, xs[c], *parts, st[c]["e0"], cs, csh, ca["k"], ca["v"])
+                else:
+                    out[c] = _post(blk, xs[c], torch.cat(parts, dim=1), st[c]["e0"], cs, csh, ca["k"], ca["v"])
         self.xch.release()                                 # recv consumed
         return out
 
-    def _attend(self, c, li, own, buf, tok, current_start, max_attention_size, frame_seqlen, fixed=None):
+    def _full(self, own, n):
+        # per card [3, all tokens, my heads, d]: q|k|v in global token order, filled in place (mine and the peer's)
+        sh = [(3, n, len(h), own.shape[-1]) for h in self.heads]
+        if self._F is None or [tuple(f.shape) for f in self._F] != sh or self._F[0].dtype != own.dtype:
+            self._F = []
+            for c in (0, 1):
+                with torch.cuda.stream(self.comp[c]):
+                    self._F.append(torch.empty(sh[c], dtype=own.dtype, device=self.devs[c]))
+        return self._F
+
+    def _attend(self, c, li, own, buf, tok, current_start, max_attention_size, frame_seqlen, fixed=None, full=None):
         # `fixed` = (start, end) of the K/V write in the cache (steady state, graph path: eviction already done)
         sa = self.m[c].blocks[li].self_attn
-        full = torch.cat([own, buf], dim=1) if c == 0 else torch.cat([buf, own], dim=1)  # global token order
+        if full is None:
+            full = torch.cat([own, buf], dim=1) if c == 0 else torch.cat([buf, own], dim=1)  # global token order
         q, k, v = (full[i].unsqueeze(0) for i in range(3))
         kc = self._kv[c][li]
         if fixed is None:
