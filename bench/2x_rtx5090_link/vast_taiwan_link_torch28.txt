@@ -1,0 +1,98 @@
+2.8.0+cu128
+# torch 2.8.0+cu128 | peer access 0->1 False, 1->0 False
+test	size_MB	us	GB/s
+H2D gpu0	0.004	7.1	0.6
+D2H gpu0	0.004	6.2	0.7
+H2D gpu1	0.004	7.4	0.6
+H2D both GPUs at once (total)	0.004	55.2	0.2
+D2H+H2D gpu0 at once (total, duplex)	0.004	43.3	0.2
+copy_ gpu0->gpu1	0.004	23.8	0.2
+copy_ both directions at once (total)	0.004	90.6	0.1
+all_to_all by copy_ (busbw, 2-GPU)	0.004	106.1	0.0
+manual pinned staging gpu0->gpu1, 4 MB pieces	0.004	72.7	0.1
+H2D gpu0	0.064	6.2	10.8
+D2H gpu0	0.064	6.0	11.2
+H2D gpu1	0.064	6.6	10.2
+H2D both GPUs at once (total)	0.064	54.1	2.5
+D2H+H2D gpu0 at once (total, duplex)	0.064	42.6	3.1
+copy_ gpu0->gpu1	0.064	24.0	2.8
+copy_ both directions at once (total)	0.064	90.6	1.5
+all_to_all by copy_ (busbw, 2-GPU)	0.064	106.2	0.3
+manual pinned staging gpu0->gpu1, 4 MB pieces	0.064	71.3	0.9
+H2D gpu0	1	20.3	51.5
+D2H gpu0	1	19.2	54.7
+H2D gpu1	1	20.0	52.5
+H2D both GPUs at once (total)	1	54.9	38.2
+D2H+H2D gpu0 at once (total, duplex)	1	43.1	48.7
+copy_ gpu0->gpu1	1	50.6	20.7
+copy_ both directions at once (total)	1	95.6	21.9
+all_to_all by copy_ (busbw, 2-GPU)	1	111.2	4.7
+manual pinned staging gpu0->gpu1, 4 MB pieces	1	71.7	14.6
+H2D gpu0	4.6	87.4	55.2
+D2H gpu0	4.6	86.6	55.7
+H2D gpu1	4.6	86.9	55.5
+H2D both GPUs at once (total)	4.6	88.0	109.7
+D2H+H2D gpu0 at once (total, duplex)	4.6	104.0	92.8
+copy_ gpu0->gpu1	4.6	131.8	36.6
+copy_ both directions at once (total)	4.6	186.2	51.8
+all_to_all by copy_ (busbw, 2-GPU)	4.6	139.2	17.3
+manual pinned staging gpu0->gpu1, 4 MB pieces	4.6	146.7	32.9
+H2D gpu0	9.3	174.9	55.8
+D2H gpu0	9.3	222.0	43.9
+H2D gpu1	9.3	174.3	55.9
+H2D both GPUs at once (total)	9.3	175.3	111.3
+D2H+H2D gpu0 at once (total, duplex)	9.3	250.9	77.7
+copy_ gpu0->gpu1	9.3	240.1	40.6
+copy_ both directions at once (total)	9.3	348.4	56.0
+all_to_all by copy_ (busbw, 2-GPU)	9.3	184.4	26.4
+manual pinned staging gpu0->gpu1, 4 MB pieces	9.3	223.1	43.7
+H2D gpu0	18.5	345.7	56.1
+D2H gpu0	18.5	450.5	43.1
+H2D gpu1	18.5	345.3	56.2
+H2D both GPUs at once (total)	18.5	346.3	112.0
+D2H+H2D gpu0 at once (total, duplex)	18.5	542.7	71.5
+copy_ gpu0->gpu1	18.5	448.4	43.3
+copy_ both directions at once (total)	18.5	650.8	59.6
+all_to_all by copy_ (busbw, 2-GPU)	18.5	344.2	28.2
+manual pinned staging gpu0->gpu1, 4 MB pieces	18.5	479.6	40.4
+H2D gpu0	64	1191.2	56.3
+D2H gpu0	64	1580.3	42.5
+H2D gpu1	64	1190.9	56.4
+H2D both GPUs at once (total)	64	1192.4	112.6
+D2H+H2D gpu0 at once (total, duplex)	64	1893.1	70.9
+copy_ gpu0->gpu1	64	1499.4	44.8
+copy_ both directions at once (total)	64	2184.1	61.5
+all_to_all by copy_ (busbw, 2-GPU)	64	1111.5	30.2
+manual pinned staging gpu0->gpu1, 4 MB pieces	64	1688.6	39.7
+H2D gpu0	256	4760.7	56.4
+D2H gpu0	256	6264.2	42.9
+H2D gpu1	256	4761.0	56.4
+H2D both GPUs at once (total)	256	4766.4	112.6
+D2H+H2D gpu0 at once (total, duplex)	256	7555.0	71.1
+copy_ gpu0->gpu1	256	6040.9	44.4
+copy_ both directions at once (total)	256	8638.0	62.2
+all_to_all by copy_ (busbw, 2-GPU)	256	4389.0	30.6
+manual pinned staging gpu0->gpu1, 4 MB pieces	256	7155.0	37.5
+matmul gpu0 alone	-	4735	232 TFLOP/s
+matmul gpu0 during copies	-	4717	233 TFLOP/s
+what	us
+bf16 activation (today)	206.9
+int8 values	173.9
+fp8 values	172.7
+scales only	140.1
+int8 values + scales	312.9
+quantize int8 (torch eager, 1 tensor)	140.0
+quantize int8 (torch.compile, 1 tensor)	94.0
+cast to fp8 (1 tensor)	10.9
+per layer today (6 x bf16)	1241
+per layer q,k,v in 8 bits (3 x int8+scales, 3 x bf16)	1559
+per layer all 6 in 8 bits (upper bound)	1877
+per chunk (150 layer passes): today 186 ms, qkv-8bit 234 ms, all-8bit 282 ms
+data check: ok; int8 per-block relative error 0.0102 (the same rounding Sage applies after the exchange)
+
+packed	us
+q|k|v packed, bf16 (one message)	481.3
+q|k|v packed, int8 + scales (one message)	286.2
+per layer packed bf16 (1 x qkv + 3 x bf16)	1102
+per layer packed 8-bit qkv (1 x qkv8 + 3 x bf16)	907
+per chunk: today 186 ms, packed bf16 165 ms, packed 8-bit 136 ms
