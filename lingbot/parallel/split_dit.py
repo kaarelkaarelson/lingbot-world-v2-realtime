@@ -116,7 +116,11 @@ class SplitDiT:
         H = model.num_heads
         self.heads = [range(0, h0), range(h0, H)]
         self.h0 = h0
-        (dit1, self.decoder_stream), self.sms = split_streams(1, dit_sms)
+        if dit_sms > 0:   # card 1 shared with the decoder: separate SM partitions
+            (dit1, self.decoder_stream), self.sms = split_streams(1, dit_sms)
+        else:             # decoder elsewhere (classic split, decoder after the DiT on card 0): card 1's DiT gets every SM
+            dit1, self.decoder_stream = torch.cuda.Stream(device=torch.device("cuda:1"), priority=-5), None
+            self.sms = (torch.cuda.get_device_properties(1).multi_processor_count, 0)
         self.comp = [torch.cuda.current_stream(self.devs[0]), dit1]
         self.xch = _Exchange(self.devs, self.comp)
         self._kv, self._kv_src, self._ca = None, None, [None, None]
