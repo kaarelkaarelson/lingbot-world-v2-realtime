@@ -25,6 +25,25 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
   `lingbot/parallel/split_dit.py`). With `LINGBOT_SPLIT_CPPWRAP=1 LINGBOT_SPLIT_SKIPGUARD=50
   LINGBOT_SPLIT_PIECES=2`: **25.03 FPS vs B1 24.04** on the Vast pod, quality inside the noise band
   (learning 21). Still CPU-bound; the GPU ceiling is ~28-29 FPS.
+- [ ] **Card 0's SageAttention wave tail** (highest single item). Card 0 launches 480 attention blocks; at 255
+  registers per thread only 2 fit per SM, so 340 run at once and the second wave is 140 blocks: 1.41 waves, last
+  wave 71 % full, so the kernel cannot exceed ~70.5 % of peak (measured 64 %, ~91 % inside the waves). One card
+  (576 blocks, 1.69 waves, 85 %) is better off; the 10:2 split made the tail worse. Fixes, cheapest first:
+  (1) smaller query tile (CTA_Q 64): 960 blocks = 2.82 waves, 94 % full, one Sage rebuild with the repo's tiling
+  knobs (`SAGE_H2_CTA_Q`); (2) KV-split kernel (same effect, larger change); (3) register cap so 3 blocks fit per
+  SM (510 slots, one wave; may spill). Best case ~212 -> ~170 ms of attention per chunk on card 0, ~+7 % FPS if
+  card 1 keeps up. Learning 27.
+- [x] **Token share decoupled from the head split: measured, a loss.** `LINGBOT_SPLIT_TOK`: card 0 at 0.80 / 0.78 /
+  0.76 / 0.74 of the tokens gave 28.25 / 27.60 / 27.01 / 25.05 FPS vs 29.2 at the head ratio (0.833). Card 1 has no
+  spare capacity for token-local work even on 48 SMs. Untested: the other direction (card 0 above 0.833).
+- [ ] **Copy-free q|k|v assembly** (`LINGBOT_SPLIT_ZEROCOPY=1`): built, untested. Drops the pre-attention `cat`
+  and the send-side `.contiguous()`; the output-side cat only moved into a compiled stage. Gate: bit-identical to
+  `=0` in one worker, then 3 warm runs.
+- [ ] **Spread the decoder** (fewer SMs, no burst): the decoder overlaps 4 of 5 forwards and slows card 1's DiT
+  kernels 10-17 % (shared L2 / DRAM bandwidth; green contexts split only SMs). Worth it only if card 1 still makes
+  card 0 wait at 48 SMs: check the 48-SM capture (`traces/split_sms48_warm.sqlite`) first.
+- [ ] **Head chunking (HCMS, arXiv 2607.01817)**: overlap the q|k|v transfer with attention on the first head
+  group; 6.8 % end to end on Wan2.2 in the paper. Our transfers cost ~28 ms per chunk on card 0's critical path.
 - [ ] **CUDA graphs per layer stage for the split** (`LINGBOT_SPLIT_GRAPH=pp|all`, the vLLM piecewise
   pattern). Written, never run. First: `pp` must give frames bit-identical to the eager split; then
   `all` (Sage in graphs is deterministic but not bit-identical to eager Sage); then FPS with and without
