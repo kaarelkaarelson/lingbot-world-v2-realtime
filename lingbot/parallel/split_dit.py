@@ -37,6 +37,7 @@ PIECES = int(os.environ.get("LINGBOT_SPLIT_PIECES", "4"))
 # of the Python wrapper; after SKIPGUARD forwards (shapes settled), Dynamo checks only the guards that pick a graph
 _OPTS = {"cpp_wrapper": True} if os.environ.get("LINGBOT_SPLIT_CPPWRAP") == "1" else None
 SKIPGUARD = int(os.environ.get("LINGBOT_SPLIT_SKIPGUARD", "0"))
+TOK = float(os.environ.get("LINGBOT_SPLIT_TOK", "0"))
 # CUDA graphs for the steady-state forwards (KV window full): "pp" the compiled stages (+ the cat feeding them),
 # "1"/"all" also the attention section (KV write, SageAttention); the card-to-card exchange stays eager
 GRAPH = {"1": "all", "all": "all", "pp": "pp"}.get(os.environ.get("LINGBOT_SPLIT_GRAPH", "0"))
@@ -268,7 +269,9 @@ class SplitDiT:
                 st[c] = self._prelude(self.m[c], xx, tt, yy, pp, current_start, frame_seqlen, cam_first_call)
         self.xch.release()                                  # inputs consumed
         L_tok = st[0]["L"]
-        n0 = L_tok * self.h0 // self.m[0].num_heads          # card 0's share of the tokens, same ratio as heads
+        # card 0's share of the tokens for the token-local work (projections, FFN): the head ratio by default;
+        # LINGBOT_SPLIT_TOK=f moves token-local work between cards independently of the head split
+        n0 = int(L_tok * TOK) if TOK else L_tok * self.h0 // self.m[0].num_heads
         tok = [range(0, n0), range(n0, L_tok)]
         xs = []
         for c in (0, 1):
