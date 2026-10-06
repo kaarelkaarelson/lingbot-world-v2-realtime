@@ -24,7 +24,7 @@ python -c "import torch, torchao; print('torch', torch.__version__, 'cuda', torc
 echo "== SageAttention 2.2 + current-stream patch, built for sm_120 against CUDA $(nvcc --version | grep -o 'release [0-9.]*') =="
 mkdir -p build && cd build
 [ -d SageAttention ] || git clone -q https://github.com/thu-ml/SageAttention.git
-cd SageAttention && git checkout -q . && git apply ../../patches/sageattention-current-stream.patch
+cd SageAttention && git checkout -q . && git apply ../../patches/sageattention-current-stream.patch && sed -i "s/-std=c++17/-std=c++20/g" setup.py  # torch 2.14 headers need C++20
 EXT_PARALLEL=4 NVCC_APPEND_FLAGS="--threads 8" MAX_JOBS=$JOBS python setup.py -q bdist_wheel > ../sage_cu130_build.log 2>&1
 uv pip install -q --force-reinstall --no-deps dist/sageattention-*.whl
 cd ../..
