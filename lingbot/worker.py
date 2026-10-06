@@ -16,7 +16,7 @@ inside `_cold_run` (first run of the worker: includes compile) or `_warm_run`, s
 `pyspy_breakdown.py <file> --under "_warm_run"` (gpu-profiling skill).
 
 LINGBOT_WORKER_NSYS=1 starts the worker under `nsys profile -t cuda,nvtx,osrt --capture-range=cudaProfilerApi
---capture-range-end=repeat` (also the parent, same reason). Set LINGBOT_PROFILE_CHUNKS=a:b (cudaProfilerStart/Stop
+--capture-range-end=repeat` (also the parent, same reason). Set LINGBOT_NSYS_CHUNKS=a:b (cudaProfilerStart/Stop
 around those chunks of every run) and LINGBOT_NVTX=1 (the ranges) too. With `repeat` each run yields its own numbered
 report next to the log (`<log base>-<time>*.nsys-rep`); the first is the cold run, the warm run's is the one to
 analyse. Reports are finalized after `worker stop`: wait for the nsys process to exit, then

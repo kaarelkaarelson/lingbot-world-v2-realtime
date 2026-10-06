@@ -16,7 +16,7 @@ profiled number is checked against these; a profiler that moves the interval by 
 
 - Start the warm worker under `nsys` (it has to be the parent, like py-spy). Capture only steady chunks of
   a warm run: `--capture-range=cudaProfilerApi`, with the pipeline calling `cudaProfilerStart/Stop` around
-  chunks 5-8 when `LINGBOT_PROFILE_CHUNKS=5:8` is set.
+  chunks 5-8 when `LINGBOT_NSYS_CHUNKS=5:8` is set.
 - NVTX ranges on the CPU side: chunk, forward, layer, and inside each layer `pre`, `send qkv`, `attention`,
   `send back`, `post`. Cost: a few µs per range.
 - Gives: per-card and per-stream busy time, kernel durations by class, every D2H/H2D piece with bytes and
@@ -68,7 +68,7 @@ Profiles show correlation; these show cause. The resource that bounds the chunk 
 
 ## Instrumentation to build first (code only, before pod time)
 
-1. `LINGBOT_PROFILE_CHUNKS=a:b`: `cudaProfilerStart/Stop` around those chunks in the pipeline.
+1. `LINGBOT_NSYS_CHUNKS=a:b`: `cudaProfilerStart/Stop` around those chunks in the pipeline.
 2. NVTX ranges in `split_dit.py` (`LINGBOT_NVTX=1`, off by default so normal runs pay nothing).
 3. `LINGBOT_WORKER_NSYS=1`: start the worker under `nsys profile` with the capture range, like the py-spy mode.
 4. `critical_path.py` and an extension of `cpu_gpu_bound.py` for the nsys SQLite export.

@@ -4,7 +4,7 @@ LINGBOT_PROFILE=<dir>          profile steady-state chunks (LINGBOT_PROFILE_CHUN
 LINGBOT_PROFILE_VAE=1          also profile the whole-clip decode
 LINGBOT_ROOFLINE=<dir>         both of the above, into <dir>
 LINGBOT_ROOFLINE_TRACE=1       add tools/roofline.py's byte tracer and a decoder FLOP count (eager only)
-LINGBOT_PROFILE_CHUNKS=a:b     cudaProfilerStart before chunk a, Stop after chunk b-1 (0-based, b exclusive) on
+LINGBOT_NSYS_CHUNKS=a:b     cudaProfilerStart before chunk a, Stop after chunk b-1 (0-based, b exclusive) on
                                every run; for `nsys --capture-range=cudaProfilerApi` (LINGBOT_WORKER_NSYS=1).
                                With LINGBOT_PROFILE the "8-10" form of the torch.profiler window applies instead
 LINGBOT_NVTX=1                 NVTX ranges: chunk, decode, fwd, per layer and its stages (no-op when unset)
@@ -132,7 +132,7 @@ class CudaProfilerRange:
     """cudaProfilerStart before chunk a, cudaProfilerStop once chunk b-1 has finished on every GPU."""
 
     def __init__(self, n_chunks):
-        spec = os.environ.get("LINGBOT_PROFILE_CHUNKS", "")
+        spec = os.environ.get("LINGBOT_NSYS_CHUNKS", "")
         self.lo = self.hi = -1
         if ":" in spec:
             lo, hi = spec.split(":")
