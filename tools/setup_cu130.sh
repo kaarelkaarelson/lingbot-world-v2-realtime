@@ -16,8 +16,8 @@ command -v uv >/dev/null || { curl -LsSf https://astral.sh/uv/install.sh | sh >/
 [ -d .venv-cu130 ] || uv venv -q --python 3.12 .venv-cu130
 . .venv-cu130/bin/activate
 uv pip install -q torch==$TORCH torchvision==$VISION --index-url $IDX
-grep -v -E '^(torch|torchvision|torchao)==' requirements.txt > /tmp/req_cu130.txt
-uv pip install -q -r /tmp/req_cu130.txt torchao setuptools wheel ninja packaging
+grep -v -E '^(torch|torchvision|torchao|cuda-bindings)==' requirements.txt > /tmp/req_cu130.txt
+uv pip install -q -r /tmp/req_cu130.txt torchao 'cuda-bindings==13.0.*' setuptools wheel ninja packaging
 uv pip install -q --no-deps -e .
 python -c "import torch, torchao; print('torch', torch.__version__, 'cuda', torch.version.cuda, '| torchao', torchao.__version__)"
 
