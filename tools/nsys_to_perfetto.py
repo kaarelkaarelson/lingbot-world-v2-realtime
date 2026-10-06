@@ -170,7 +170,7 @@ def _layer_mfu(K, R, c, S, main, us, f, share):
     L = sorted((st, en, t) for st, en, t, g in c.execute(f"select start, end, {tx}, globalTid from NVTX_EVENTS "
                "where end is not null and eventType in (59, 60)") if g == main and t and t[:1] == "L" and t[1:].isdigit())
     starts = [x[0] for x in L]
-    acc = collections.defaultdict(lambda: dict(gemm=0, attn=0, t0=None, t1=0, share=1.0))
+    acc = collections.defaultdict(lambda: dict(gemm=0, attn=0, t0=None, t1=0, share=1.0, ngemm=0))
     for d, s, st, en, sn, dn, cid, *_ in K:
         t = call.get(cid)
         if t is None:
@@ -184,17 +184,24 @@ def _layer_mfu(K, R, c, S, main, us, f, share):
         if cls:
             a["share"] = share(d, s)
             a[cls] += en - st
+            a["ngemm"] += cls == "gemm"
             a["t0"] = st if a["t0"] is None else min(a["t0"], st)
             a["t1"] = max(a["t1"], en)
-    ev, tot = [], collections.defaultdict(lambda: dict(gemm=0, attn=0, n=0, share=1.0))
+    # layer passes with more GEMM kernels than usual run extra GEMMs (e.g. camera conditioning once per chunk):
+    # add the model's "gemm_extra" FLOPs there, so they read as work, not as a drop in MFU
+    usual = {d: collections.Counter(a["ngemm"] for (dd, _), a in acc.items() if dd == d).most_common(1)[0][0]
+             for d in {d for d, _ in acc}}
+    ev, tot = [], collections.defaultdict(lambda: dict(gemm=0, attn=0, n=0, share=1.0, flops_gemm=0))
     for (d, i), a in sorted(acc.items(), key=lambda x: x[1]["t0"] or 0):
         fd = f["devices"].get(str(d))
         if not fd or not a["t0"]:
             continue
         args = {}
+        fl = dict(gemm=fd["gemm"] + (fd.get("gemm_extra", 0) if a["ngemm"] > usual[d] else 0), attn=fd["attn"])
+        tot[d]["flops_gemm"] += fl["gemm"] if a["gemm"] else 0
         for cls, peak in (("gemm", f["peak_gemm"]), ("attn", f["peak_attn"])):
             if a[cls]:
-                tf = fd[cls] / (a[cls] / 1e9) / 1e12
+                tf = fl[cls] / (a[cls] / 1e9) / 1e12
                 args[f"{cls} TFLOP/s"] = round(tf)
                 args[f"{cls} % of peak"] = round(100 * tf / (peak * a["share"]), 1)
                 tot[d][cls] += a[cls]
@@ -207,7 +214,7 @@ def _layer_mfu(K, R, c, S, main, us, f, share):
         fd = f["devices"][str(d)]
         for cls, peak in (("gemm", f["peak_gemm"]), ("attn", f["peak_attn"])):
             if t[cls]:
-                tf = fd[cls] * t["n"] / (t[cls] / 1e9) / 1e12
+                tf = (t["flops_gemm"] if cls == "gemm" else fd[cls] * t["n"]) / (t[cls] / 1e9) / 1e12
                 summ[f"GPU {d} {cls}: TFLOP/s"] = round(tf)
                 summ[f"GPU {d} {cls}: % of peak"] = round(100 * tf / (peak * t["share"]), 1)
                 summ[f"GPU {d} {cls}: SMs share of peak"] = round(t["share"], 3)
