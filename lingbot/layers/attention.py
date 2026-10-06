@@ -6,10 +6,18 @@ cross-attention, uses the paper's FlashAttention wrapper unchanged.
 """
 import os
 
+from wan.modules.attention import FLASH_ATTN_2_AVAILABLE, FLASH_ATTN_3_AVAILABLE
 from wan.modules.attention import attention as _paper_attention
-from wan.modules.attention import flash_attention
+from wan.modules.attention import flash_attention as _paper_flash
 
 __all__ = ["attention", "flash_attention"]
+
+
+def flash_attention(q, k, v, k_lens=None, **kw):
+    """The paper's FlashAttention call; PyTorch SDPA when flash_attn is not installed (e.g. no cu130 wheel)."""
+    if FLASH_ATTN_2_AVAILABLE or FLASH_ATTN_3_AVAILABLE:
+        return _paper_flash(q, k, v, k_lens=k_lens, **kw)
+    return _paper_attention(q, k, v, k_lens=k_lens, **kw)
 
 _SAGE = None
 if os.environ.get("LINGBOT_ATTN") == "sage":
