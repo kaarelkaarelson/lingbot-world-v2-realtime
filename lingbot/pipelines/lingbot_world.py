@@ -220,7 +220,16 @@ class LingBotWorldPipeline:
             n_fp8, n_all = convert_to_fp8(self.model.blocks, mx=fp8 == "mx")
             logging.info(f"FP8 {'MX (per-32 block scales)' if fp8 == 'mx' else 'rowwise'} enabled on {n_fp8} of {n_all} Linear layers")
 
-        compile_mode = os.environ.get("LINGBOT_TORCH_COMPILE")
+        # LINGBOT_SPLIT=10:2: the DiT across both GPUs, card 1's share and the decoder on separate SM partitions
+        # (lingbot/parallel/split_dit.py); it compiles its own token-local stages
+        split = os.environ.get("LINGBOT_SPLIT")
+        if split:
+            from lingbot.parallel.split_dit import SplitDiT
+            assert decoder_device_id == 1, "LINGBOT_SPLIT needs --decoder_gpu 1 (the decoder shares card 1)"
+            sms = int(os.environ.get("LINGBOT_SPLIT_SMS", "40"))
+            self.model = SplitDiT(self.model, h0=int(split.split(":")[0]), dit_sms=sms)
+            logging.info(f"DiT split {split} across cuda:0/1; card 1: {self.model.sms[0]} SMs DiT, {self.model.sms[1]} SMs decoder")
+        compile_mode = None if split else os.environ.get("LINGBOT_TORCH_COMPILE")
         if compile_mode:
             if os.environ.get("LINGBOT_INDUCTOR_TUNE") == "1":
                 _inductor_tune()
@@ -426,7 +435,8 @@ class LingBotWorldPipeline:
             # final whole-clip decode is skipped.
             vae_stream_on = os.environ.get("LINGBOT_VAE_STREAM") == "1"
             if vae_stream_on:
-                vae_stream, dec_state, dec_pending, dec_frames = torch.cuda.Stream(device=self.decoder_device), None, None, []
+                vae_stream = getattr(self.model, "decoder_stream", None) or torch.cuda.Stream(device=self.decoder_device)
+                dec_state, dec_pending, dec_frames = None, None, []
             # LINGBOT_DECODE_FIRST=1: decode right after x0 on the side stream, overlapped with this
             # chunk's cache-write forward only, then the main stream waits before the next chunk.
             decode_first = os.environ.get("LINGBOT_DECODE_FIRST") == "1"
