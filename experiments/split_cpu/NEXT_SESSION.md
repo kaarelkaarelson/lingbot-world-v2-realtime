@@ -37,6 +37,27 @@ Results land in `/workspace/runs/next/`; copy them into `experiments/split_cpu/r
 - No tail: the card 0 gap is elsewhere; next is the per-kernel breakdown of the ~200 ms of small kernels on card 0
   (existing capture `~/lingbot-world-v2-realtime-wt/traces/split_zc_warm.sqlite`, no pod needed).
 
+## Already done without a pod: card 0's small kernels (2026-10-06)
+
+From the copy-free capture (`traces/split_zc_warm.sqlite`, 4 warm chunks): everything on card 0's DiT stream except
+the FP8 GEMMs, SageAttention's attention kernel and cross-attention is **124 ms per chunk in 3,877 launches**. Top items:
+
+| ms / chunk | launches | Kernel | What it is |
+|---|---|---|---|
+| 16.8 | 150 | TransposePadPermuteKernel | Sage: V transpose + pad |
+| 15.8 | 150 | triton_poi_fused_add_mul_neg_sub_2 | RoPE (compensated fp32) |
+| 13.7 | 150 | triton_poi_fused_stack_3 | stacking q\|k\|v for the exchange |
+| 13.3 | 150 | triton_red_fused__scaled_mm_..._amax_clamp_div_7 | FP8 activation quantization (a GEMM input) |
+| 9.8 | 300 | QuantInt8Kernel | Sage: Q/K int8 quantization |
+| 9.0 | 150 | triton_red_fused__scaled_mm_..._native_layer_norm | norm + modulation + FP8 quantization |
+| 7.8 | 150 | reduce_kernel | Sage: K mean (smoothing) |
+| 7.6 | 248 | elementwise_kernel | copies |
+| 6.6 | 150 | MeanScaleKernel | Sage: V scale |
+| 5.1 | 150 | triton_poi_fused_add_mul_8 | residual / modulation |
+
+Sage's own prep (V transpose 16.8 + Q/K quant 9.8 + K mean 7.8 + V scale 6.6) is **~41 ms per chunk**, the largest
+fusion target; RoPE + q|k|v stacking (~29 ms) is the second. Byte-level rooflines for these are not done yet.
+
 ## Still open, not scheduled
 
 - Late-chunk divergence between runs in the same worker (B1): determinism test (`torch.use_deterministic_algorithms`,
