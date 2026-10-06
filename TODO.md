@@ -7,6 +7,12 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 
 - [x] **B1: DiT on card 0, decoder on card 1.** 25.69 FPS vs 16.86 on one card (1.52×, predicted
   1.55×), byte-identical to one card in the deterministic config (`--decoder_gpu 1`, 2026-10-05).
+- [ ] **Build the 10:2 split + green contexts into the pipeline.** Layer test: 0.497 vs 0.579 s per chunk
+  (-14 %, ~30 FPS projected; learning 15). Needs: two model replicas in one process, card 1's DiT share
+  and decoder on 40 / 130-SM green-context streams (`greenctx.py`), patched SageAttention, exchange by
+  pinned staging in 4 pieces. Then measure real FPS and confirm the output matches B1 within Sage noise.
+- [ ] **MXFP8 instead of rowwise FP8 for the DiT linears** (learning 16): 1.35-1.5x faster GEMMs, same
+  precision class. Quality check against `fast` before adopting.
 - [x] **B3-balanced (split + decoder on card 1): measured, loses to B1** even with the SageAttention
   stream patch and DiT priority (best: 10:2 at 0.622 vs 0.579 s per chunk; learnings 13-14). Revisit only
   where the decoder can get its own SMs (MPS or CUDA green contexts, needs a VM or bare metal).

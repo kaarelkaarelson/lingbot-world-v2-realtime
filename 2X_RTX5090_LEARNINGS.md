@@ -147,6 +147,24 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    With the decoder on card 1 every split loses to B1 (0.579 s): 9:3 0.634, 10:2 0.622, 11:1 0.659.
    Confining the decoder to its own SMs (MPS, CUDA green contexts) is the remaining lever; the container
    does not allow it. `experiments/overlap_layer/sched_analysis.py`, `with_decoder.py` (`HIPRIO=1`, `H0`).
+15. **Green contexts make the split beat B1, with nothing approximated.** CUDA green contexts (driver API via
+   `cuda-bindings`, PyTorch 2.8 has no wrapper; SM groups in multiples of 8 of the 5090's 170) confine card
+   1's DiT share and the decoder to separate SMs. Sweep (chunk time vs B1's 0.579 s): 10:2 with 40 SMs for
+   the DiT share and 130 for the decoder **0.497 s (-14 %)**, the layer 3.32 ms with the decoder running vs
+   3.28 without (interference gone; unpartitioned +61 %); 10:2 at 32 / 48 / 64 SMs 0.526 / 0.532 / 0.521;
+   9:3 at 32-64 SMs 0.743-0.569 (its larger card-1 share needs more SMs than the decoder can spare).
+   Partitioning does not change results (matmul max diff 0.0). Projected ~30 FPS from B1's 25.69, still
+   from 12 real layers, not the pipeline. `experiments/overlap_layer/greenctx.py`, `sweep_gc.sh`.
+16. **Below 8 bits the 5090 is really faster; MXFP8 beats our FP8 kernel.** Matmul TFLOP/s at the DiT's
+   shapes: BF16 176-229, our FP8 rowwise 375-430, INT8 537-648, **MXFP8 554-599**, **NVFP4 1,064-1,188**
+   (8192^3: 227 / 462 / 671 / 640 / 1,186). NVFP4 is ~2.7x our FP8 but lossy. MXFP8 is the same precision
+   class with per-32 block scales and runs 1.35-1.5x faster than the rowwise FP8 we use (cuBLAS path),
+   a near-lossless lever on the ~36 % of DiT time in linear layers (needs a quality check). Bare GEMMs with
+   constant scales; real use adds quantization kernels. `experiments/overlap_layer/lowbit_bench.py`.
+17. **LightVAE (`lightvaew2_1`) is 9.2x faster and clearly lossy.** It is the Wan VAE at a quarter of the
+   channels (`dim=24`), so it runs through our own fused compiled decoder: 39.8 vs 366 ms per 16-frame
+   chunk. On identical latents vs the full VAE: PSNR 31.3 dB, LPIPS 0.10 (vs source 30.5 dB / 0.122;
+   full VAE 34.9 / 0.017). Not usable under a lossless rule. `experiments/overlap_layer/lightvae_test.py`.
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:

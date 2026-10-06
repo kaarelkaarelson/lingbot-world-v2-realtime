@@ -76,9 +76,17 @@ H0 = int(os.environ.get("H0", "9"))  # heads on card 0; tokens split in the same
 T0 = T * H0 // H
 sp = R.Split(T0, H0, 1)
 if HIPRIO:
-    lo, hi = torch.cuda.Stream.priority_range() if hasattr(torch.cuda.Stream, "priority_range") else (0, -5)
     sp.comp = [torch.cuda.Stream(device=d, priority=-5) for d in R.dev]
     print("DiT on priority -5 streams, decoder on priority 0")
+# GC=n: card 1's SMs split with green contexts: n SMs for its DiT share, the rest for the decoder
+GC = int(os.environ.get("GC", "0"))
+GC_SMS = None
+if GC:
+    from greenctx import split_streams
+    (dit1, dec1), GC_SMS = split_streams(1, GC)
+    sp.comp[1] = dit1
+    dstream = dec1
+    print(f"card 1 partitioned: {GC_SMS[0]} SMs for the DiT share, {GC_SMS[1]} for the decoder")
 ws = [[R.Weights(d) for d in R.dev] for _ in range(NL)]
 kv = [[(torch.randn(1, len(sp.heads[c]), WIN, HD, device=R.dev[c], dtype=torch.bfloat16),
         torch.randn(1, len(sp.heads[c]), WIN, HD, device=R.dev[c], dtype=torch.bfloat16)) for c in (0, 1)]
@@ -191,6 +199,6 @@ else:
     chunk = dec_shared_ms + (PASSES - layers_during) * alone
     note = f"decoder finishes after {layers_during:.0f} of {PASSES} passes"
 print(f"chunk: {chunk / 1e3:.3f} s ({note}); B1 DiT-bound chunk on this pod: {PASSES * 3.86 / 1e3:.3f} s")
-json.dump(dict(hiprio=HIPRIO, dec_alone_wall_ms=dec_wall_ms, dec_kernels=dec_kernels, split_alone_ms=alone, split_with_dec_ms=with_dec,
+json.dump(dict(hiprio=HIPRIO, h0=H0, gc_sms=GC_SMS, dec_alone_wall_ms=dec_wall_ms, dec_kernels=dec_kernels, split_alone_ms=alone, split_with_dec_ms=with_dec,
                card1_dit_ms_per_layer_with_dec=card1_dit_ms, dec_frac_in_window=frac, window_ms=window_ms,
-               dec_shared_ms_per_chunk=dec_shared_ms, chunk_s=chunk / 1e3), open("/workspace/runs/with_decoder_%d_%s.json" % (H0, "hiprio" if HIPRIO else "stream0"), "w"), indent=1)
+               dec_shared_ms_per_chunk=dec_shared_ms, chunk_s=chunk / 1e3), open("/workspace/runs/with_decoder_%d_%s%s.json" % (H0, "hiprio" if HIPRIO else "stream0", f"_gc{GC}" if GC else ""), "w"), indent=1)
