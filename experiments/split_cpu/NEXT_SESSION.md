@@ -14,7 +14,7 @@ Rent a new pod per the `vast-pod-guide` skill (EPYC 9454-class CPU, PCIe 5.0 x16
 `bash tools/podcheck.sh`, `HF_TOKEN=... bash setup.sh`, then install the patched Sage wheel from the Mac (`~/lingbot-world-v2-realtime-wt/wheels/sageattention-2.2.0-1currentstream-*.whl`),
 `pip install "cuda-bindings==12.8.*" lpips`, and regenerate the B1 reference video (`runs/s0/b1_1.mp4`) with one B1 run.
 
-## 2. Run the two measurements (~15 min, one command)
+## 2. Run the three measurements (~20 min, one command)
 
 ```bash
 bash experiments/split_cpu/next_measurements.sh
@@ -24,6 +24,7 @@ bash experiments/split_cpu/next_measurements.sh
 |---|---|---|---|
 | 1. `attn_wave_tail.py` + kernel registers | Is card 0's attention wave tail real? Attention kernel alone at 6-12 heads on one full GPU | `t(10)/t(7)`: ~2.0 = tail real, ~1.43 = no tail | whether more attention work (split-KV on cu128, head splits) is worth it |
 | 2. token share 0.7454 vs head ratio | Did the token-share sweep lose to card 1's GEMM wave quantization? At 0.7454 card 1's GEMMs launch 144 blocks = exactly 3 waves on 48 SMs | `+x %` and what to do next | whether card 1's idle ~26 % is reachable by moving token-local work |
+| 3. classic split 6:6 with all the 10:2 fixes | The README's 14.0 FPS used the first split code on the slow pod: what does the classic layout reach now? Decoder after the DiT on card 0 | median FPS (expected ~21, still below B1) | replaces the 14.0 in the README layout table |
 
 Results land in `/workspace/runs/next/`; copy them into `experiments/split_cpu/results/` and log FPS in
 `results/fps_log_2026-10-05.tsv`.
