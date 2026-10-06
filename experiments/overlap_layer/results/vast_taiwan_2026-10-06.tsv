@@ -1,3 +1,5 @@
+# SUPERSEDED: the timings below average 8 layers from a cold start (ramp included). Steady-state (steady.py, median from
+# layer 4 of 12): one card 3.86; 6:6 3.79 (1 piece) / 3.14 (4 pieces); 9:3 3.35 / 3.05; 9:3 + head-group overlap 4.12 / 3.89 ms per layer.
 # One DiT layer at real shapes (6,032 tokens, 27,144-token KV window, FP8 projections, SageAttention, FlashAttention
 # cross-attention, compiled token-local parts), 30 layers each with own weights. GPU-only time: CPU queued ahead
 # behind a sleep kernel. Vast m:150233, 2x RTX 5090 at 500 W, PCIe 5.0 x16, no P2P, cards on different sockets.
