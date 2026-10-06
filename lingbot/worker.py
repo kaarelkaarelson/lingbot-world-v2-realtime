@@ -186,7 +186,11 @@ def serve(key, preset):
     try:
         while True:
             conn, _ = srv.accept()
-            msg = json.loads(conn.makefile().readline())
+            line = conn.makefile().readline()
+            if not line.strip():  # a liveness probe: connect and close
+                conn.close()
+                continue
+            msg = json.loads(line)
             if msg["cmd"] == "stop":
                 conn.sendall(b"ok")
                 conn.close()
