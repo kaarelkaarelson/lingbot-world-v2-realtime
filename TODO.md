@@ -7,10 +7,13 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 
 - [x] **B1: DiT on card 0, decoder on card 1.** 25.69 FPS vs 16.86 on one card (1.52×, predicted
   1.55×), byte-identical to one card in the deterministic config (`--decoder_gpu 1`, 2026-10-05).
-- [x] **B3-balanced and overlap: measured, not worth building into the model** (2026-10-06). On one real
-  layer the 9:3 split takes 4.06-4.48 ms vs 3.86 ms on one card once the exchange is included, and
-  head-group overlap makes it slower (learning 11). Revisit only on hardware with P2P or NVLink, where
-  the exchange is several times cheaper; `experiments/overlap_layer/real_layer.py` reruns in minutes.
+- [ ] **B3-balanced: build into the pipeline.** One-layer measurement (learning 11): the 9:3 split with
+  4-piece pipelined transfers runs a layer in 3.05 ms vs 3.86 on one card; with the decoder in card 1's
+  idle time the projected chunk is ~0.49 s vs B1's 0.58 (about 29-30 FPS from 25.7). Needs: two model
+  replicas in one process, token-local parts compiled per card, exchange by pinned staging in pieces,
+  SageAttention on the default stream, decoder on card 1 at low stream priority.
+- [x] **Head-group overlap (#3): measured, a loss** (3.89-4.12 ms per layer with 9:3). Fewer heads per
+  SageAttention call leave SMs idle. Pipelining each message in pieces is the overlap that pays.
 - B2 (even split, decoder after the DiT) is dropped: ~19.5 FPS, slower than B1.
 - [ ] **Deferred: lossless 8-bit q/k exchange.** The version that dequantizes on the receiver is not
   lossless: +10-14 % attention error with q, k in 8 bits, +36-47 % with v too (learning 9). A lossless

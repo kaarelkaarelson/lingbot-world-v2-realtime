@@ -21,6 +21,8 @@ from sageattention import sageattn
 
 from lingbot.layers.linear import FP8Linear
 
+stage = torch.profiler.record_function  # labels for experiments/overlap_layer/breakdown.py
+
 D, H, HD, FFN, T, WIN, CTX, LAYERS = 1536, 12, 128, 8960, 6032, 27144, 512, 30
 FWD_PER_CHUNK = 5
 dev = [torch.device("cuda:0"), torch.device("cuda:1")]
@@ -88,8 +90,12 @@ def ffn(x, c, co, f1, f2):
 
 def tail(x, cols, w):
     """After self-attention: output projection, cross-attention (all heads, local text K/V), FFN."""
-    x, q = post_attn(x, cols, w.o, w.cq)
-    return ffn(x, flash_attn_func(q, w.ctx_k, w.ctx_v).reshape(-1, D), w.co, w.f1, w.f2)
+    with stage("out proj + cross q"):
+        x, q = post_attn(x, cols, w.o, w.cq)
+    with stage("cross-attention"):
+        c = flash_attn_func(q, w.ctx_k, w.ctx_v).reshape(-1, D)
+    with stage("cross out + FFN"):
+        return ffn(x, c, w.co, w.f1, w.f2)
 
 
 def one_card_layer(x, w, kwin, vwin):
@@ -157,43 +163,51 @@ class Split:
         hs = [None, None]
         for c in (0, 1):
             self.comp[c].wait_stream(torch.cuda.current_stream(dev[c]))  # inputs come from the caller's stream
-            with torch.cuda.stream(self.comp[c]):
+            with torch.cuda.stream(self.comp[c]), stage("norm"):
                 hs[c] = norm(xs[c])
         for g in range(self.G):
             # 1. both cards project the peer's head group and send it (one packed q|k|v message each way)
             for c in (0, 1):
                 ph = self.gh[1 - c][g]
-                with torch.cuda.stream(self.comp[c]):
+                with torch.cuda.stream(self.comp[c]), stage("q|k|v proj (peer heads)"):
                     pk = proj_pack(hs[c], ws[c].qkv_for(ph), len(ph))
-                inbox_qkv[1 - c][g] = self.xfer(c, pk)
+                with stage("send q|k|v"):
+                    inbox_qkv[1 - c][g] = self.xfer(c, pk)
             # 2. own head group: project locally while the peer's tokens travel, place them, attend
             for c in (0, 1):
                 oh, b = self.gh[c][g], self.heads[c].start
                 i0, i1 = oh.start - b, oh.stop - b
                 r0, r1 = self.tok[c], self.tok[1 - c]
                 with torch.cuda.stream(self.comp[c]):
-                    own = proj_pack(hs[c], ws[c].qkv_for(oh), len(oh))
-                    q_all[c][0, i0:i1, r0.start:r0.stop] = own[0]
-                    kwins[c][0, i0:i1, WIN - T + r0.start:WIN - T + r0.stop] = own[1]
-                    vwins[c][0, i0:i1, WIN - T + r0.start:WIN - T + r0.stop] = own[2]
+                    with stage("q|k|v proj (own heads) + place"):
+                        own = proj_pack(hs[c], ws[c].qkv_for(oh), len(oh))
+                        q_all[c][0, i0:i1, r0.start:r0.stop] = own[0]
+                        kwins[c][0, i0:i1, WIN - T + r0.start:WIN - T + r0.stop] = own[1]
+                        vwins[c][0, i0:i1, WIN - T + r0.start:WIN - T + r0.stop] = own[2]
                     buf, ev = inbox_qkv[c][g]
                     self.comp[c].wait_event(ev)
-                    q_all[c][0, i0:i1, r1.start:r1.stop] = buf[0]
-                    kwins[c][0, i0:i1, WIN - T + r1.start:WIN - T + r1.stop] = buf[1]
-                    vwins[c][0, i0:i1, WIN - T + r1.start:WIN - T + r1.stop] = buf[2]
-                    a = sageattn(q_all[c][:, i0:i1], kwins[c][:, i0:i1], vwins[c][:, i0:i1], tensor_layout="HND")
-                    back = a[0, :, r1.start:r1.stop].contiguous()        # the peer's tokens, my heads
+                    with stage("place received q|k|v"):
+                        q_all[c][0, i0:i1, r1.start:r1.stop] = buf[0]
+                        kwins[c][0, i0:i1, WIN - T + r1.start:WIN - T + r1.stop] = buf[1]
+                        vwins[c][0, i0:i1, WIN - T + r1.start:WIN - T + r1.stop] = buf[2]
+                    with stage("self-attention (Sage)"):
+                        a = sageattn(q_all[c][:, i0:i1], kwins[c][:, i0:i1], vwins[c][:, i0:i1], tensor_layout="HND")
+                    with stage("pack output for peer"):
+                        back = a[0, :, r1.start:r1.stop].contiguous()        # the peer's tokens, my heads
                     out_own[c][g] = a[0, :, r0.start:r0.stop]
-                inbox_out[1 - c][g] = self.xfer(c, back)
+                with stage("send output"):
+                    inbox_out[1 - c][g] = self.xfer(c, back)
         for c in (0, 1):
             with torch.cuda.stream(self.comp[c]):
                 cols = torch.empty(n[c], H, HD, device=dev[c], dtype=torch.bfloat16)
                 for g in range(self.G):
                     oh, ph = self.gh[c][g], self.gh[1 - c][g]
-                    cols[:, oh.start:oh.stop] = out_own[c][g].permute(1, 0, 2)
+                    with stage("assemble heads"):
+                        cols[:, oh.start:oh.stop] = out_own[c][g].permute(1, 0, 2)
                     buf, ev = inbox_out[c][g]
                     self.comp[c].wait_event(ev)
-                    cols[:, ph.start:ph.stop] = buf.permute(1, 0, 2)
+                    with stage("assemble heads"):
+                        cols[:, ph.start:ph.stop] = buf.permute(1, 0, 2)
                 xs[c] = tail(xs[c], cols.reshape(n[c], D), ws[c])
             torch.cuda.current_stream(dev[c]).wait_stream(self.comp[c])
         return xs
@@ -255,6 +269,31 @@ def timed_one_card(reps=3):
         run()
     torch.cuda.synchronize(dev[0])
     return (time.perf_counter() - t) / reps / LAYERS * 1e3, gpu_only(run, [torch.cuda.default_stream(dev[0])])
+
+
+def steady_period(layer_fn, streams, layers=12, skip=4):
+    """Steady-state ms per layer: CPU queued ahead behind a sleep, an event on each card after every layer,
+    median interval between consecutive layer ends from layer `skip` on (no start-up ramp)."""
+    for d in dev:
+        torch.cuda.synchronize(d)
+    ends = [[] for _ in streams]
+    for s in streams:
+        with torch.cuda.stream(s):
+            torch.cuda._sleep(2_000_000_000)
+    state = layer_fn(None, -1)
+    for l in range(layers):
+        state = layer_fn(state, l)
+        for i, s in enumerate(streams):
+            e = torch.cuda.Event(enable_timing=True)
+            e.record(s)
+            ends[i].append(e)
+    for d in dev:
+        torch.cuda.synchronize(d)
+    per = []
+    for evs in ends:
+        iv = sorted(a.elapsed_time(b) for a, b in zip(evs[skip:], evs[skip + 1:]))
+        per.append(iv[len(iv) // 2])
+    return max(per)
 
 
 def gpu_only(run, streams, layers=8):

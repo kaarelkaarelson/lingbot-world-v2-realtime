@@ -116,14 +116,16 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    97-121. Its cards are also capped at 500 W (default 575), which makes the model 7 % slower
    (0.667 vs 0.624 s per chunk) while a short matmul still reaches 227 TFLOP/s. Read the power limit
    (`nvidia-smi -q -d POWER`) and topology on every new pod.
-11. **Splitting the DiT across the two cards does not pay over this link.** One DiT layer at real shapes
-   (FP8 projections, SageAttention, local cross-attention, compiled token-local parts), GPU time only:
-   one card 3.86 ms; split 6:6 1.98 ms without the exchange but 3.7-4.8 ms with it; the 9:3 split for
-   B3-balanced 2.97 ms without, 4.06-4.48 ms with. The exchange (one packed q|k|v and one output message
-   per layer, pinned host staging) costs 1.7-2.8 ms per layer in place, about twice the microbenchmark.
-   Overlapping it with attention in head groups makes things worse: fewer heads per SageAttention call
-   leave SMs idle (+13-41 % compute) and each group adds messages. B1 (DiT whole on one card, decoder on
-   the other) stays the best two-card layout. `experiments/overlap_layer/`.
+11. **Splitting the DiT 9:3 pays (-21 % per layer); overlapping in head groups does not.** One DiT layer
+   at real shapes (FP8 projections, SageAttention, local cross-attention, compiled token-local parts),
+   steady-state ms per layer (median from layer 4 of 12): one card 3.86; split 6:6 3.79, or 3.14 with each
+   message sent in 4 pipelined pieces; split 9:3 3.35, or **3.05** with 4 pieces; 9:3 plus head-group
+   overlap 4.12 / 3.89 (fewer heads per SageAttention call leave SMs idle and add messages). Profiled
+   9:3 layer: card 0 spends 1.90 ms at roofline, 0.72 ms of SageAttention running below peak (56 %),
+   0.36 ms waiting; each 10.4 MB q|k|v message takes 0.57 ms, half the link rate one card reaches alone.
+   Card 1 is busy 1.01 ms per layer, leaving ~2 ms for the decoder (needs 2.23). An earlier reading of
+   "no gain" averaged 8 layers from a cold start and was wrong. `experiments/overlap_layer/`
+   (`steady.py`, `breakdown.py`, `results/`).
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:

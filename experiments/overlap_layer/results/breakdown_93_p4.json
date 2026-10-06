@@ -1,0 +1,939 @@
+{
+ "split": "9:3",
+ "pieces": 4,
+ "tokens": [
+  4524,
+  1508
+ ],
+ "heads": [
+  9,
+  3
+ ],
+ "layer": 3,
+ "layer_span_ms": 3.5089730224609377,
+ "gpu_only_ms_per_layer": 4.210432052612305,
+ "lanes": [
+  {
+   "lane": "card 0 compute",
+   "device": 0,
+   "stream": 7,
+   "events": [
+    {
+     "stage": "q|k|v proj (peer heads)",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 0.5185,
+     "dur": 0.0017,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "q|k|v proj (peer heads)",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 0.5243,
+     "dur": 0.0401,
+     "kind": "kernel"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 0.5921,
+     "dur": 0.001,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 0.5967,
+     "dur": 0.1148,
+     "kind": "kernel"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 0.7324,
+     "dur": 0.0068,
+     "kind": "kernel"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 0.7478,
+     "dur": 0.0088,
+     "kind": "kernel"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 0.7621,
+     "dur": 0.0068,
+     "kind": "kernel"
+    },
+    {
+     "stage": "place received q|k|v",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 0.7744,
+     "dur": 0.0057,
+     "kind": "kernel"
+    },
+    {
+     "stage": "place received q|k|v",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 0.787,
+     "dur": 0.0062,
+     "kind": "kernel"
+    },
+    {
+     "stage": "place received q|k|v",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 0.8001,
+     "dur": 0.006,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "Memset (Device)",
+     "start": 0.8152,
+     "dur": 0.001,
+     "kind": "Memset (Device)"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void at::native::reduce_kernel<128, 4, at::native::ReduceOp<c10::BFloat16, at::n",
+     "start": 0.817,
+     "dur": 0.0502,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void QuantInt8Kernel<128u, 32u, 1u, false, false, __nv_bfloat16>(__nv_bfloat16*,",
+     "start": 0.8718,
+     "dur": 0.0079,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void QuantInt8Kernel<128u, 64u, 1u, false, true, __nv_bfloat16>(__nv_bfloat16*, ",
+     "start": 0.8862,
+     "dur": 0.0376,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void TransposePadPermuteKernel<128u, 64u, true, __nv_bfloat16>(__nv_bfloat16*, _",
+     "start": 0.9259,
+     "dur": 0.1014,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void MeanScaleKernel<64u, false, __nv_bfloat16>(__nv_bfloat16*, signed char*, fl",
+     "start": 1.0279,
+     "dur": 0.034,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void qk_int_sv_f8_attn_kernel<128u, 64u, 32u, 64u, 128u, (DataType)1, (QuantGran",
+     "start": 1.0628,
+     "dur": 1.3858,
+     "kind": "kernel"
+    },
+    {
+     "stage": "pack output for peer",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 2.4493,
+     "dur": 0.0034,
+     "kind": "kernel"
+    },
+    {
+     "stage": "assemble heads",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 2.4534,
+     "dur": 0.0075,
+     "kind": "kernel"
+    },
+    {
+     "stage": "assemble heads",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 2.4662,
+     "dur": 0.0056,
+     "kind": "kernel"
+    },
+    {
+     "stage": "out proj + cross q",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 2.4929,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "out proj + cross q",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 2.4943,
+     "dur": 0.0583,
+     "kind": "kernel"
+    },
+    {
+     "stage": "out proj + cross q",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 2.5835,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "out proj + cross q",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 2.5875,
+     "dur": 0.0584,
+     "kind": "kernel"
+    },
+    {
+     "stage": "cross-attention",
+     "name": "void flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, fal",
+     "start": 2.6469,
+     "dur": 0.0858,
+     "kind": "kernel"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 2.7452,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 2.7472,
+     "dur": 0.0581,
+     "kind": "kernel"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 2.8292,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 2.8312,
+     "dur": 0.2849,
+     "kind": "kernel"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 3.1958,
+     "dur": 0.0015,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 3.1979,
+     "dur": 0.3111,
+     "kind": "kernel"
+    }
+   ]
+  },
+  {
+   "lane": "card 0 -> host",
+   "device": 0,
+   "stream": 14,
+   "events": [
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 0.5842,
+     "dur": 0.118,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 0.7027,
+     "dur": 0.1122,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 0.8162,
+     "dur": 0.1071,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 0.9242,
+     "dur": 0.1037,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 2.4575,
+     "dur": 0.0431,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 2.501,
+     "dur": 0.0353,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 2.5374,
+     "dur": 0.0375,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 2.5759,
+     "dur": 0.0344,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    }
+   ]
+  },
+  {
+   "lane": "host -> card 0",
+   "device": 0,
+   "stream": 18,
+   "events": [
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 0.1668,
+     "dur": 0.1139,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 0.2814,
+     "dur": 0.1122,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 0.3941,
+     "dur": 0.1132,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 0.5079,
+     "dur": 0.1212,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 1.854,
+     "dur": 0.0397,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 1.8944,
+     "dur": 0.0391,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 1.9342,
+     "dur": 0.0384,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 1.9733,
+     "dur": 0.0388,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    }
+   ]
+  },
+  {
+   "lane": "card 1 compute",
+   "device": 1,
+   "stream": 143,
+   "events": [
+    {
+     "stage": "q|k|v proj (peer heads)",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 0.0,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "q|k|v proj (peer heads)",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 0.002,
+     "dur": 0.0406,
+     "kind": "kernel"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 0.0576,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 0.0594,
+     "dur": 0.021,
+     "kind": "kernel"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 0.0915,
+     "dur": 0.002,
+     "kind": "kernel"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 0.0969,
+     "dur": 0.0019,
+     "kind": "kernel"
+    },
+    {
+     "stage": "q|k|v proj (own heads) + place",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 0.1033,
+     "dur": 0.0019,
+     "kind": "kernel"
+    },
+    {
+     "stage": "place received q|k|v",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 1.1642,
+     "dur": 0.0053,
+     "kind": "kernel"
+    },
+    {
+     "stage": "place received q|k|v",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 1.1715,
+     "dur": 0.0058,
+     "kind": "kernel"
+    },
+    {
+     "stage": "place received q|k|v",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 1.1797,
+     "dur": 0.0061,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "Memset (Device)",
+     "start": 1.1882,
+     "dur": 0.0007,
+     "kind": "Memset (Device)"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void at::native::reduce_kernel<128, 4, at::native::ReduceOp<c10::BFloat16, at::n",
+     "start": 1.1896,
+     "dur": 0.0328,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void QuantInt8Kernel<128u, 32u, 1u, false, false, __nv_bfloat16>(__nv_bfloat16*,",
+     "start": 1.2247,
+     "dur": 0.0024,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void QuantInt8Kernel<128u, 64u, 1u, false, true, __nv_bfloat16>(__nv_bfloat16*, ",
+     "start": 1.2288,
+     "dur": 0.0101,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void TransposePadPermuteKernel<128u, 64u, true, __nv_bfloat16>(__nv_bfloat16*, _",
+     "start": 1.2411,
+     "dur": 0.0368,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void MeanScaleKernel<64u, false, __nv_bfloat16>(__nv_bfloat16*, signed char*, fl",
+     "start": 1.28,
+     "dur": 0.0092,
+     "kind": "kernel"
+    },
+    {
+     "stage": "self-attention (Sage)",
+     "name": "void qk_int_sv_f8_attn_kernel<128u, 64u, 32u, 64u, 128u, (DataType)1, (QuantGran",
+     "start": 1.2902,
+     "dur": 0.5199,
+     "kind": "kernel"
+    },
+    {
+     "stage": "pack output for peer",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 1.8128,
+     "dur": 0.0031,
+     "kind": "kernel"
+    },
+    {
+     "stage": "assemble heads",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 1.8166,
+     "dur": 0.002,
+     "kind": "kernel"
+    },
+    {
+     "stage": "assemble heads",
+     "name": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<a",
+     "start": 2.6603,
+     "dur": 0.0047,
+     "kind": "kernel"
+    },
+    {
+     "stage": "out proj + cross q",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 2.6716,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "out proj + cross q",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 2.6737,
+     "dur": 0.0216,
+     "kind": "kernel"
+    },
+    {
+     "stage": "out proj + cross q",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 2.7044,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "out proj + cross q",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 2.7065,
+     "dur": 0.0219,
+     "kind": "kernel"
+    },
+    {
+     "stage": "cross-attention",
+     "name": "void flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, fal",
+     "start": 2.729,
+     "dur": 0.0306,
+     "kind": "kernel"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 2.7679,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 2.7699,
+     "dur": 0.022,
+     "kind": "kernel"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 2.8048,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 2.8068,
+     "dur": 0.0983,
+     "kind": "kernel"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "Memcpy DtoD (Device -> Device)",
+     "start": 2.9338,
+     "dur": 0.0008,
+     "kind": "Memcpy DtoD (Device -> Device)"
+    },
+    {
+     "stage": "cross out + FFN",
+     "name": "_ZN7cutlass13device_kernelIN2at4cuda6detail34enable_3x_kernel_for_sm10_or_laterI",
+     "start": 2.9358,
+     "dur": 0.106,
+     "kind": "kernel"
+    }
+   ]
+  },
+  {
+   "lane": "card 1 -> host",
+   "device": 1,
+   "stream": 150,
+   "events": [
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 0.0564,
+     "dur": 0.1013,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 0.1603,
+     "dur": 0.1029,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 0.2643,
+     "dur": 0.1027,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 0.3681,
+     "dur": 0.1014,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 1.8173,
+     "dur": 0.0317,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 1.8494,
+     "dur": 0.0371,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 1.8868,
+     "dur": 0.032,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy DtoH (Device -> Pinned)",
+     "start": 1.9219,
+     "dur": 0.0326,
+     "kind": "Memcpy DtoH (Device -> Pinned)"
+    }
+   ]
+  },
+  {
+   "lane": "host -> card 1",
+   "device": 1,
+   "stream": 154,
+   "events": [
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 0.7053,
+     "dur": 0.1123,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 0.8261,
+     "dur": 0.1122,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 0.9389,
+     "dur": 0.1113,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send q|k|v",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 1.0507,
+     "dur": 0.1094,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 2.5029,
+     "dur": 0.0392,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 2.5426,
+     "dur": 0.0378,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 2.581,
+     "dur": 0.0378,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    },
+    {
+     "stage": "send output",
+     "name": "Memcpy HtoD (Pinned -> Device)",
+     "start": 2.6194,
+     "dur": 0.0378,
+     "kind": "Memcpy HtoD (Pinned -> Device)"
+    }
+   ]
+  }
+ ],
+ "roofline": [
+  {
+   "card": 0,
+   "stage": "q|k|v proj (peer heads)",
+   "flops": 16010182656,
+   "bytes": 26090496,
+   "t_math_ms": 0.03821045979952267,
+   "t_mem_ms": 0.014559428571428572,
+   "roofline_ms": 0.03821045979952267,
+   "measured_ms": 0.040063
+  },
+  {
+   "card": 0,
+   "stage": "q|k|v proj (own heads) + place",
+   "flops": 48030547968,
+   "bytes": 113015808,
+   "t_math_ms": 0.11463137939856802,
+   "t_mem_ms": 0.06306685714285715,
+   "roofline_ms": 0.11463137939856802,
+   "measured_ms": 0.13731200000000002
+  },
+  {
+   "card": 0,
+   "stage": "place received q|k|v",
+   "flops": 0,
+   "bytes": 20846592,
+   "t_math_ms": 0.0,
+   "t_mem_ms": 0.011633142857142858,
+   "roofline_ms": 0.011633142857142858,
+   "measured_ms": 0.017920000000000002
+  },
+  {
+   "card": 0,
+   "stage": "self-attention (Sage)",
+   "flops": 754479857664,
+   "bytes": 83386368,
+   "t_math_ms": 0.9003339590262529,
+   "t_mem_ms": 0.04653257142857143,
+   "roofline_ms": 0.9003339590262529,
+   "measured_ms": 1.616995
+  },
+  {
+   "card": 0,
+   "stage": "pack output for peer",
+   "flops": 0,
+   "bytes": 6948864,
+   "t_math_ms": 0.0,
+   "t_mem_ms": 0.003877714285714285,
+   "roofline_ms": 0.003877714285714285,
+   "measured_ms": 0.0033599999999999997
+  },
+  {
+   "card": 0,
+   "stage": "assemble heads",
+   "flops": 0,
+   "bytes": 27795456,
+   "t_math_ms": 0.0,
+   "t_mem_ms": 0.01551085714285714,
+   "roofline_ms": 0.01551085714285714,
+   "measured_ms": 0.013087999999999999
+  },
+  {
+   "card": 0,
+   "stage": "out proj + cross q",
+   "flops": 42693820416,
+   "bytes": 60309504,
+   "t_math_ms": 0.1018945594653938,
+   "t_mem_ms": 0.033654857142857146,
+   "roofline_ms": 0.1018945594653938,
+   "measured_ms": 0.116737
+  },
+  {
+   "card": 0,
+   "stage": "cross-attention",
+   "flops": 14231273472,
+   "bytes": 30941184,
+   "t_math_ms": 0.06792970631026253,
+   "t_mem_ms": 0.017266285714285713,
+   "roofline_ms": 0.06792970631026253,
+   "measured_ms": 0.085825
+  },
+  {
+   "card": 0,
+   "stage": "cross out + FFN",
+   "flops": 270394195968,
+   "bytes": 247615488,
+   "t_math_ms": 0.6453322099474941,
+   "t_mem_ms": 0.13817828571428573,
+   "roofline_ms": 0.6453322099474941,
+   "measured_ms": 0.6541119999999999
+  },
+  {
+   "card": 0,
+   "stage": "send q|k|v (to card 1)",
+   "bytes": 10423296,
+   "flops": 0,
+   "t_math_ms": 0,
+   "t_mem_ms": 0.292616170212766,
+   "roofline_ms": 0.292616170212766,
+   "measured_ms": 0.5758900146484375
+  },
+  {
+   "card": 0,
+   "stage": "send output (to card 1)",
+   "bytes": 3474432,
+   "flops": 0,
+   "t_math_ms": 0,
+   "t_mem_ms": 0.09753872340425532,
+   "roofline_ms": 0.09753872340425532,
+   "measured_ms": 0.19972296142578125
+  },
+  {
+   "card": 1,
+   "stage": "q|k|v proj (peer heads)",
+   "flops": 16010182656,
+   "bytes": 20364288,
+   "t_math_ms": 0.03821045979952267,
+   "t_mem_ms": 0.011363999999999999,
+   "roofline_ms": 0.03821045979952267,
+   "measured_ms": 0.040608
+  },
+  {
+   "card": 1,
+   "stage": "q|k|v proj (own heads) + place",
+   "flops": 5336727552,
+   "bytes": 16825344,
+   "t_math_ms": 0.012736819933174225,
+   "t_mem_ms": 0.009389142857142858,
+   "roofline_ms": 0.012736819933174225,
+   "measured_ms": 0.026752
+  },
+  {
+   "card": 1,
+   "stage": "place received q|k|v",
+   "flops": 0,
+   "bytes": 20846592,
+   "t_math_ms": 0.0,
+   "t_mem_ms": 0.011633142857142858,
+   "roofline_ms": 0.011633142857142858,
+   "measured_ms": 0.017184
+  },
+  {
+   "card": 1,
+   "stage": "self-attention (Sage)",
+   "flops": 251493285888,
+   "bytes": 27795456,
+   "t_math_ms": 0.30011131967541765,
+   "t_mem_ms": 0.01551085714285714,
+   "roofline_ms": 0.30011131967541765,
+   "measured_ms": 0.6111340000000001
+  },
+  {
+   "card": 1,
+   "stage": "pack output for peer",
+   "flops": 0,
+   "bytes": 6948864,
+   "t_math_ms": 0.0,
+   "t_mem_ms": 0.003877714285714285,
+   "roofline_ms": 0.003877714285714285,
+   "measured_ms": 0.0031360000000000003
+  },
+  {
+   "card": 1,
+   "stage": "assemble heads",
+   "flops": 0,
+   "bytes": 9265152,
+   "t_math_ms": 0.0,
+   "t_mem_ms": 0.005170285714285714,
+   "roofline_ms": 0.005170285714285714,
+   "measured_ms": 0.006656
+  },
+  {
+   "card": 1,
+   "stage": "out proj + cross q",
+   "flops": 14231273472,
+   "bytes": 23248896,
+   "t_math_ms": 0.033964853155131265,
+   "t_mem_ms": 0.012973714285714285,
+   "roofline_ms": 0.033964853155131265,
+   "measured_ms": 0.04352
+  },
+  {
+   "card": 1,
+   "stage": "cross-attention",
+   "flops": 4743757824,
+   "bytes": 12410880,
+   "t_math_ms": 0.022643235436754176,
+   "t_mem_ms": 0.006925714285714286,
+   "roofline_ms": 0.022643235436754176,
+   "measured_ms": 0.030624
+  },
+  {
+   "card": 1,
+   "stage": "cross out + FFN",
+   "flops": 90131398656,
+   "bytes": 102461440,
+   "t_math_ms": 0.21511073664916466,
+   "t_mem_ms": 0.057177142857142864,
+   "roofline_ms": 0.21511073664916466,
+   "measured_ms": 0.226303
+  },
+  {
+   "card": 1,
+   "stage": "send q|k|v (to card 0)",
+   "bytes": 10423296,
+   "flops": 0,
+   "t_math_ms": 0,
+   "t_mem_ms": 0.292616170212766,
+   "roofline_ms": 0.292616170212766,
+   "measured_ms": 0.5727139892578125
+  },
+  {
+   "card": 1,
+   "stage": "send output (to card 0)",
+   "bytes": 3474432,
+   "flops": 0,
+   "t_math_ms": 0,
+   "t_mem_ms": 0.09753872340425532,
+   "roofline_ms": 0.09753872340425532,
+   "measured_ms": 0.19477001953125
+  }
+ ]
+}
