@@ -119,10 +119,12 @@ class SplitDiT:
         (dit1, self.decoder_stream), self.sms = split_streams(1, dit_sms)
         self.comp = [torch.cuda.current_stream(self.devs[0]), dit1]
         self.xch = _Exchange(self.devs, self.comp)
-        self._kv, self._kv_key, self._ca = None, None, [None, None]
+        self._kv, self._kv_src, self._ca = None, None, [None, None]
 
     # --- caches ---------------------------------------------------------------------------------------------
     def init_crossattn_cache(self, context, crossattn_cache):
+        # called once per generate(): start the per-card self-attention and camera caches fresh too
+        self._kv_src = None
         self.m[0].init_crossattn_cache(context, crossattn_cache)
         self._ca[0] = crossattn_cache
         with torch.cuda.stream(self.comp[1]):
@@ -131,14 +133,19 @@ class SplitDiT:
             self.m[1].init_crossattn_cache(ctx1, self._ca[1])
 
     def _caches(self, kv_cache):
-        if self._kv_key == id(kv_cache):
+        # hold the pipeline's list itself (not its id: ids of freed lists are reused across generate() calls)
+        if self._kv_src is kv_cache:
             return
         shape = kv_cache[0]["k"].shape                      # [B, window, heads, d], allocated by the pipeline
         L = len(kv_cache)
-        self._kv = [kvc.allocate(L, [shape[0], shape[1], len(self.heads[c]), shape[3]], kv_cache[0]["k"].dtype,
-                                 self.devs[c]) for c in (0, 1)]
+        kv = []
+        for c in (0, 1):
+            with torch.cuda.stream(self.comp[c]):           # allocated where it is used
+                kv.append(kvc.allocate(L, [shape[0], shape[1], len(self.heads[c]), shape[3]], kv_cache[0]["k"].dtype,
+                                       self.devs[c]))
+        self._kv = kv
         self._cam = [[None] * L, [None] * L]
-        self._kv_key = id(kv_cache)
+        self._kv_src = kv_cache
 
     # --- forward --------------------------------------------------------------------------------------------
     def __call__(self, x, t, context, seq_len, y=None, dit_cond_dict=None, kv_cache=None, crossattn_cache=None,
