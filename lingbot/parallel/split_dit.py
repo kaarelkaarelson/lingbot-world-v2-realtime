@@ -30,37 +30,80 @@ def _slice_rope(rope, a, b):
     return type(rope)(_slice_rope(r, a, b) for r in rope)
 
 
+class _Slot:
+    __slots__ = ("p", "host", "dst", "out", "hp", "dp", "done", "free", "used")
+
+
 class _Exchange:
-    """Card c -> card p through pinned host memory, copy streams only, in pipelined pieces."""
+    """Card c -> card p through pinned host memory, copy streams only, in pipelined pieces.
+
+    Staging buffers, destinations and events are cached per (c, shape, dtype). Within an epoch (calls between two
+    `release()`s, made once every received buffer has been consumed on comp[p]) each call takes a fresh slot, so
+    slots are never shared by live buffers; the cursor restarts after `release()`. A reused slot is ordered on
+    both sides: H2D waits `free` (recorded on comp[p] at release: consumers are done reading dst) and D2H waits
+    `done` (the previous H2D finished reading the host buffer).
+    """
 
     def __init__(self, devs, comp):
         self.devs, self.comp = devs, comp
         self.send = [torch.cuda.Stream(device=d) for d in devs]
         self.recv = [torch.cuda.Stream(device=d) for d in devs]
+        self.ready = [torch.cuda.Event() for _ in devs]
+        self.d2h = [torch.cuda.Event() for _ in devs]
+        self.slots, self.cur, self.live, self.bounds = {}, {}, [], {}
+
+    def _slot(self, c, p, key, src):
+        n = self.cur.get(key, 0)
+        self.cur[key] = n + 1
+        lst = self.slots.setdefault(key, [])
+        if n < len(lst):
+            return lst[n]
+        s = _Slot()
+        numel = src.numel()
+        bd = self.bounds.get(numel)
+        if bd is None:
+            step = -(-numel // PIECES)
+            bd = self.bounds[numel] = [(i, i + step) for i in range(0, numel, step)]
+        s.p = p
+        s.host = torch.empty(numel, dtype=src.dtype, pin_memory=True)
+        with torch.cuda.stream(self.recv[p]):
+            s.dst = torch.empty(numel, dtype=src.dtype, device=self.devs[p])
+        s.out = s.dst.view(src.shape)
+        s.hp = [s.host[i:j] for i, j in bd]
+        s.dp = [s.dst[i:j] for i, j in bd]
+        s.done, s.free, s.used = torch.cuda.Event(), torch.cuda.Event(), False
+        lst.append(s)
+        return s
+
+    def release(self):
+        for s in self.live:
+            s.free.record(self.comp[s.p])
+        self.live.clear()
+        self.cur.clear()
 
     def __call__(self, c, src):
         p = 1 - c
         flat = src.reshape(-1)
-        host = torch.empty(flat.shape, dtype=src.dtype, pin_memory=True)
-        ready = torch.cuda.Event()
-        ready.record(self.comp[c])
-        self.send[c].wait_event(ready)
-        src.record_stream(self.send[c])
-        with torch.cuda.stream(self.recv[p]):
-            dst = torch.empty(flat.shape, dtype=src.dtype, device=self.devs[p])
-        step = -(-flat.numel() // PIECES)
-        for i in range(0, flat.numel(), step):
-            with torch.cuda.stream(self.send[c]):
-                host[i:i + step].copy_(flat[i:i + step], non_blocking=True)
-                d2h = torch.cuda.Event()
-                d2h.record(self.send[c])
-            self.recv[p].wait_event(d2h)
-            with torch.cuda.stream(self.recv[p]):
-                dst[i:i + step].copy_(host[i:i + step], non_blocking=True)
-        done = torch.cuda.Event()
-        done.record(self.recv[p])
-        dst.record_stream(self.comp[p])
-        return dst.view(src.shape), done
+        s = self._slot(c, p, (c, src.shape, src.dtype), src)
+        self.live.append(s)
+        sc, rp = self.send[c], self.recv[p]
+        self.ready[c].record(self.comp[c])
+        sc.wait_event(self.ready[c])
+        if s.used:
+            sc.wait_event(s.done)
+            rp.wait_event(s.free)
+        s.used = True
+        src.record_stream(sc)
+        ev = self.d2h[c]
+        for k, (i, j) in enumerate(self.bounds[flat.numel()]):
+            with torch.cuda.stream(sc):
+                s.hp[k].copy_(flat[i:j], non_blocking=True)
+                ev.record(sc)
+            rp.wait_event(ev)
+            with torch.cuda.stream(rp):
+                s.dp[k].copy_(s.hp[k], non_blocking=True)
+        s.done.record(rp)
+        return s.out, s.done
 
 
 # token-local stages, compiled once per card and shape (the block is a module argument, so all 30 layers share
@@ -174,6 +217,7 @@ class SplitDiT:
             with torch.cuda.stream(comp[c]):
                 xx, tt, yy, pp = args[c]
                 st[c] = self._prelude(self.m[c], xx, tt, yy, pp, current_start, frame_seqlen, cam_first_call)
+        self.xch.release()                                  # inputs consumed
         L_tok = st[0]["L"]
         n0 = L_tok * self.h0 // self.m[0].num_heads          # card 0's share of the tokens, same ratio as heads
         tok = [range(0, n0), range(n0, L_tok)]
@@ -195,6 +239,7 @@ class SplitDiT:
         with torch.cuda.stream(comp[0]):
             comp[0].wait_event(ev)
             full = torch.cat([outs[0], buf], dim=1)
+            self.xch.release()
             return [u.float() for u in self.m[0].unpatchify(full, st[0]["grid"])]
 
     def _prelude(self, m, x, t, y, pl, current_start, frame_seqlen, cam_first_call):
@@ -250,6 +295,7 @@ class SplitDiT:
                 mine = a[tok[c].start:tok[c].stop]
                 back[c] = a[tok[1 - c].start:tok[1 - c].stop].contiguous()
                 attn_own[c] = mine
+        self.xch.release()                                 # inbox consumed
         recv = [None, None]
         for c in (0, 1):
             recv[1 - c] = self.xch(c, back[c])
@@ -266,4 +312,5 @@ class SplitDiT:
                 cs, csh = self._cam[c][li]
                 ca = self._ca[c][li]
                 out[c] = _post(blk, xs[c], attn, st[c]["e0"], cs, csh, ca["k"], ca["v"])
+        self.xch.release()                                 # recv consumed
         return out
