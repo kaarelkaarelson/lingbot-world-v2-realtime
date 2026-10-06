@@ -41,19 +41,22 @@ torch.cuda.synchronize(R.dev[1])
 
 def decode_chunk():
     global state
-    with torch.cuda.stream(dstream):
+    with torch.cuda.stream(dstream), R.stage("decoder chunk"):
         _, state = dec.decode_step(z, state)
 
 
 # 1. decoder alone: GPU time and kernel count per chunk
-with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CUDA]) as prof:
+NSYS = os.environ.get("NSYS") == "1"  # under nsys: no torch.profiler (both use CUPTI)
+import contextlib  # noqa: E402
+with (contextlib.nullcontext() if NSYS else torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CUDA])) as prof:
     with torch.cuda.stream(dstream):
         torch.cuda._sleep(200_000_000)
     decode_chunk()
     torch.cuda.synchronize(R.dev[1])
-prof.export_chrome_trace("/tmp/dec_alone.json")
-k_alone = sorted((e for e in json.load(open("/tmp/dec_alone.json"))["traceEvents"]
-                  if e.get("cat") in ("kernel", "gpu_memcpy", "gpu_memset") and "spin" not in e["name"]), key=lambda e: e["ts"])
+if not NSYS:
+    prof.export_chrome_trace("/tmp/dec_alone.json")
+k_alone = [] if NSYS else sorted((e for e in json.load(open("/tmp/dec_alone.json"))["traceEvents"]
+                                  if e.get("cat") in ("kernel", "gpu_memcpy", "gpu_memset") and "spin" not in e["name"]), key=lambda e: e["ts"])
 dec_kernels = len(k_alone)
 alone_durs = [e["dur"] for e in k_alone]
 dec_alone_ms = sum(alone_durs) / 1e3
@@ -87,7 +90,8 @@ x_in = [x0[:T0].clone(), x0[T0:].to(R.dev[1])]
 def layer_fn(st, l):
     if l < 0:
         return [x_in[0].clone(), x_in[1].clone()]
-    return sp.layer(st, ws[l], [kv[l][0][0], kv[l][1][0]], [kv[l][0][1], kv[l][1][1]])
+    with R.stage(f"layer {l}"):
+        return sp.layer(st, ws[l], [kv[l][0][0], kv[l][1][0]], [kv[l][0][1], kv[l][1][1]])
 
 
 layer_fn(layer_fn(None, -1), 0)
@@ -98,7 +102,7 @@ print(f"{H0}:{H - H0} split alone: {alone:.2f} ms per layer")
 def split_run_profiled(path):
     for d in R.dev:
         torch.cuda.synchronize(d)
-    with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CUDA]) as pr:
+    with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA]) as pr:
         for s in sp.comp:
             with torch.cuda.stream(s):
                 torch.cuda._sleep(2_000_000_000)
@@ -110,7 +114,8 @@ def split_run_profiled(path):
     pr.export_chrome_trace(path)
 
 
-split_run_profiled("/tmp/split_alone.json")  # for sched_analysis.py
+if not NSYS:
+    split_run_profiled("/tmp/split_alone.json")  # for sched_analysis.py
 
 
 # 3. both at once, profiled: decoder chunk queued first on its own stream, then NL layers
@@ -139,9 +144,21 @@ def corun():
 
 
 corun()
-with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CUDA]) as prof:
+if NSYS:
+    # under `nsys profile --capture-range=cudaProfilerApi`: record just this window, stage labels as NVTX ranges
+    with torch.autograd.profiler.emit_nvtx():
+        torch.cuda.cudart().cudaProfilerStart()
+        with_dec, _ = corun()
+        torch.cuda.cudart().cudaProfilerStop()
+    print(f"nsys window recorded: {with_dec:.2f} ms per layer with the decoder")
+    sys.exit(0)
+with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA]) as prof:
     with_dec, _ = corun()
 prof.export_chrome_trace("/tmp/corun.json")
+TAG = f"{H0}_{'hiprio' if HIPRIO else 'stream0'}"
+import shutil  # noqa: E402
+shutil.copy("/tmp/corun.json", f"/workspace/runs/trace_corun_{TAG}.json")
+shutil.copy("/tmp/split_alone.json", f"/workspace/runs/trace_alone_{TAG}.json")
 tr = [e for e in json.load(open("/tmp/corun.json"))["traceEvents"] if e.get("cat") in ("kernel", "gpu_memcpy", "gpu_memset")]
 # the profiler names CUDA streams by handle, not torch's stream_id: the decoder's stream is the one running convolutions
 dev1 = [e for e in tr if e["args"].get("device") == 1 and "spin" not in e["name"]]
