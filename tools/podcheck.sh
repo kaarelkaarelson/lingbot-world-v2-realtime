@@ -22,6 +22,7 @@ set -u
 MIN_TFLOPS="${MIN_TFLOPS:-170}"   # RTX 5090 bf16 dense measures ~195-200 TFLOP/s at its ~2.8 GHz boost; 170 leaves margin
 PY="${PY:-python3}"
 ok=1
+REPO_DIR=$(ls -d /workspace/lingbot-world-v2-realtime /workspace/repo 2>/dev/null | head -1)  # RunPod / Vast layouts
 
 echo "== gpu"
 nvidia-smi --query-gpu=name,driver_version,pcie.link.gen.current,pcie.link.gen.max,power.limit,clocks.max.sm --format=csv,noheader || { echo "nvidia-smi failed"; exit 1; }
@@ -132,7 +133,7 @@ free_gb=$(df -BG /workspace 2>/dev/null | awk 'NR==2{gsub("G","",$4); print $4}'
 # pod the weights are on disk already and a smaller margin is fine, so warn instead of failing: on
 # 2026-09-22 a healthy 5090 (231 TFLOP/s, no throttle) was reported "red" purely on 13 GB free.
 if [ -n "${free_gb:-}" ] && [ "$free_gb" -lt 30 ]; then
-  if [ -d /workspace/lingbot-world-v2-realtime ]; then
+  if [ -n "$REPO_DIR" ]; then
     echo "NOTE: ${free_gb} GB free, under the 30 GB fresh-setup rule, but the repo is already provisioned - not a blocker"
   else
     echo "LOW DISK: ${free_gb} GB free, need ~30 for a fresh setup"; ok=0
@@ -153,7 +154,7 @@ else
 fi
 
 echo "== existing state"
-ls -d /workspace/lingbot-world-v2-realtime 2>/dev/null && echo "repo present: skip setup.sh" || echo "empty: full setup (~15 min)"
+[ -n "$REPO_DIR" ] && echo "repo present at $REPO_DIR: skip setup.sh" || echo "empty: full setup (~15 min)"
 
 echo
 if [ "$ok" = 1 ]; then echo "VERDICT: green, proceed"; else echo "VERDICT: red, do not use this pod for measurements"; exit 1; fi
