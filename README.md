@@ -57,7 +57,7 @@ On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
 |---|---|---|---|---|
 | Classic split 6:6 | 1/2 of the attention heads + VAE decoder | 1/2 of the attention heads | 500 W pod, slow CPU | 14.0 |
 | Pipeline (B1) | full DiT | VAE decoder (one chunk behind) | fast-CPU pod | 25.3 |
-| **Split 10:2 (best)** | 5/6 of the attention heads | 1/6 of the attention heads on 48 of 170 SMs + VAE decoder (one chunk behind) on the other 122 SMs | fast-CPU pod | **29.8** |
+| **Split 10:2 (best)** | 5/6 of the attention heads | 1/6 of the attention heads + VAE decoder | fast-CPU pod | **29.8** |
 
 Classic split 6:6
 
