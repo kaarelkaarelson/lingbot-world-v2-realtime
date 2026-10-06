@@ -112,6 +112,7 @@ def convert(db, out, sms=None, flops=None):
     if flops:
         ev += _layer_mfu(K, R, c, S, main, us, flops,
                          lambda d, s_: sms.get((d, s_), gpu[d][1]) / gpu[d][1] if d in gpu else 1.0)
+    ev += _pin_percent_axes(ev)
     meta = [dict(ph="M", pid=1, name="process_name", args=dict(name="CPU: launch thread")),
             dict(ph="M", pid=1, tid=2, name="thread_name", args=dict(name="CUDA API calls"))]
     meta += [dict(ph="M", pid=1, tid=10 + i, name="thread_name", args=dict(name=n))
@@ -124,6 +125,18 @@ def convert(db, out, sms=None, flops=None):
     with gzip.open(out, "wt") as f:
         json.dump(dict(traceEvents=meta + ev, displayTimeUnit="ms"), f)
     return len(ev)
+
+
+def _pin_percent_axes(ev):
+    """Perfetto scales each counter track's y-axis to that track's own maximum, so 64 % of peak fills the track like
+    100 %. A 1 us point at 100 just before each %-track's first sample pins the axis to 0-100 (invisible at any zoom)."""
+    first = {}
+    for e in ev:
+        if e.get("ph") == "C" and "%" in e["name"]:
+            k = (e["pid"], e["name"])
+            if k not in first or e["ts"] < first[k]["ts"]:
+                first[k] = e
+    return [dict(ph="C", pid=p, name=n, ts=e["ts"] - 0.001, args={list(e["args"])[0]: 100}) for (p, n), e in first.items()]
 
 
 def _counters(K, c, us, by_stream, bin_ns=1_000_000):
