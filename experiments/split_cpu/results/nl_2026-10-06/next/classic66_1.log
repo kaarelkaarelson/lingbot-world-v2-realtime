@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 22:35:06,639] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:04,  1.94it/s] 20%|##        | 2/10 [00:01<00:04,  1.78it/s] 30%|###       | 3/10 [00:01<00:04,  1.56it/s] 40%|####      | 4/10 [00:02<00:04,  1.44it/s] 50%|#####     | 5/10 [00:03<00:03,  1.37it/s] 60%|######    | 6/10 [00:04<00:03,  1.33it/s] 70%|#######   | 7/10 [00:05<00:02,  1.30it/s] 80%|########  | 8/10 [00:05<00:01,  1.29it/s] 90%|######### | 9/10 [00:06<00:00,  1.28it/s]100%|##########| 10/10 [00:07<00:00,  1.27it/s]100%|##########| 10/10 [00:07<00:00,  1.35it/s]
+[2026-10-06 22:35:14,738] INFO: Saving generated video to /workspace/runs/next/classic66_1.mp4
+BENCH_E2E trial 1: 20.06 FPS (interval p50 797.7 ms, p95 800.3, p99 800.8; 5 steady chunks), first frame 1050 ms
+BENCH_E2E preset=fast gpus=1 832x464, 1 rollout: 20.06 FPS, 7.74 MPPS, interval p95 800.3 ms, first frame 1050 ms (cold: includes compile)
+[worker] run took 10.5 s
+

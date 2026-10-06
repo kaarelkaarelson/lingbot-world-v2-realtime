@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 22:30:32,882] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:03,  2.26it/s] 20%|##        | 2/10 [00:01<00:04,  1.95it/s] 30%|###       | 3/10 [00:01<00:03,  1.80it/s] 40%|####      | 4/10 [00:02<00:03,  1.67it/s] 50%|#####     | 5/10 [00:02<00:03,  1.58it/s] 60%|######    | 6/10 [00:03<00:02,  1.52it/s] 70%|#######   | 7/10 [00:04<00:02,  1.49it/s] 80%|########  | 8/10 [00:05<00:01,  1.47it/s] 90%|######### | 9/10 [00:05<00:00,  1.45it/s]100%|##########| 10/10 [00:06<00:00,  1.44it/s]100%|##########| 10/10 [00:06<00:00,  1.54it/s]
+[2026-10-06 22:30:40,185] INFO: Saving generated video to /workspace/runs/next/tok7454_1.mp4
+BENCH_E2E trial 1: 22.77 FPS (interval p50 702.6 ms, p95 703.5, p99 703.6; 5 steady chunks), first frame 1210 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 22.77 FPS, 8.79 MPPS, interval p95 703.5 ms, first frame 1210 ms (cold: includes compile)
+[worker] run took 9.9 s
+

@@ -55,13 +55,11 @@ On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
 
 | Layout | Card 0 | Card 1 | Measured | FPS |
 |---|---|---|---|---|
-| Classic split 6:6 | 1/2 of the attention heads + VAE decoder | 1/2 of the attention heads | 500 W pod, slow CPU, first split code† | 14.0 |
+| Classic split 6:6 | 1/2 of the attention heads + VAE decoder | 1/2 of the attention heads | fast-CPU pod | 20.1 |
 | Pipeline (B1) | full DiT | VAE decoder\* | fast-CPU pod | 25.3 |
 | **Split 10:2 (best)** | 5/6 of the attention heads | 1/6 of the attention heads + VAE decoder\* | fast-CPU pod | **29.8** |
 
 \* The VAE decoder is one chunk behind, meaning it turns chunk n into frames while the DiT is generating chunk n+1.
-
-† Measured before any of the split fixes; a re-measure with them is scheduled (`experiments/split_cpu/NEXT_SESSION.md`).
 
 Classic split 6:6
 
@@ -75,7 +73,7 @@ Split 10:2 (best)
 
 ![Split 10:2: both cards run the DiT of the same chunk; card 1 also decodes the previous chunk on its own SMs](docs/img/layout_split_10_2.svg)
 
-Bars are to scale from each layout's measured chunk time; the classic split was measured only on the slower pod.
+Bars are to scale from each layout's measured chunk time.
 
 ## How the world model works
 

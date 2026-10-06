@@ -42,7 +42,8 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 - [x] **Token share decoupled from the head split: measured, a loss.** `LINGBOT_SPLIT_TOK`: card 0 at 0.80 / 0.78 /
   0.76 / 0.74 of the tokens gave 28.25 / 27.60 / 27.01 / 25.05 FPS vs 29.2 at the head ratio (0.833). Card 1 has no
   spare capacity for token-local work even on 48 SMs. Untested: the other direction (card 0 above 0.833).
-- [ ] **NEXT SESSION: two minimal measurements (~15 min of pod time), before building anything else.** Runbook:
+- [x] **Done 2026-10-06 (learning 29):** attention time is a step function of waves (8 to 10 heads ~free); token share 0.7454 -23.5 %; classic 6:6 with fixes 20.1 FPS. Original plan:
+- [x] (done) **NEXT SESSION: two minimal measurements (~15 min of pod time), before building anything else.** Runbook:
   `experiments/split_cpu/NEXT_SESSION.md`; one command: `bash experiments/split_cpu/next_measurements.sh`.
   1. *Is card 0's attention wave tail real?* Kernel-only, old stack, original Sage wheel: time the attention kernel
      alone (`qk_int_sv_f8_attn_kernel`, separated from Sage's quant kernels via torch.profiler) on q [1,h,6032,128],

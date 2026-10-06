@@ -47,7 +47,8 @@ for h in a.heads:
     waves = warps / slots
     print(f"  {h:2d} heads: {t[h]:6.3f} ms  warps {warps:5d}  waves {waves:4.2f} (runs as {-(-warps // slots)})  "
           f"ms per head {t[h] / h:.3f}")
-if 7 in t and 10 in t:
-    r = t[10] / t[7]
-    print(f"t(10)/t(7) = {r:.2f}  (no tail ~1.43, full tail ~2.0) -> "
-          + ("TAIL REAL" if r > 1.7 else "NO MEANINGFUL TAIL" if r < 1.55 else "PARTIAL TAIL"))
+if 8 in t and 10 in t:
+    # the decisive test: 8 and 10 heads both need 2 waves; without quantization 10 heads costs 10/8 = 1.25x more
+    r = t[10] / t[8]
+    print(f"t(10)/t(8) = {r:.2f}  (no quantization ~1.25, pure wave quantization ~1.0) -> "
+          + ("WAVE QUANTIZATION: extra heads inside a partly filled wave are ~free" if r < 1.1 else "scales with work"))

@@ -296,6 +296,21 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    13.0 runs 13 % slower than with CUDA 12.8 on card 0's shape, which likely explains the cu130 stack's -2 % in
    learning 25. Logs: `experiments/split_cpu/results/norway_2026-10-06/levers_2026-10-06.log`.
 
+29. **Second fast-CPU pod (Vast 54546858, NL, EPYC 9654, two sockets / SYS topology), 2026-10-06.** Same numbers
+   as the Norway pod despite the cards sitting on different sockets: B1 25.26 / 25.19 / 25.17 FPS, best split
+   29.81 / 29.73 / 29.67. Three measurements (`experiments/split_cpu/next_measurements.sh`):
+   - **SageAttention time is a step function of waves.** Kernel alone on one full GPU (q 6,032, kv 27,144):
+     6-7 heads 0.885-0.912 ms (one wave), 8 / 9 / 10 heads 1.363 / 1.379 / 1.395 ms, 11-12 heads 1.77-1.79 ms. 8 to 10
+     heads costs +2 % for +25 % work: inside a partly filled wave extra heads are nearly free. So card 0 pays the
+     same for 10 heads as it would for 8; only dropping to 7 heads (one wave, -35 %) would cut its attention time,
+     and card 1 cannot take 5 heads. Registers: 255 on 112 of the kernel's instantiations (confirmed).
+   - **Token share 0.7454 (card 1's GEMMs on whole waves): -23.5 %** (22.74 vs 29.73 FPS). The whole-wave hypothesis
+     does not rescue moving token-local work to card 1. Caveat: this run had copy-free assembly on, which recompiles
+     the projection stages per token split; a recompile cost was not ruled out.
+   - **Classic split 6:6 with every split fix: 20.06 / 20.02 / 20.12 FPS** (was 14.0 with the first split code on the
+     slow pod). Still below B1: the ~0.32 s decode runs after the DiT on card 0 and never overlaps.
+   Videos of the three layouts: `~/lingbot-world-v2-realtime-wt/videos/` (not in git).
+
 ## What it means for splitting LingBot-World 2.0 across the two cards
 
 One card today: DiT 0.64 s + decoder 0.34 s per 16-frame chunk, 16.3 FPS. Each DiT chunk is five

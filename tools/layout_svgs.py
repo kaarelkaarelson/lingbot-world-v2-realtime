@@ -42,9 +42,9 @@ def chunks(period, dur, kind, label, offset=0.0, n=8):
     return [(offset + i * period, dur, kind, f"{label} {i + 1}") for i in range(n)]
 
 
-# Classic split 6:6, decoder after the DiT on card 0: 14.04 FPS -> 1.14 s per 16 frames; decode 0.357 s measured,
-# DiT = the rest (0.78 s). Card 1 runs its half of the DiT, then idles while card 0 decodes.
-c, dec = 16 / 14.04, 0.357
+# Classic split 6:6, decoder after the DiT on card 0, with all the split fixes: 20.06 FPS -> 0.798 s per 16 frames;
+# decode ~0.32 s (one-card measurement on the same pod), DiT = the rest. Card 1 idles while card 0 decodes.
+c, dec = 16 / 20.06, 0.32
 svg("layout_classic_6_6.svg", [
     ("card 0", [b for i in range(4) for b in ((i * c, c - dec, "dit", f"DiT {i + 1}"), (i * c + c - dec, dec, "dec", f"dec {i + 1}"))]),
     ("card 1", [(i * c, c - dec, "dit", f"DiT {i + 1}") for i in range(4)]),

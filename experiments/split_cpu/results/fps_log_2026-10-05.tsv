@@ -24,3 +24,7 @@ date	pod	layout	config	warm_fps_runs	fps_median	quality_vs_ref	notes
 2026-10-06	vast 54497707	split 9:3 + copy-free, SMS 56 / 64	torch 2.8	28.14/28.08/28.07 | 28.39/28.43/28.40	28.08 | 28.40	32.8 dB vs B1	loss
 2026-10-06	vast 54497707	split 10:2 + copy-free, Sage split-KV off/2/3 (d1a57a5 wheel)	torch 2.14 cu130	28.54/28.48/28.44 | 30.07/29.98/29.94 | 29.50/29.36/29.40	28.48 | 29.98 | 29.40	S2 vs B1 32.4 dB / 0.015	cu130 only
 2026-10-06	vast 54497707	split 10:2 + copy-free, Sage split-KV off/2 (d1a57a5 wheel)	torch 2.8 cu128	29.87/29.77/29.77 | 29.63/29.55/29.57	29.77 | 29.55	S2 vs B1 27.3 dB / 0.023	no gain on cu128
+2026-10-06	vast 54546858 (NL, EPYC 9654, SYS)	B1	torch 2.8	25.26/25.19/25.17	25.19	reference	
+2026-10-06	vast 54546858	split 10:2 best (copy-free, SMS 48)	torch 2.8	29.81/29.73/29.67	29.73		same as Norway
+2026-10-06	vast 54546858	split 10:2, token share 0.7454	torch 2.8	22.77/22.74/22.74	22.74	29.8 dB vs head ratio	-23.5 %
+2026-10-06	vast 54546858	classic split 6:6, all fixes, decoder on card 0	torch 2.8	20.06/20.02/20.12	20.06		was 14.0 with first code

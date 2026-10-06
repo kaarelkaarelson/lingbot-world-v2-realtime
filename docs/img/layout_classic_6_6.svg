@@ -2,24 +2,31 @@
 <rect width="760" height="98" fill="#ffffff"/>
 <text x="140" y="23.0" text-anchor="end" fill="#222222">card 0</text>
 <rect x="150" y="6" width="594" height="26" rx="3" fill="#ececec"/>
-<rect x="151.0" y="6" width="153.0" height="26" rx="3" fill="#3a6ea5"/>
-<text x="227.5" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 1</text>
-<rect x="306.0" y="6" width="68.7" height="26" rx="3" fill="#8c2f39"/>
-<text x="340.3" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 1</text>
-<rect x="376.6" y="6" width="153.0" height="26" rx="3" fill="#3a6ea5"/>
-<text x="453.1" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 2</text>
-<rect x="531.6" y="6" width="68.7" height="26" rx="3" fill="#8c2f39"/>
-<text x="565.9" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 2</text>
-<rect x="602.3" y="6" width="140.7" height="26" rx="3" fill="#3a6ea5"/>
-<text x="672.6" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 3</text>
+<rect x="151.0" y="6" width="92.6" height="26" rx="3" fill="#3a6ea5"/>
+<text x="197.3" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 1</text>
+<rect x="245.6" y="6" width="61.4" height="26" rx="3" fill="#8c2f39"/>
+<text x="276.2" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 1</text>
+<rect x="308.9" y="6" width="92.6" height="26" rx="3" fill="#3a6ea5"/>
+<text x="355.2" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 2</text>
+<rect x="403.5" y="6" width="61.4" height="26" rx="3" fill="#8c2f39"/>
+<text x="434.2" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 2</text>
+<rect x="466.9" y="6" width="92.6" height="26" rx="3" fill="#3a6ea5"/>
+<text x="513.1" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 3</text>
+<rect x="561.4" y="6" width="61.4" height="26" rx="3" fill="#8c2f39"/>
+<text x="592.1" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 3</text>
+<rect x="624.8" y="6" width="92.6" height="26" rx="3" fill="#3a6ea5"/>
+<text x="671.1" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 4</text>
+<rect x="719.3" y="6" width="23.7" height="26" rx="3" fill="#8c2f39"/>
 <text x="140" y="57.0" text-anchor="end" fill="#222222">card 1</text>
 <rect x="150" y="40" width="594" height="26" rx="3" fill="#ececec"/>
-<rect x="151.0" y="40" width="153.0" height="26" rx="3" fill="#3a6ea5"/>
-<text x="227.5" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 1</text>
-<rect x="376.6" y="40" width="153.0" height="26" rx="3" fill="#3a6ea5"/>
-<text x="453.1" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 2</text>
-<rect x="602.3" y="40" width="140.7" height="26" rx="3" fill="#3a6ea5"/>
-<text x="672.6" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 3</text>
+<rect x="151.0" y="40" width="92.6" height="26" rx="3" fill="#3a6ea5"/>
+<text x="197.3" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 1</text>
+<rect x="308.9" y="40" width="92.6" height="26" rx="3" fill="#3a6ea5"/>
+<text x="355.2" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 2</text>
+<rect x="466.9" y="40" width="92.6" height="26" rx="3" fill="#3a6ea5"/>
+<text x="513.1" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 3</text>
+<rect x="624.8" y="40" width="92.6" height="26" rx="3" fill="#3a6ea5"/>
+<text x="671.1" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 4</text>
 <text x="150.0" y="84" text-anchor="middle" fill="#666666">0 s</text>
 <text x="249.0" y="84" text-anchor="middle" fill="#666666">0.5 s</text>
 <text x="348.0" y="84" text-anchor="middle" fill="#666666">1 s</text>
