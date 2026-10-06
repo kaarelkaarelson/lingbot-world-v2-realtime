@@ -12,6 +12,12 @@
 #                   Profiling is impossible there, everything else works.
 #   disk            /workspace needs ~30 GB (18 GB weights + venv + compile cache).
 #   cuInit          a broken driver returns cuInit 999 (seen twice on 2026-09-15/16).
+#   power cap       power.limit below the card's default (Vast 2x 5090, 2026-10-05: 500 of 575 W) lowers sustained clocks.
+#   cpu             PyTorch pipelines are often launch-bound: one Python thread issues every kernel. An engineering-sample
+#                   Xeon took ~15 us per eager op (2026-10-05) and capped the two-GPU split at 17.6 FPS; a container CPU
+#                   quota (cgroup cpu.max) throttles compile and data loading. Measured as us per tiny eager op.
+#   multi-gpu       per-GPU matmul (one slow card sets the pace), P2P access, topology (SYS = across CPU sockets) and
+#                   pinned host<->card bandwidth (with P2P off all card-to-card traffic stages through host memory).
 set -u
 MIN_TFLOPS="${MIN_TFLOPS:-170}"   # RTX 5090 bf16 dense measures ~195-200 TFLOP/s at its ~2.8 GHz boost; 170 leaves margin
 PY="${PY:-python3}"
@@ -29,23 +35,79 @@ except Exception as e:
     print("CUDA BROKEN:", e); sys.exit(1)
 EOF
 
-echo "== throttle (bf16 matmul under load)"
+echo "== throttle (bf16 matmul under load, every GPU)"
 $PY - "$MIN_TFLOPS" <<'EOF' || ok=0
 import torch, time, subprocess, sys
-minf = float(sys.argv[1])
-a = torch.randn(8192, 8192, device="cuda", dtype=torch.bfloat16); b = torch.randn_like(a)
-for _ in range(5): a @ b
-torch.cuda.synchronize(); t = time.time(); n = 60
-for _ in range(n): a @ b
-torch.cuda.synchronize(); dt = time.time() - t
-tf = 2 * 8192 ** 3 * n / dt / 1e12
-q = subprocess.run(["nvidia-smi", "--query-gpu=clocks.sm,power.draw,clocks_throttle_reasons.active,clocks_throttle_reasons.sw_power_cap,clocks_throttle_reasons.hw_slowdown,clocks_throttle_reasons.hw_thermal_slowdown",
-                    "--format=csv,noheader"], capture_output=True, text=True).stdout.strip()
-print(f"bf16 matmul {tf:.0f} TFLOP/s (need >= {minf:.0f}); under load: sm clock, power, throttle reasons = {q}")
-if tf < minf:
+minf, bad = float(sys.argv[1]), False
+for i in range(torch.cuda.device_count()):
+    d = torch.device(f"cuda:{i}")
+    a = torch.randn(8192, 8192, device=d, dtype=torch.bfloat16); b = torch.randn_like(a)
+    for _ in range(5): a @ b
+    torch.cuda.synchronize(d); t = time.time(); n = 60
+    for _ in range(n): a @ b
+    q = subprocess.run(["nvidia-smi", "-i", str(i), "--query-gpu=clocks.sm,power.draw,clocks_throttle_reasons.active,clocks_throttle_reasons.sw_power_cap,clocks_throttle_reasons.hw_slowdown,clocks_throttle_reasons.hw_thermal_slowdown",
+                        "--format=csv,noheader"], capture_output=True, text=True).stdout.strip()
+    torch.cuda.synchronize(d); dt = time.time() - t
+    tf = 2 * 8192 ** 3 * n / dt / 1e12
+    print(f"gpu {i}: bf16 matmul {tf:.0f} TFLOP/s (need >= {minf:.0f}); under load: sm clock, power, throttle reasons = {q}")
+    bad |= tf < minf
+    del a, b
+if bad:
     print("THROTTLED: do not benchmark on this box")
     sys.exit(1)
 EOF
+
+echo "== power cap"
+nvidia-smi --query-gpu=index,power.limit,power.default_limit --format=csv,noheader,nounits | while IFS=', ' read -r i lim def; do
+  if awk "BEGIN{exit !($lim < $def - 1)}"; then
+    echo "gpu $i: CAPPED at ${lim} W (default ${def} W): lower sustained clocks; record it next to every result"
+  else
+    echo "gpu $i: power limit ${lim} W (default ${def} W)"
+  fi
+done
+
+echo "== cpu (launch speed: PyTorch inference is often launch-bound)"
+echo "model: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //'); $(nproc) usable cores; $(grep 'physical id' /proc/cpuinfo | sort -u | wc -l) socket(s)"
+quota=$(cat /sys/fs/cgroup/cpu.max 2>/dev/null || echo max)
+case "$quota" in
+  max*) echo "cgroup cpu quota: none" ;;
+  *) echo "cgroup cpu quota: $(echo "$quota" | awk '{printf "%.1f", $1/$2}') cores (cpu.max = $quota): parallel compile and data loading are throttled" ;;
+esac
+$PY - <<'EOF'
+import torch, time
+x = torch.ones(16, device="cuda")
+for _ in range(2000): x.add_(1)
+torch.cuda.synchronize(); n = 20000; t = time.perf_counter()
+for _ in range(n): x.add_(1)
+us = (time.perf_counter() - t) / n * 1e6
+torch.cuda.synchronize()
+print(f"{us:.1f} us per tiny eager op (fast desktop/server CPUs: ~4-7 us)")
+if us > 10:
+    print("SLOW CPU LAUNCH: launch-bound runs (multi-GPU splits, eager loops) are capped by the CPU on this box and are not "
+          "comparable to a faster host; CUDA graphs and compiled regions matter more here")
+EOF
+
+echo "== multi-gpu"
+$PY - <<'EOF'
+import torch, time
+n = torch.cuda.device_count()
+if n < 2:
+    print("single GPU: skipped"); raise SystemExit
+for i in range(n):
+    for j in range(i + 1, n):
+        print(f"P2P {i}<->{j}: " + ("yes" if torch.cuda.can_device_access_peer(i, j) else "NO: card-to-card traffic stages through host memory"))
+h = torch.empty(256 << 20, dtype=torch.uint8, pin_memory=True)
+for i in range(n):
+    d = torch.empty(256 << 20, dtype=torch.uint8, device=f"cuda:{i}")
+    gbs = []
+    for src, dst in ((h, d), (d, h)):
+        dst.copy_(src, non_blocking=True); torch.cuda.synchronize(i); t = time.perf_counter()
+        for _ in range(5): dst.copy_(src, non_blocking=True)
+        torch.cuda.synchronize(i); gbs.append(5 * (256 << 20) / (time.perf_counter() - t) / 1e9)
+    print(f"gpu {i}: pinned host->card {gbs[0]:.1f} GB/s, card->host {gbs[1]:.1f} GB/s (PCIe 5 x16 ~50, gen 4 ~25)")
+EOF
+nvidia-smi topo -m 2>/dev/null | head -n "$(( $(nvidia-smi -L | wc -l) + 1 ))"
+echo "(SYS = GPUs on different CPU sockets; NODE/PHB/PIX = same socket)"
 
 echo "== counters (Nsight Compute)"
 if command -v ncu >/dev/null 2>&1; then
