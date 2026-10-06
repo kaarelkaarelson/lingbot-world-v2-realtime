@@ -162,10 +162,7 @@ class LingBotWorldPipeline:
     def __init__(self, config, checkpoint_dir, device_id=0, rank=0, t5_cpu=False, pipe_dtype=torch.bfloat16,
                  local_attn_size=-1, sink_size=0, assets_dir=None, decoder_device_id=None):
         self.device = torch.device(f"cuda:{device_id}")
-        # decoder_device_id: run the decoder on another GPU, overlapped with the DiT (2X_RTX5090_LEARNINGS.md);
-        # each chunk's 4 clean latents (0.77 MB) cross over, nothing else does.
-        self.decoder_device = self.device if decoder_device_id is None else torch.device(f"cuda:{decoder_device_id}")
-        self.split_decoder = self.decoder_device != self.device
+
         self.config = config
         self.rank = rank
         self.t5_cpu = t5_cpu
@@ -197,12 +194,10 @@ class LingBotWorldPipeline:
         self.vae = Wan2_1_VAE(vae_pth=_resolve_asset_path(config.vae_checkpoint, checkpoint_dir, assets_dir),
                               dtype=torch.float, device=self.device)
         fused = os.environ.get("LINGBOT_VAE_FUSED", "1")
-        mode = {"1": "max-autotune-no-cudagraphs", "eager": None}.get(fused, fused)
-        dec_vae = self.vae if not self.split_decoder else Wan2_1_VAE(
-            vae_pth=_resolve_asset_path(config.vae_checkpoint, checkpoint_dir, assets_dir),
-            dtype=torch.float, device=self.decoder_device)
-        self.decoder = FusedDecoder(dec_vae, compile_mode=mode)
-        logging.info(f"Fused decoder (compile={mode})")
+        self._decoder_mode = {"1": "max-autotune-no-cudagraphs", "eager": None}.get(fused, fused)
+        self._vae_path = _resolve_asset_path(config.vae_checkpoint, checkpoint_dir, assets_dir)
+        self._decoders = {}
+        self.set_decoder_device(decoder_device_id)
 
         self.frame_sink = None
         self.pose_provider = None
@@ -216,9 +211,10 @@ class LingBotWorldPipeline:
 
         # Rowwise FP8 for the large Linears (plain buffers + torch._scaled_mm). Needs torch.compile
         # to fuse the activation quantisation; eager FP8 is slower than bf16 on this card.
-        if os.environ.get("LINGBOT_FP8") == "1":
-            n_fp8, n_all = convert_to_fp8(self.model.blocks)
-            logging.info(f"FP8 rowwise enabled on {n_fp8} of {n_all} Linear layers")
+        fp8 = os.environ.get("LINGBOT_FP8")
+        if fp8 in ("1", "mx"):
+            n_fp8, n_all = convert_to_fp8(self.model.blocks, mx=fp8 == "mx")
+            logging.info(f"FP8 {'MX (per-32 block scales)' if fp8 == 'mx' else 'rowwise'} enabled on {n_fp8} of {n_all} Linear layers")
 
         compile_mode = os.environ.get("LINGBOT_TORCH_COMPILE")
         if compile_mode:
@@ -237,6 +233,18 @@ class LingBotWorldPipeline:
 
         self.scheduler = FlowUniPCMultistepScheduler(
             num_train_timesteps=self.num_train_timesteps, shift=1, use_dynamic_shifting=False)
+
+    def set_decoder_device(self, decoder_device_id=None):
+        """Decode on this GPU (None: the DiT's). Another GPU overlaps decoding with the DiT
+        (2X_RTX5090_LEARNINGS.md); each chunk's 4 clean latents (0.77 MB) cross over, nothing else does.
+        Each GPU gets its own fused decoder on first use (it converts its VAE copy to fp16 in place) and
+        keeps it, so a benchmark sweep can switch placements inside one process."""
+        dev = self.device if decoder_device_id is None else torch.device(f"cuda:{decoder_device_id}")
+        if dev not in self._decoders:
+            vae = self.vae if dev == self.device else Wan2_1_VAE(vae_pth=self._vae_path, dtype=torch.float, device=dev)
+            self._decoders[dev] = FusedDecoder(vae, compile_mode=self._decoder_mode)
+            logging.info(f"Fused decoder on {dev} (compile={self._decoder_mode})")
+        self.decoder_device, self.split_decoder, self.decoder = dev, dev != self.device, self._decoders[dev]
 
     def _to_decoder(self, x):
         """Latents onto the decoder's GPU (a no-op on one GPU). Across GPUs PyTorch runs the copy on the
@@ -546,8 +554,8 @@ class LingBotWorldPipeline:
             if self.rank == 0:
                 # One-time compile/autotune of the decoder, outside the timed decode. Not under
                 # vae_stream_on: decode_step is warm from chunk 0 there.
-                if os.environ.get("LINGBOT_VAE_WARM") == "1" and not vae_stream_on and not getattr(self, "_vae_warmed", False):
-                    self._vae_warmed = True
+                if os.environ.get("LINGBOT_VAE_WARM") == "1" and not vae_stream_on and not getattr(self.decoder, "warmed", False):
+                    self.decoder.warmed = True
                     with torch.no_grad():
                         self.decoder.decode(self._to_decoder(pred_latent_chunks[:, :5]))
                 if bench_timing:
