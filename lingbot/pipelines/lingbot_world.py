@@ -27,7 +27,7 @@ from lingbot.layers.linear import convert_to_fp8
 from lingbot.models.lingbot_world.text_encoder import TextEncoder
 from lingbot.models.lingbot_world.transformer import WanModelFast
 from lingbot.models.lingbot_world.vae import FusedDecoder
-from lingbot.profiling import ChunkProfiler, DecodeProfiler
+from lingbot.profiling import ChunkProfiler, CudaProfilerRange, DecodeProfiler, nvtx, nvtx_pop, nvtx_push
 from wan.modules.vae2_1 import Wan2_1_VAE
 from wan.utils.cam_utils import (
     compute_relative_poses,
@@ -454,8 +454,11 @@ class LingBotWorldPipeline:
                 torch.cuda.synchronize(self.device)
                 t_loop0 = t_prev = time.perf_counter()
             profiler = ChunkProfiler()
+            cuda_prof = CudaProfilerRange(num_inference_chunk)
             for chunk_id in tqdm(range(num_inference_chunk)):
                 profiler.before_chunk(chunk_id)
+                cuda_prof.before_chunk(chunk_id)
+                nvtx_push(f"chunk {chunk_id}")
                 _rf_chunk = torch.profiler.record_function(f"chunk{chunk_id}"); _rf_chunk.__enter__()
                 if (self.pose_provider is not None or late_sample == "force") and late_sample and chunk_id > 0:
                     # Sample the input when the GPU can actually start this chunk: the host runs ~0.35 s
@@ -491,7 +494,7 @@ class LingBotWorldPipeline:
                     torch.cuda.empty_cache()
                 _rf.__exit__(None, None, None)
                 if vae_stream_on and dec_pending is not None:
-                    with torch.profiler.record_function("vae_stream_launch"), torch.no_grad():
+                    with torch.profiler.record_function("vae_stream_launch"), torch.no_grad(), nvtx("decode"):
                         vae_stream.wait_stream(torch.cuda.current_stream(self.device))
                         with torch.cuda.stream(vae_stream):
                             if not self.split_decoder:
@@ -524,7 +527,7 @@ class LingBotWorldPipeline:
                     # Decode this chunk now, latent by latent, handing each latent's frames to the sink
                     # as they finish; the main stream then waits, so the frames leave before the next
                     # forward instead of competing with it (same throughput, first frame ~0.5 s earlier).
-                    with torch.profiler.record_function("vae_decode_first"), torch.no_grad():
+                    with torch.profiler.record_function("vae_decode_first"), torch.no_grad(), nvtx("decode"):
                         vae_stream.wait_stream(torch.cuda.current_stream(self.device))
                         with torch.cuda.stream(vae_stream):
                             if not self.split_decoder:
@@ -559,7 +562,9 @@ class LingBotWorldPipeline:
                     self.bench_chunk_s = getattr(self, "bench_chunk_s", []) + [now - t_prev]
                     t_prev = now
                 _rf_chunk.__exit__(None, None, None)
+                nvtx_pop()
                 profiler.after_chunk(chunk_id)
+                cuda_prof.after_chunk(chunk_id)
 
             pred_latent_chunks = torch.cat(pred_latent_chunks, dim=1)
             kwargs['cam_cache'] = cam_cache = None  # ~1.1 GB; free before the decode

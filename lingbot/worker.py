@@ -15,6 +15,13 @@ profiler has to be the parent). The profile is written when the worker stops, ne
 inside `_cold_run` (first run of the worker: includes compile) or `_warm_run`, so a steady-state breakdown is
 `pyspy_breakdown.py <file> --under "_warm_run"` (gpu-profiling skill).
 
+LINGBOT_WORKER_NSYS=1 starts the worker under `nsys profile -t cuda,nvtx,osrt --capture-range=cudaProfilerApi
+--capture-range-end=repeat` (also the parent, same reason). Set LINGBOT_PROFILE_CHUNKS=a:b (cudaProfilerStart/Stop
+around those chunks of every run) and LINGBOT_NVTX=1 (the ranges) too. With `repeat` each run yields its own numbered
+report next to the log (`<log base>-<time>*.nsys-rep`); the first is the cold run, the warm run's is the one to
+analyse. Reports are finalized after `worker stop`: wait for the nsys process to exit, then
+`nsys export --type sqlite` and experiments/split_cpu/critical_path.py. Not combinable with LINGBOT_WORKER_PYSPY.
+
 Not handled here (run lingbot.generate directly): --preset stock and torchrun launches.
 """
 import glob
@@ -108,6 +115,13 @@ def _ensure_worker(key, preset):
         prof = path.replace(".sock", f"-{time.strftime('%H%M%S')}.pyspy.txt")
         cmd = ["py-spy", "record", "--rate", "250", "--format", "raw", "--nonblocking", "-o", prof, "--", *cmd]
         print(f"[worker] profiling with py-spy; written to {prof} when the worker stops", flush=True)
+    if os.environ.get("LINGBOT_WORKER_NSYS") == "1":
+        if os.environ.get("LINGBOT_WORKER_PYSPY") == "1":
+            raise SystemExit("[worker] LINGBOT_WORKER_NSYS and LINGBOT_WORKER_PYSPY are exclusive")
+        rep = path.replace(".sock", f"-{time.strftime('%H%M%S')}")
+        cmd = ["nsys", "profile", "-t", "cuda,nvtx,osrt", "--capture-range=cudaProfilerApi",
+               "--capture-range-end=repeat", "--cuda-memory-usage=false", "-f", "true", "-o", rep, "--", *cmd]
+        print(f"[worker] profiling with nsys; reports {rep}*.nsys-rep, finalized after the worker stops", flush=True)
     subprocess.Popen(cmd, cwd=os.getcwd(),
                      stdout=open(log, "a"), stderr=subprocess.STDOUT, start_new_session=True)
     for _ in range(600):

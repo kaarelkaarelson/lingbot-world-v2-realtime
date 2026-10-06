@@ -4,13 +4,24 @@ LINGBOT_PROFILE=<dir>          profile steady-state chunks (LINGBOT_PROFILE_CHUN
 LINGBOT_PROFILE_VAE=1          also profile the whole-clip decode
 LINGBOT_ROOFLINE=<dir>         both of the above, into <dir>
 LINGBOT_ROOFLINE_TRACE=1       add tools/roofline.py's byte tracer and a decoder FLOP count (eager only)
+LINGBOT_PROFILE_CHUNKS=a:b     cudaProfilerStart before chunk a, Stop after chunk b-1 (0-based, b exclusive) on
+                               every run; for `nsys --capture-range=cudaProfilerApi` (LINGBOT_WORKER_NSYS=1).
+                               With LINGBOT_PROFILE the "8-10" form of the torch.profiler window applies instead
+LINGBOT_NVTX=1                 NVTX ranges: chunk, decode, fwd, per layer and its stages (no-op when unset)
 """
+import contextlib
 import json
 import logging
 import os
 import sys
 
 import torch
+
+NVTX = os.environ.get("LINGBOT_NVTX") == "1"
+_NULL = contextlib.nullcontext()
+nvtx = torch.cuda.nvtx.range if NVTX else (lambda name: _NULL)
+nvtx_push = torch.cuda.nvtx.range_push if NVTX else (lambda name: None)
+nvtx_pop = torch.cuda.nvtx.range_pop if NVTX else (lambda: None)
 
 _TOOLS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools")
 
@@ -115,3 +126,28 @@ class DecodeProfiler:
 
     def __exit__(self, *exc):
         return False
+
+
+class CudaProfilerRange:
+    """cudaProfilerStart before chunk a, cudaProfilerStop once chunk b-1 has finished on every GPU."""
+
+    def __init__(self, n_chunks):
+        spec = os.environ.get("LINGBOT_PROFILE_CHUNKS", "")
+        self.lo = self.hi = -1
+        if ":" in spec:
+            lo, hi = spec.split(":")
+            self.lo, self.hi = int(lo), min(int(hi), n_chunks) - 1
+
+    def _sync(self):
+        for d in range(torch.cuda.device_count()):
+            torch.cuda.synchronize(d)
+
+    def before_chunk(self, chunk_id):
+        if chunk_id == self.lo:
+            self._sync()
+            torch.cuda.cudart().cudaProfilerStart()
+
+    def after_chunk(self, chunk_id):
+        if chunk_id == self.hi:
+            self._sync()
+            torch.cuda.cudart().cudaProfilerStop()

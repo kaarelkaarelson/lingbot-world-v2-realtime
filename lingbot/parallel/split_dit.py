@@ -21,6 +21,7 @@ import torch.nn.functional as F
 from lingbot.layers import kv_cache as kvc
 from lingbot.layers.attention import attention
 from lingbot.models.lingbot_world import transformer as T
+from lingbot.profiling import nvtx
 from wan.modules.model import sinusoidal_embedding_1d
 
 PIECES = int(os.environ.get("LINGBOT_SPLIT_PIECES", "4"))
@@ -31,6 +32,7 @@ SKIPGUARD = int(os.environ.get("LINGBOT_SPLIT_SKIPGUARD", "0"))
 # CUDA graphs for the steady-state forwards (KV window full): "pp" the compiled stages (+ the cat feeding them),
 # "1"/"all" also the attention section (KV write, SageAttention); the card-to-card exchange stays eager
 GRAPH = {"1": "all", "all": "all", "pp": "pp"}.get(os.environ.get("LINGBOT_SPLIT_GRAPH", "0"))
+_LN = [f"L{i}" for i in range(256)]                      # NVTX layer names (LINGBOT_NVTX=1)
 
 
 def _slice_rope(rope, a, b):
@@ -228,10 +230,11 @@ class SplitDiT:
     # --- forward --------------------------------------------------------------------------------------------
     def __call__(self, *a, **kw):
         self._calls = getattr(self, "_calls", 0) + 1
-        if SKIPGUARD and self._calls > SKIPGUARD:
-            with torch.compiler.set_stance("default", skip_guard_eval_unsafe=True):
-                return self._forward(*a, **kw)
-        return self._forward(*a, **kw)
+        with nvtx("fwd"):
+            if SKIPGUARD and self._calls > SKIPGUARD:
+                with torch.compiler.set_stance("default", skip_guard_eval_unsafe=True):
+                    return self._forward(*a, **kw)
+            return self._forward(*a, **kw)
 
     def _forward(self, x, t, context, seq_len, y=None, dit_cond_dict=None, kv_cache=None, crossattn_cache=None,
                  current_start=0, max_attention_size=1_000_000, frame_seqlen=None, cross_attn_first_call=None,
@@ -272,7 +275,8 @@ class SplitDiT:
             xs = self._layers_graph(V, xs, st, tok, current_start, max_attention_size, frame_seqlen, cam_first_call)
         else:
             for li in range(len(self.m[0].blocks)):
-                xs = self._layer(li, xs, st, tok, current_start, max_attention_size, frame_seqlen, cam_first_call)
+                with nvtx(_LN[li]):
+                    xs = self._layer(li, xs, st, tok, current_start, max_attention_size, frame_seqlen, cam_first_call)
         outs = []
         for c in (0, 1):
             with torch.cuda.stream(comp[c]):
@@ -315,14 +319,15 @@ class SplitDiT:
         qkv, inbox = [None, None], [None, None]
         for c in (0, 1):                                   # projections; send the peer's heads of my tokens
             p, ph = 1 - c, self.heads[1 - c]
-            with torch.cuda.stream(comp[c]):
+            with torch.cuda.stream(comp[c]), nvtx("pre"):
                 qkv[c] = _pre(self.m[c].blocks[li], xs[c], st[c]["e0"], st[c]["rope"])
                 pk = qkv[c][:, :, ph.start:ph.stop].contiguous()
-            inbox[p] = self.xch(c, pk)
+            with nvtx("send_qkv"):
+                inbox[p] = self.xch(c, pk)
         attn_own, back = [None, None], [None, None]
         for c in (0, 1):                                   # my heads over all tokens: KV cache, SageAttention
             oh = self.heads[c]
-            with torch.cuda.stream(comp[c]):
+            with torch.cuda.stream(comp[c]), nvtx("attn"):
                 buf, ev = inbox[c]
                 comp[c].wait_event(ev)
                 attn_own[c], back[c] = self._attend(c, li, qkv[c][:, :, oh.start:oh.stop], buf, tok, current_start,
@@ -330,11 +335,12 @@ class SplitDiT:
         self.xch.release()                                 # inbox consumed
         recv = [None, None]
         for c in (0, 1):
-            recv[1 - c] = self.xch(c, back[c])
+            with nvtx("send_back"):
+                recv[1 - c] = self.xch(c, back[c])
         out = [None, None]
         for c in (0, 1):                                   # assemble all heads of my tokens; o proj, cam, cross, FFN
             blk = self.m[c].blocks[li]
-            with torch.cuda.stream(comp[c]):
+            with torch.cuda.stream(comp[c]), nvtx("post"):
                 buf, ev = recv[c]
                 comp[c].wait_event(ev)
                 parts = [attn_own[c], buf] if c == 0 else [buf, attn_own[c]]   # heads 0..h0-1, then h0..H-1
