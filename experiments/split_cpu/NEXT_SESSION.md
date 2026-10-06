@@ -6,7 +6,7 @@ LINGBOT_SPLIT_PIECES=2 LINGBOT_SPLIT_ZEROCOPY=1`, torch 2.8 + cu128 (`.venv`), `
 set the chunk time (519 of 541 ms); card 1 is ~26 % idle. What was tried and why it failed: learnings 21-28 in
 `2X_RTX5090_LEARNINGS.md`.
 
-## 1. Bring the pod up (~2 min if it still exists)
+## 1. Bring a pod up (instance 54497707 was destroyed on 2026-10-06: start from a new one, ~20-30 min)
 
 ```bash
 vastai start instance 54497707          # see the vast-pod-guide skill; IP/port: vastai show instance 54497707 --raw
