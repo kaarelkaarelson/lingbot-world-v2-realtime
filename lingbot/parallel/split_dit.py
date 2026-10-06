@@ -22,6 +22,10 @@ from lingbot.models.lingbot_world import transformer as T
 from wan.modules.model import sinusoidal_embedding_1d
 
 PIECES = int(os.environ.get("LINGBOT_SPLIT_PIECES", "4"))
+# CPU-side knobs (the split is launch-bound): the compiled stages launch their kernels from generated C++ instead
+# of the Python wrapper; after SKIPGUARD forwards (shapes settled), Dynamo checks only the guards that pick a graph
+_OPTS = {"cpp_wrapper": True} if os.environ.get("LINGBOT_SPLIT_CPPWRAP") == "1" else None
+SKIPGUARD = int(os.environ.get("LINGBOT_SPLIT_SKIPGUARD", "0"))
 
 
 def _slice_rope(rope, a, b):
@@ -108,7 +112,7 @@ class _Exchange:
 
 # token-local stages, compiled once per card and shape (the block is a module argument, so all 30 layers share
 # a graph); SageAttention and the exchange run between them
-@torch.compile(dynamic=False)
+@torch.compile(dynamic=False, options=_OPTS)
 def _pre(blk, x, e0, rope):
     with torch.amp.autocast('cuda', dtype=torch.float32):
         e = (blk.modulation.unsqueeze(0) + e0).chunk(6, dim=2)
@@ -123,7 +127,7 @@ def _pre(blk, x, e0, rope):
     return torch.stack([q[0], k[0], v[0]])            # [3, tokens, heads, d]
 
 
-@torch.compile(dynamic=False)
+@torch.compile(dynamic=False, options=_OPTS)
 def _post(blk, x, attn, e0, cam_scale, cam_shift, ca_k, ca_v):
     with torch.amp.autocast('cuda', dtype=torch.float32):
         e = (blk.modulation.unsqueeze(0) + e0).chunk(6, dim=2)
@@ -142,7 +146,7 @@ def _post(blk, x, attn, e0, cam_scale, cam_shift, ca_k, ca_v):
     return x
 
 
-@torch.compile(dynamic=False)
+@torch.compile(dynamic=False, options=_OPTS)
 def _cam(blk, plucker):
     h = blk.cam_injector_layer2(F.silu(blk.cam_injector_layer1(plucker))) + plucker
     return blk.cam_scale_layer(h), blk.cam_shift_layer(h)
@@ -195,7 +199,14 @@ class SplitDiT:
         self._kv_src = kv_cache
 
     # --- forward --------------------------------------------------------------------------------------------
-    def __call__(self, x, t, context, seq_len, y=None, dit_cond_dict=None, kv_cache=None, crossattn_cache=None,
+    def __call__(self, *a, **kw):
+        self._calls = getattr(self, "_calls", 0) + 1
+        if SKIPGUARD and self._calls > SKIPGUARD:
+            with torch.compiler.set_stance("default", skip_guard_eval_unsafe=True):
+                return self._forward(*a, **kw)
+        return self._forward(*a, **kw)
+
+    def _forward(self, x, t, context, seq_len, y=None, dit_cond_dict=None, kv_cache=None, crossattn_cache=None,
                  current_start=0, max_attention_size=1_000_000, frame_seqlen=None, cross_attn_first_call=None,
                  cam_cache=None, cam_first_call=None):
         self._caches(kv_cache)
