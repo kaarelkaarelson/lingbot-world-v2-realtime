@@ -42,6 +42,19 @@ through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2
 - [x] **Token share decoupled from the head split: measured, a loss.** `LINGBOT_SPLIT_TOK`: card 0 at 0.80 / 0.78 /
   0.76 / 0.74 of the tokens gave 28.25 / 27.60 / 27.01 / 25.05 FPS vs 29.2 at the head ratio (0.833). Card 1 has no
   spare capacity for token-local work even on 48 SMs. Untested: the other direction (card 0 above 0.833).
+- [ ] **NEXT SESSION: two minimal measurements (~15 min of pod time), before building anything else.**
+  1. *Is card 0's attention wave tail real?* Kernel-only, old stack, original Sage wheel: time the attention kernel
+     alone (`qk_int_sv_f8_attn_kernel`, separated from Sage's quant kernels via torch.profiler) on q [1,h,6032,128],
+     k/v [1,h,27144,128] for h = 7 (1,344 warps: fits one wave of 1,360) and h = 10 (1,920 warps: 1.41 waves).
+     Tail real if time(10) is close to time(7) x 2 waves / 1 wave scaled, i.e. ~1.4x time(7) or more; no tail if it
+     scales ~10/7. Also `cuobjdump --dump-resource-usage` on the installed `_qattn_sm89*.so` for the kernel's
+     registers (255 assumed; never confirmed on the cu128 build). Decides whether attention work is worth more effort.
+  2. *Did the token-share sweep lose to card 1's GEMM wave quantization?* At the head ratio card 1 has 1,006 tokens
+     = 8 tiles of 128 -> its 1536-wide GEMMs launch 96 blocks = exactly 2 waves on 48 SMs; at share 0.80 it has 1,207
+     tokens = 10 tiles -> 120 blocks = 3 waves. One config lands on whole waves: card 1 at 1,536 tokens = 12 tiles =
+     144 blocks = 3 waves, i.e. `LINGBOT_SPLIT_TOK=0.7454` (n0 = 4,496). Run it (3 warm, copy-free on, SMS 48) vs
+     29.8-29.9 FPS. If it still loses, capture the 0.80 run (`LINGBOT_WORKER_NSYS=1`) and read card 1's GEMM grids
+     with `tools/nsys_to_perfetto.py` (click a GEMM: grid, waves). Decides whether card 1's idle ~26 % is reachable.
 - [x] **Copy-free q|k|v assembly** (`LINGBOT_SPLIT_ZEROCOPY=1`): +0.85 % (29.50 -> 29.75 FPS), 43 dB vs off
   (cross-process band). Keep on. Was: built, untested. Drops the pre-attention `cat`
   and the send-side `.contiguous()`; the output-side cat only moved into a compiled stage. Gate: bit-identical to
