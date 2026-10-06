@@ -1,0 +1,13 @@
+date	pod	layout	config	warm_fps_runs	fps_median	quality_vs_ref	notes
+2026-10-05	vast 54397113 (2x5090, 500 W, no P2P)	one card	--preset fast	-	15.7	reference	DiT 0.666 s/chunk
+2026-10-05	vast 54397113	B1 pipeline (decoder on card 1)	--decoder_gpu 1	-	24.04	byte-identical to one card	warm worker
+2026-10-05	vast 54397113	classic split 6:6, decoder after DiT on card 0	LINGBOT_SPLIT=6:6 --decoder_gpu 0	-	14.04	31.0 dB / LPIPS 0.017 first chunk vs B1	
+2026-10-05	vast 54397113	split 10:2 + green contexts	LINGBOT_SPLIT=10:2	-	17.64	30.4 dB / 0.017 first chunk vs B1	CPU-bound
+2026-10-05	vast 54397113	split 10:2 + GC	+ reused exchange buffers	19.04/18.81/18.95	18.95	43 dB vs previous split	
+2026-10-05	vast 54397113	split 10:2 + GC	+ LINGBOT_SPLIT_CPPWRAP=1	20.38/22.43/22.65	22.43	43.0 dB / 0.002 vs base	
+2026-10-05	vast 54397113	split 10:2 + GC	+ LINGBOT_SPLIT_SKIPGUARD=50	19.49/16.76/17.74	17.74	43.1 dB / 0.002 vs base	no gain alone
+2026-10-05	vast 54397113	split 10:2 + GC	+ LINGBOT_SPLIT_PIECES=2	19.61/19.47/19.27	19.47	43.0 dB / 0.002 vs base	
+2026-10-05	vast 54397113	split 10:2 + GC	+ all three	24.42/25.03/25.79	25.03	43.1 dB / 0.002 vs base	best; beats B1
+2026-10-05	vast 54397113	split 10:2 + GC	+ decoder CUDA graph (reverted)	17.00/16.74	-	last chunk wrong (9-18 dB)	reverted
+2026-10-05	vast 54397113	B1	+ decoder CUDA graph (reverted)	23.77	-	last chunk wrong	reverted
+2026-10-05	vast 54397113	split 10:2 + GC	worker pinned to socket of card 0 / card 1 / any	16.9-17.1 / 17.3-18.7 / 16.3-18.7	-	-	pinning no effect
