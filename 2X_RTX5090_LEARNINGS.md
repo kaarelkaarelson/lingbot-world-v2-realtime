@@ -256,6 +256,21 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    48 and 56 are equal, so card 0 is the limit again and the decoder still keeps up on 122 SMs. 29.21 FPS is
    +15.7 % over B1 (25.25) on this pod; first chunk vs B1 30.9 dB, LPIPS 0.015 (passes). Default changed to
    `LINGBOT_SPLIT_SMS=48`.
+27. **What the 27.7 FPS trace shows per kernel (card 1 on 40 SMs; `tools/nsys_to_perfetto.py`, `tools/gap_report.py`).**
+   - **Wave quantization.** SageAttention uses 255 registers per thread, so 2 blocks fit per SM: card 0's 480
+     blocks on 170 SMs run 1.41 waves (last wave 71 % full), card 1's 96 on 40 SMs 1.2 waves (60 %). Card 1's FP8 GEMM
+     (1 block per SM, 96 blocks) ran 2.4 waves. At 48 SMs both fit whole waves, which matches the +5 % of learning 26.
+   - **MFU (clock-adjusted peaks, FLOP model `experiments/split_cpu/flops_split_10_2.json`):** card 0 FP8 GEMMs 86 %,
+     attention 64 %; card 1 74 % and 55 % of its 40-SM share.
+   - **The decoder slows card 1's DiT despite the SM partition:** per-layer MFU with the decoder running vs idle,
+     card 1 GEMMs 69 vs 83 %, attention 51 vs 61 %; card 0 unchanged. Green contexts split SMs, not DRAM bandwidth or
+     L2. The decoder runs in a ~415 ms burst at the start of each chunk, and the first forward of every chunk takes
+     ~128 ms on card 0 vs ~107-118 for the others.
+   - **Waiting per chunk:** card 0 ~50 ms (meeting points 37: before attention for the peer's q|k|v, after it for
+     the peer's outputs; ~1.6 ms hole at each forward start 8), card 1 ~92 ms (mostly ~450 us before each attention,
+     waiting for card 0's q|k|v, because its projections cover only 1/6 of the tokens).
+   - Next levers: spread the decoder (fewer SMs, no burst), overlap the meeting-point waits (send heads in groups),
+     fix card 0's attention wave tail (head split or KV-split kernel).
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:
