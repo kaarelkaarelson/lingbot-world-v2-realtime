@@ -155,13 +155,21 @@ class SplitDiT:
         devs, comp = self.devs, self.comp
         comp[1].wait_stream(torch.cuda.current_stream(devs[1]))
         pl = dit_cond_dict["c2ws_plucker_emb"] if dit_cond_dict else None
+        # inputs to card 1 through the async pinned exchange: a cross-device .to() without P2P holds the CPU
+        # (~25 ms per forward measured), starving both cards of launches
+        ins = [x[0], y[0], t] + (list(pl) if pl is not None else [])
+        with torch.cuda.stream(comp[0]):
+            sent = [self.xch(0, u.contiguous()) for u in ins]
+        with torch.cuda.stream(comp[1]):
+            for _, ev in sent:
+                comp[1].wait_event(ev)
+        r1 = [b for b, _ in sent]
+        args = [([x[0]], t, [y[0]], pl), ([r1[0]], r1[2], [r1[1]], r1[3:] if pl is not None else None)]
         st = [None, None]
         for c in (0, 1):
             with torch.cuda.stream(comp[c]):
-                mv = (lambda a: a.to(devs[c], non_blocking=True)) if c else (lambda a: a)
-                st[c] = self._prelude(self.m[c], [mv(u) for u in x], mv(t), [mv(u) for u in y],
-                                      [mv(u) for u in pl] if pl is not None else None, current_start, frame_seqlen,
-                                      cam_first_call)
+                xx, tt, yy, pp = args[c]
+                st[c] = self._prelude(self.m[c], xx, tt, yy, pp, current_start, frame_seqlen, cam_first_call)
         L_tok = st[0]["L"]
         n0 = L_tok * self.h0 // self.m[0].num_heads          # card 0's share of the tokens, same ratio as heads
         tok = [range(0, n0), range(n0, L_tok)]
