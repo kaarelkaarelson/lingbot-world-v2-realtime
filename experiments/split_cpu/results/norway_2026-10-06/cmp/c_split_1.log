@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 15:57:04,375] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:03,  2.54it/s] 20%|##        | 2/10 [00:00<00:03,  2.56it/s] 30%|###       | 3/10 [00:01<00:02,  2.34it/s] 40%|####      | 4/10 [00:01<00:02,  2.11it/s] 50%|#####     | 5/10 [00:02<00:02,  1.95it/s] 60%|######    | 6/10 [00:02<00:02,  1.85it/s] 70%|#######   | 7/10 [00:03<00:01,  1.80it/s] 80%|########  | 8/10 [00:04<00:01,  1.77it/s] 90%|######### | 9/10 [00:04<00:00,  1.74it/s]100%|##########| 10/10 [00:05<00:00,  1.73it/s]100%|##########| 10/10 [00:05<00:00,  1.88it/s]
+[2026-10-06 15:57:10,410] INFO: Saving generated video to /workspace/runs/cmp/c_split_1.mp4
+BENCH_E2E trial 1: 27.17 FPS (interval p50 589.0 ms, p95 589.8, p99 589.9; 5 steady chunks), first frame 991 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 27.17 FPS, 10.49 MPPS, interval p95 589.8 ms, first frame 991 ms (cold: includes compile)
+[worker] run took 7.9 s
+

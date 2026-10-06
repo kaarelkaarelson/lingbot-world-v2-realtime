@@ -42,6 +42,14 @@ other) or the sequence (each card takes a share of the tokens and attention head
 | … + Inductor `cpp_wrapper` | 22.4 |
 | **… + guard skipping + 2 transfer pieces** | **25.0** |
 
+On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
+
+| Layout | FPS |
+|---|---|
+| Pipeline (B1) | 25.3 |
+| Sequence split 10:2, all of the above | 27.7 |
+| **… + no host sync per forward + 48 SMs for card 1's DiT share** | **29.2** |
+
 ## How the world model works
 
 The model generates video by predicting one chunk of 16 frames at a time. For each chunk:

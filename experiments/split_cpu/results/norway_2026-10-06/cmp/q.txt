@@ -1,0 +1,15 @@
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=AlexNet_Weights.IMAGENET1K_V1`. You can also use `weights=AlexNet_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+c_split_1:o_s_1	frames 157	per-chunk PSNR 28.6 25.3 24.9 24.4 25.0 24.9 24.7 24.3 23.7 31.2
+c_split_1:o_b1_1	frames 157	per-chunk PSNR 30.8 27.9 26.4 24.1 24.3 24.2 23.6 22.7 23.5 29.6
+c_b1mk0_1:o_b1mk0_1	frames 157	per-chunk PSNR 28.0 23.0 21.4 23.6 22.8 22.9 24.0 23.3 23.1 22.9
+o_b1mk0_1:o_b1_1	frames 157	per-chunk PSNR 29.8 21.9 20.4 22.0 22.5 23.0 23.1 22.5 22.9 51.2
+c_split_2:c_split_1	frames 157	per-chunk PSNR 148.1 148.1 148.1 148.1 148.1 148.1 148.1 148.1 148.1 148.1
+pair	frames	psnr_chunk1	lpips_chunk1	psnr_clip	meandiff_clip_255	lpips_clip	psnr_last_chunk	lpips_last_chunk	sharp_chunk1	sharp_chunk1_ref	sharp_clip	sharp_clip_ref	flicker	flicker_ref
+c_split_1:o_s_1	157	28.58	0.0210	25.70	7.05	0.0954	31.19	0.3716	898	907	692	887	8.28	8.89
+c_split_1:o_b1_1	157	30.83	0.0169	25.71	7.09	0.1239	29.55	0.5904	898	894	692	745	8.28	8.92
+c_b1mk0_1:o_b1mk0_1	157	28.03	0.0220	23.50	8.50	0.1496	22.86	0.6396	894	912	864	754	9.50	8.80
+o_b1mk0_1:o_b1_1	157	29.80	0.0202	25.93	8.01	0.0963	51.16	0.0778	912	894	754	745	8.80	8.92
+c_split_2:c_split_1	157	148.13	0.0000	148.13	0.00	0.0000	148.13	0.0000	898	898	692	692	8.28	8.28

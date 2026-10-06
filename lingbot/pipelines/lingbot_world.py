@@ -231,7 +231,7 @@ class LingBotWorldPipeline:
             else:
                 from lingbot.parallel.split_dit import SplitDiT
             # decoder on card 1 shares it through SM partitions; decoder on card 0 runs after the DiT (classic split)
-            sms = int(os.environ.get("LINGBOT_SPLIT_SMS", "40")) if decoder_device_id == 1 else 0
+            sms = int(os.environ.get("LINGBOT_SPLIT_SMS", "48")) if decoder_device_id == 1 else 0
             self.model = SplitDiT(self.model, h0=int(split.split(":")[0]), dit_sms=sms)
             logging.info(f"DiT split {split} across cuda:0/1; card 1: {self.model.sms[0]} SMs DiT, {self.model.sms[1]} SMs decoder")
         compile_mode = None if split else os.environ.get("LINGBOT_TORCH_COMPILE")

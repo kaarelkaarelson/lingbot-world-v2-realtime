@@ -16,3 +16,6 @@ date	pod	layout	config	warm_fps_runs	fps_median	quality_vs_ref	notes
 2026-10-06	vast 54497707	split 10:2 + GC + 3 switches	torch 2.14 cu130 + flash 2.8.3	27.17/27.12/27.05	27.12	30.8 dB / 0.017 vs B1	cu130 -2.2%
 2026-10-06	vast 54497707	B1, multi_kernel off	torch 2.8 cu128	25.01/24.98/24.83	24.98	29.8 dB vs B1 mk on	
 2026-10-06	vast 54497707	B1, multi_kernel off	torch 2.14 cu130 + flash 2.8.3	25.24/25.16/25.11	25.16	28.0 dB vs cu128 same config	multi_kernel on crashes on cu130
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches + host-sync fix	SMS 40, torch 2.8	27.88/27.85/27.80	27.85	43 dB vs before (cross-process)	
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches + host-sync fix	SMS 48, torch 2.8	29.26/29.21/29.09	29.21	30.9 dB / 0.015 first chunk vs B1	best
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches + host-sync fix	SMS 56, torch 2.8	29.12/29.16/29.09	29.12	30.9 dB / 0.015 vs B1	plateau

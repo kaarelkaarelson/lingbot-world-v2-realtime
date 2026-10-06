@@ -243,6 +243,19 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    `LINGBOT_MULTI_KERNEL=0` for the whole-model compile (torch 2.14's Triton crashes in multi_kernel's cache
    key). First chunk, cu130 split vs B1: 30.8 dB, LPIPS 0.017 (passes); same config across stacks: 28-29 dB,
    the same size of change as switching `multi_kernel` off alone (29.8 dB).
+26. **Card 1 was the slower partner: 48 SMs for its DiT share gives 29.2 FPS.** Same pod, torch 2.8, median of 3
+   warm runs. The timeline showed card 0 waiting for card 1 at both per-layer meeting points; green contexts
+   allocate SMs in groups of 8:
+
+   | Card 1 DiT / decoder SMs (with the host-sync fix) | Warm FPS | Median |
+   |---|---|---|
+   | 40 / 130 | 27.88 / 27.85 / 27.80 | 27.85 (+0.4 % from the sync fix alone; ~2 % was expected) |
+   | **48 / 122** | **29.26 / 29.21 / 29.09** | **29.21** |
+   | 56 / 114 | 29.12 / 29.16 / 29.09 | 29.12 |
+
+   48 and 56 are equal, so card 0 is the limit again and the decoder still keeps up on 122 SMs. 29.21 FPS is
+   +15.7 % over B1 (25.25) on this pod; first chunk vs B1 30.9 dB, LPIPS 0.015 (passes). Default changed to
+   `LINGBOT_SPLIT_SMS=48`.
 12. **Engineering traps found on the way.** A cross-device `copy_` without P2P holds the CPU (~200 µs per
    9 MB, 38 µs for a tiny one), so it cannot sit in a loop that also launches compute; explicit pinned
    staging enqueues in ~6 µs. SageAttention does not order all its work after a custom current stream:
