@@ -25,6 +25,23 @@ A 1.3B world model running at **<!-- n:fps_ours -->16.1<!-- /n --> FPS on one RT
 
 Measured with `lingbot bench` on a stock RunPod RTX 5090 (2026-09-17).
 
+## 2× RTX 5090: pipeline and sequence parallelism
+
+Frames per second with the decoder streaming, one Vast pod (2× RTX 5090, 500 W cap, PCIe, no P2P),
+median of 3 warm runs. Not tensor parallelism: the cards split the pipeline (DiT on one, decoder on the
+other) or the sequence (each card takes a share of the tokens and attention heads). Full log:
+[`experiments/split_cpu/results/fps_log_2026-10-05.tsv`](experiments/split_cpu/results/fps_log_2026-10-05.tsv).
+
+| Layout | FPS |
+|---|---|
+| One card | 15.7 |
+| Classic split 6:6, decoder after the DiT on card 0 | 14.0 |
+| **Pipeline (B1): DiT on card 0, decoder on card 1** | **24.0** |
+| Sequence split 10:2 + green contexts, decoder on card 1 | 17.6 |
+| … + reused transfer buffers | 19.0 |
+| … + Inductor `cpp_wrapper` | 22.4 |
+| **… + guard skipping + 2 transfer pieces** | **25.0** |
+
 ## How the world model works
 
 The model generates video by predicting one chunk of 16 frames at a time. For each chunk:
@@ -178,23 +195,6 @@ What worked. Details and the negative results: [`2X_RTX5090_LEARNINGS.md`](2X_RT
 | SageAttention stream fix | all 21 kernel launches use the current stream ([`patches/`](patches/sageattention-current-stream.patch)), so the DiT can run at high priority | kernel wait-to-start 31.35 → **2.31 ms** per layer; same output |
 | **Split 10:2 + green contexts, full pipeline** | the split above with the decoder on card 1's 130-SM partition; Inductor `cpp_wrapper`, guard skipping after warm-up, 2 transfer pieces, reused transfer buffers | 17.64 → **25.03 FPS** (B1 on the same pod: 24.04); quality inside the noise band |
 | Warm bench worker | `python -m lingbot.worker run -- …` keeps weights and compiled model per code hash | repeat run **14 s** instead of ~150 s, same numbers |
-
-## 2× RTX 5090: pipeline and sequence parallelism
-
-Frames per second with the decoder streaming, one Vast pod (2× RTX 5090, 500 W cap, PCIe, no P2P),
-median of 3 warm runs. Not tensor parallelism: the cards split the pipeline (DiT on one, decoder on the
-other) or the sequence (each card takes a share of the tokens and attention heads). Full log:
-[`experiments/split_cpu/results/fps_log_2026-10-05.tsv`](experiments/split_cpu/results/fps_log_2026-10-05.tsv).
-
-| Layout | FPS |
-|---|---|
-| One card | 15.7 |
-| Classic split 6:6, decoder after the DiT on card 0 | 14.0 |
-| **Pipeline (B1): DiT on card 0, decoder on card 1** | **24.0** |
-| Sequence split 10:2 + green contexts, decoder on card 1 | 17.6 |
-| … + reused transfer buffers | 19.0 |
-| … + Inductor `cpp_wrapper` | 22.4 |
-| **… + guard skipping + 2 transfer pieces** | **25.0** |
 
 ## Presets
 
