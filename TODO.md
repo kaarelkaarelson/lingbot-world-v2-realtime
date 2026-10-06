@@ -5,16 +5,22 @@
 Link facts and every measurement: `2X_RTX5090_LEARNINGS.md`. No P2P on GeForce; the cards talk
 through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2e`, same pod).
 
-- [ ] **B1: DiT on card 0, decoder on card 1.** Send each chunk's 4 clean latents (0.77 MB) to card 1
-  and decode there while card 0 denoises the next chunk. Predicted ~25 FPS (1.55×); raises frame rate,
-  not latency. Lives in `lingbot/parallel/` as a layout in `ParallelConfig`.
-- [ ] **B2: sequence parallelism (Ulysses) with a copy-engine exchange, not NCCL all-to-all.** Wrap the
-  attention call: split tokens across the cards, exchange halves around attention with `copy_` on two
-  streams (181 µs per 9.3 MB exchange vs NCCL all-to-all's 484 µs; works with one process per card via
-  CUDA IPC). Predicted 19.5 FPS without overlap, up to 24 with it.
-- [ ] **B2 + B1 combined**: DiT split across both cards, decoder overlapped on one of them.
-- [ ] **Overlap of exchange and compute**: measure inside the real model (pieces pipelined against
-  attention), or with CUDA graphs; the Python micro-benchmark was launch-bound and inconclusive.
+- [x] **B1: DiT on card 0, decoder on card 1.** 25.69 FPS vs 16.86 on one card (1.52×, predicted
+  1.55×), byte-identical to one card in the deterministic config (`--decoder_gpu 1`, 2026-10-05).
+- [ ] **B3-balanced: uneven sequence parallelism, decoder on card 1.** Card 0 takes 9 of 12 heads and 75 %
+  of the tokens, card 1 takes 3 heads plus the decoder; both then carry ~0.48 s per chunk. Needs Ulysses
+  in our fast DiT first (only `reference/` has it). Without overlap it only ties B1 (exchange is
+  145-186 ms per chunk); with overlap the ceiling is ~33 FPS.
+- [ ] **Overlap the exchange with attention**, a few heads at a time, so attention starts on the heads
+  that have arrived. This is what makes B3-balanced worth building. Measure on one real layer
+  (real Sage, real `copy_` exchange) before building the full layout; the Python micro-benchmark was
+  launch-bound and inconclusive.
+- B2 (even split, decoder after the DiT) is dropped: ~19.5 FPS, slower than B1.
+- [ ] **Deferred: lossless 8-bit q/k exchange.** The version that dequantizes on the receiver is not
+  lossless: +10-14 % attention error with q, k in 8 bits, +36-47 % with v too (learning 9). A lossless
+  version would quantize once with SageAttention's own quantizer on the sender and feed the int8 values
+  straight into Sage's pre-quantized kernel, with an int8 KV cache. Worth ~+1 FPS inside B3-balanced;
+  revisit only after overlap.
 - [ ] **Report NCCL's all-to-all drop on SHM** (10 GB/s at 4-10 MB, 25 GB/s above; NCCL 2.27.3 to
   2.32.3, every protocol/algorithm/channel setting) upstream with `tools/linkbench/nccl.py`.
 - [ ] **Rerun `tools/linkbench/run.sh` on every new 2-GPU pod** (topology can differ: `PIX`, `NODE`, `SYS`).

@@ -97,6 +97,25 @@ reduce-scatter and broadcast. `NCCL_SHM_DISABLE=1` falls back to sockets and is 
    ms per chunk (-26%). Packing in bf16 alone saves little (922 µs). `tools/linkbench/quant_a2a.py`,
    data in `bench/2x_rtx5090_link/quant_a2a.tsv`. Untested: numerics inside SageAttention (its K
    smoothing needs one mean shared by both halves, e.g. the previous step's).
+9. **8-bit q/k/v that is dequantized on the receiver is not lossless.** The receiver turns the int8
+   values back into bf16 and SageAttention rounds them again with its own, finer blocks, so the errors
+   stack. On one real forward (chunk 7, window full), attention-output error against exact fp32
+   attention, layers 0/10/20/29:
+
+   | | Sage today | + q, k int8 | + q, k int8, v fp8 |
+   |---|---|---|---|
+   | error | 0.90-2.41 % | 1.02-2.74 % | 1.39-3.53 % |
+   | vs today | | +10-14 % | +36-47 % |
+
+   Rollouts agree: first-chunk PSNR against one-card `fast` is 27.0/31.1/27.8 dB for q, k and
+   27.5/29.0/25.6 for q, k, v, against a run-to-run band of 29.9-31.9. `experiments/a2a8/`
+   (`attn_probe.py`, `score_pairs.py`, `results/`), measured on a Vast 2× 5090 (500 W cap).
+10. **Hosts differ in ways the listing does not show.** Vast m:150233 (Taiwan) has the same link
+   bandwidth as the RunPod pod (PCIe 5.0 ×16, 56 GB/s host to card) but its cards sit on different CPU
+   sockets (`SYS`): a 9.3 MB exchange takes 207 µs vs 161-184, the empty-message floor 140 µs vs
+   97-121. Its cards are also capped at 500 W (default 575), which makes the model 7 % slower
+   (0.667 vs 0.624 s per chunk) while a short matmul still reaches 227 TFLOP/s. Read the power limit
+   (`nvidia-smi -q -d POWER`) and topology on every new pod.
 
 ## What it means for splitting LingBot-World 2.0 across the two cards
 
