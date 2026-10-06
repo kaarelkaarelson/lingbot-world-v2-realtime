@@ -1,0 +1,15 @@
+{
+ "note": "10:2 split, 6032 tokens/forward, KV window 27144; gemm per layer = tokens x 83.4 MFLOP (qkvo, cross q/o, FFN; camera GEMMs once per chunk not modelled); attention = 4 x 6032 x 27144 x 128 x heads; peaks = spec x 1.10 (pod check: bf16 matmul 231 vs 209.5 TFLOP/s spec): FP8 GEMM fp32-acc 462, Sage INT8 QK / FP8 PV 924 (assumes fp16 accumulation)",
+ "peak_gemm": 462,
+ "peak_attn": 924,
+ "devices": {
+  "0": {
+   "gemm": 418976366592,
+   "attn": 838310952960
+  },
+  "1": {
+   "gemm": 83861962752,
+   "attn": 167662190592
+  }
+ }
+}
