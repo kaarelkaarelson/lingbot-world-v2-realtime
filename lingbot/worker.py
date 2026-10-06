@@ -10,6 +10,11 @@ changes the hash, or how the pipeline is built (checkpoint, window, sink, T5 on 
 stops the old one first so two never hold the GPUs. Per-run settings that leave the compiled model alone run
 warm: --bench / --bench_e2e, --frame_num, --decoder_gpu, prompt, image, seed, output file.
 
+LINGBOT_WORKER_PYSPY=1 starts the worker under py-spy (containers block attaching to a running process, so the
+profiler has to be the parent). The profile is written when the worker stops, next to its log. Each run executes
+inside `_cold_run` (first run of the worker: includes compile) or `_warm_run`, so a steady-state breakdown is
+`pyspy_breakdown.py <file> --under "_warm_run"` (gpu-profiling skill).
+
 Not handled here (run lingbot.generate directly): --preset stock and torchrun launches.
 """
 import glob
@@ -98,7 +103,12 @@ def _ensure_worker(key, preset):
         return path
     log = path.replace(".sock", ".log")
     print(f"[worker] starting worker {key} (cold start: load + compile on first run); log {log}", flush=True)
-    subprocess.Popen([sys.executable, "-m", "lingbot.worker", "serve", key, preset], cwd=os.getcwd(),
+    cmd = [sys.executable, "-m", "lingbot.worker", "serve", key, preset]
+    if os.environ.get("LINGBOT_WORKER_PYSPY") == "1":
+        prof = path.replace(".sock", f"-{time.strftime('%H%M%S')}.pyspy.txt")
+        cmd = ["py-spy", "record", "--rate", "250", "--format", "raw", "--nonblocking", "-o", prof, "--", *cmd]
+        print(f"[worker] profiling with py-spy; written to {prof} when the worker stops", flush=True)
+    subprocess.Popen(cmd, cwd=os.getcwd(),
                      stdout=open(log, "a"), stderr=subprocess.STDOUT, start_new_session=True)
     for _ in range(600):
         if os.path.exists(path):
@@ -164,6 +174,14 @@ class _Stream:
         return False
 
 
+def _cold_run(G, args, pipe, cfg):
+    G.run_generation(args, pipe, cfg)
+
+
+def _warm_run(G, args, pipe, cfg):
+    G.run_generation(args, pipe, cfg)
+
+
 def serve(key, preset):
     path = _sock(key)
     stream = _Stream()
@@ -176,7 +194,7 @@ def serve(key, preset):
     import lingbot.generate as G
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s",
                         handlers=[logging.StreamHandler(stream)], force=True)
-    pipe, built_with = None, None
+    pipe, built_with, runs = None, None, 0
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     if os.path.exists(path):
         os.remove(path)
@@ -226,7 +244,8 @@ def serve(key, preset):
                         if hasattr(pipe, attr):
                             delattr(pipe, attr)
                     t = time.perf_counter()
-                    G.run_generation(args, pipe, cfg)
+                    (_warm_run if runs else _cold_run)(G, args, pipe, cfg)
+                    runs += 1
                     torch.cuda.synchronize()
                     print(f"[worker] run took {time.perf_counter() - t:.1f} s")
             except SystemExit as e:

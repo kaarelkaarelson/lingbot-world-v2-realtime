@@ -15,3 +15,4 @@ python -m lingbot.worker stop     # free the GPUs when done
 - Keep both GPUs visible (don't set `CUDA_VISIBLE_DEVICES` per run): it is part of the hash, so changing it restarts the worker. Use `--decoder_gpu 1` for two-card runs.
 - Not supported: `--preset stock` and `torchrun`; run `python -m lingbot.generate` directly for those.
 - Worker logs: `/tmp/lingbot-worker-<hash>.log`.
+- CPU profile of warm runs: `LINGBOT_WORKER_PYSPY=1 python -m lingbot.worker run -- ...` (twice or more), then `python -m lingbot.worker stop`; the py-spy file lands next to the log. Analyse only `_warm_run` (the first run includes compile): `python ~/.claude/skills/gpu-profiling/scripts/pyspy_breakdown.py <file> --under "_warm_run" --depth 3`. `py-spy --pid` attach is blocked in containers.
