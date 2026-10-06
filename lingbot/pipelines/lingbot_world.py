@@ -212,7 +212,11 @@ class LingBotWorldPipeline:
         # Rowwise FP8 for the large Linears (plain buffers + torch._scaled_mm). Needs torch.compile
         # to fuse the activation quantisation; eager FP8 is slower than bf16 on this card.
         fp8 = os.environ.get("LINGBOT_FP8")
-        if fp8 in ("1", "mx"):
+        if fp8 == "mx_ffn":  # MXFP8 for the FFN only, rowwise FP8 for the projections
+            n_mx = sum(convert_to_fp8(b.ffn, mx=True)[0] for b in self.model.blocks)
+            n_fp8, n_all = convert_to_fp8(self.model.blocks)
+            logging.info(f"FP8 MX on {n_mx} FFN Linear layers, rowwise on the other {n_fp8}")
+        elif fp8 in ("1", "mx"):
             n_fp8, n_all = convert_to_fp8(self.model.blocks, mx=fp8 == "mx")
             logging.info(f"FP8 {'MX (per-32 block scales)' if fp8 == 'mx' else 'rowwise'} enabled on {n_fp8} of {n_all} Linear layers")
 
