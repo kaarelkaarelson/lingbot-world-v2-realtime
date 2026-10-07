@@ -1,0 +1,12 @@
+{
+ "hiprio": true,
+ "dec_alone_wall_ms": 355.4805908203125,
+ "dec_kernels": 571,
+ "split_alone_ms": 3.1431679725646973,
+ "split_with_dec_ms": 4.692224025726318,
+ "card1_dit_ms_per_layer_with_dec": 2.3342814166666668,
+ "dec_frac_in_window": 0.10921321954210396,
+ "window_ms": 49.8786650390625,
+ "dec_shared_ms_per_chunk": 456.70904354058746,
+ "chunk_s": 0.6222497336201852
+}

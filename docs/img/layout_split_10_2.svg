@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="132" viewBox="0 0 760 132" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12">
+<rect width="760" height="132" fill="#ffffff"/>
+<text x="140" y="23.0" text-anchor="end" fill="#222222">card 0</text>
+<rect x="150" y="6" width="594" height="26" rx="3" fill="#ececec"/>
+<rect x="151.0" y="6" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="203.0" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 1</text>
+<rect x="257.0" y="6" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="308.9" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 2</text>
+<rect x="362.9" y="6" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="414.9" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 3</text>
+<rect x="468.9" y="6" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="520.8" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 4</text>
+<rect x="574.8" y="6" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="626.8" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 5</text>
+<rect x="680.8" y="6" width="62.2" height="26" rx="3" fill="#3a6ea5"/>
+<text x="711.9" y="23.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 6</text>
+<text x="140" y="57.0" text-anchor="end" fill="#222222">card 1 · 48 SMs</text>
+<rect x="150" y="40" width="594" height="26" rx="3" fill="#ececec"/>
+<rect x="151.0" y="40" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="203.0" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 1</text>
+<rect x="257.0" y="40" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="308.9" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 2</text>
+<rect x="362.9" y="40" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="414.9" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 3</text>
+<rect x="468.9" y="40" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="520.8" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 4</text>
+<rect x="574.8" y="40" width="104.0" height="26" rx="3" fill="#3a6ea5"/>
+<text x="626.8" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 5</text>
+<rect x="680.8" y="40" width="62.2" height="26" rx="3" fill="#3a6ea5"/>
+<text x="711.9" y="57.0" text-anchor="middle" fill="#ffffff" font-weight="600">DiT 6</text>
+<text x="140" y="91.0" text-anchor="end" fill="#222222">card 1 · 122 SMs</text>
+<rect x="150" y="74" width="594" height="26" rx="3" fill="#ececec"/>
+<rect x="257.0" y="74" width="83.1" height="26" rx="3" fill="#8c2f39"/>
+<text x="298.5" y="91.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 1</text>
+<rect x="362.9" y="74" width="83.1" height="26" rx="3" fill="#8c2f39"/>
+<text x="404.5" y="91.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 2</text>
+<rect x="468.9" y="74" width="83.1" height="26" rx="3" fill="#8c2f39"/>
+<text x="510.4" y="91.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 3</text>
+<rect x="574.8" y="74" width="83.1" height="26" rx="3" fill="#8c2f39"/>
+<text x="616.4" y="91.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 4</text>
+<rect x="680.8" y="74" width="62.2" height="26" rx="3" fill="#8c2f39"/>
+<text x="711.9" y="91.0" text-anchor="middle" fill="#ffffff" font-weight="600">dec 5</text>
+<text x="150.0" y="118" text-anchor="middle" fill="#666666">0 s</text>
+<text x="249.0" y="118" text-anchor="middle" fill="#666666">0.5 s</text>
+<text x="348.0" y="118" text-anchor="middle" fill="#666666">1 s</text>
+<text x="447.0" y="118" text-anchor="middle" fill="#666666">1.5 s</text>
+<text x="546.0" y="118" text-anchor="middle" fill="#666666">2 s</text>
+<text x="645.0" y="118" text-anchor="middle" fill="#666666">2.5 s</text>
+<text x="744.0" y="118" text-anchor="middle" fill="#666666">3 s</text>
+</svg>

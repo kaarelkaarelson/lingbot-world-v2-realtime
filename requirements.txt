@@ -18,6 +18,8 @@ numpy<2
 safetensors
 torchao==0.13.0
 huggingface_hub[cli]
+cuda-bindings==12.8.*      # CUDA green contexts for the two-GPU split (lingbot/parallel/greenctx.py)
+lpips                       # quality scoring (experiments/a2a8/score_pairs.py)
 pygame==2.6.1               # `lingbot play` window (falls back to OpenCV's imshow without it)
-# SageAttention 2.2 (sm_120 wheel) and flash_attn 2.8.3 (optional; cross-attention
-# falls back to SDPA without it) are installed by setup.sh from the GitHub release.
+# SageAttention 2.2 (sm_120 wheel) and flash_attn 2.8.3 (the reference's cross-attention kernel; without it
+# cross-attention falls back to PyTorch SDPA) are installed by setup.sh from the GitHub release.

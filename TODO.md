@@ -1,5 +1,112 @@
 # To-do
 
+## Bench harness: warm workers keyed by code hash (after the split build)
+
+Measured on the Vast pod (2026-10-06): a ~2.5 min run is ~10 s of generation; the rest is start-up, weight
+loading (~30-50 s), Dynamo tracing (~35-50 s, redone in every process) and Inductor compile (0 s warm, ~250 s
+cold for new graphs). Inductor already caches by graph hash; loading and tracing are what repeat.
+
+- [x] Built: `lingbot/worker.py` (learning 20). Repeat runs 14 s instead of ~150 s, results match direct runs.
+- [x] One long-lived worker per **code hash** (git tree + `LINGBOT_*` env): keeps weights loaded and the model
+  compiled; runs every config that doesn't change compiled code (chunk count, decoder card, prompt, repeats)
+  in ~10-20 s instead of ~2.5 min. A changed hash starts a new worker (load + trace ~1.5 min; unchanged kernels
+  still hit Inductor's cache). Restart on any change so a worker never serves stale code.
+- [ ] Prompt-embedding cache keyed by a hash of the prompt.
+- [ ] Group sweep entries by code hash, not by preset (supersedes the per-preset `--sweep` design).
+
+## Two GPUs: 2× RTX 5090 over PCIe (Phase 1, 2026-10-05)
+
+Link facts and every measurement: `2X_RTX5090_LEARNINGS.md`. No P2P on GeForce; the cards talk
+through host memory. Measure every item with `docs/BENCHMARKING.md` (`--bench_e2e`, same pod).
+
+- [x] **B1: DiT on card 0, decoder on card 1.** 25.69 FPS vs 16.86 on one card (1.52×, predicted
+  1.55×), byte-identical to one card in the deterministic config (`--decoder_gpu 1`, 2026-10-05).
+- [x] **Build the 10:2 split + green contexts into the pipeline.** Built (`LINGBOT_SPLIT=10:2`,
+  `lingbot/parallel/split_dit.py`). With `LINGBOT_SPLIT_CPPWRAP=1 LINGBOT_SPLIT_SKIPGUARD=50
+  LINGBOT_SPLIT_PIECES=2`: **25.03 FPS vs B1 24.04** on the Vast pod, quality inside the noise band
+  (learning 21). Still CPU-bound; the GPU ceiling is ~28-29 FPS.
+- [x] **Card 0's SageAttention wave tail: measured, no lossless fix that pays on the cu128 stack.** (1) Smaller
+  query tile: does not help by construction (registers limit warps per SM, not blocks). (2) Register cap: 168 regs
+  -32 %, 128 regs -55 % kernel time (spills); bit-identical. (3) Split-KV kernel (`experiments/bench_attn/splitkv/`,
+  `SAGE_SPLITKV=S`): accuracy passes (as close to bf16 SDPA as unsplit); on the cu130 build +12.5 % kernel / +5.3 %
+  pipeline (28.48 -> 29.98 FPS), but the cu130 build of Sage is slow (1.92 vs 1.68 ms/call on the cu128 build) and on
+  cu128 split-KV is -4 % kernel / -0.8 % pipeline. Original notes follow.
+- [ ] (superseded) **Card 0's SageAttention wave tail** (highest single item). Card 0 launches 480 attention blocks; at 255
+  registers per thread only 2 fit per SM, so 340 run at once and the second wave is 140 blocks: 1.41 waves, last
+  wave 71 % full, so the kernel cannot exceed ~70.5 % of peak (measured 64 %, ~91 % inside the waves). One card
+  (576 blocks, 1.69 waves, 85 %) is better off; the 10:2 split made the tail worse. Fixes, cheapest first:
+  (1) smaller query tile (CTA_Q 64): 960 blocks = 2.82 waves, 94 % full, one Sage rebuild with the repo's tiling
+  knobs (`SAGE_H2_CTA_Q`); (2) KV-split kernel (same effect, larger change); (3) register cap so 3 blocks fit per
+  SM (510 slots, one wave; may spill). Best case ~212 -> ~170 ms of attention per chunk on card 0, ~+7 % FPS if
+  card 1 keeps up. Learning 27.
+- [x] **Token share decoupled from the head split: measured, a loss.** `LINGBOT_SPLIT_TOK`: card 0 at 0.80 / 0.78 /
+  0.76 / 0.74 of the tokens gave 28.25 / 27.60 / 27.01 / 25.05 FPS vs 29.2 at the head ratio (0.833). Card 1 has no
+  spare capacity for token-local work even on 48 SMs. Untested: the other direction (card 0 above 0.833).
+- [x] **Done 2026-10-06 (learning 29):** attention time is a step function of waves (8 to 10 heads ~free); token share 0.7454 -23.5 %; classic 6:6 with fixes 20.1 FPS. Original plan:
+- [x] (done) **NEXT SESSION: two minimal measurements (~15 min of pod time), before building anything else.** Runbook:
+  `experiments/split_cpu/NEXT_SESSION.md`; one command: `bash experiments/split_cpu/next_measurements.sh`.
+  1. *Is card 0's attention wave tail real?* Kernel-only, old stack, original Sage wheel: time the attention kernel
+     alone (`qk_int_sv_f8_attn_kernel`, separated from Sage's quant kernels via torch.profiler) on q [1,h,6032,128],
+     k/v [1,h,27144,128] for h = 7 (1,344 warps: fits one wave of 1,360) and h = 10 (1,920 warps: 1.41 waves).
+     Tail real if time(10) is close to time(7) x 2 waves / 1 wave scaled, i.e. ~1.4x time(7) or more; no tail if it
+     scales ~10/7. Also `cuobjdump --dump-resource-usage` on the installed `_qattn_sm89*.so` for the kernel's
+     registers (255 assumed; never confirmed on the cu128 build). Decides whether attention work is worth more effort.
+  2. *Did the token-share sweep lose to card 1's GEMM wave quantization?* At the head ratio card 1 has 1,006 tokens
+     = 8 tiles of 128 -> its 1536-wide GEMMs launch 96 blocks = exactly 2 waves on 48 SMs; at share 0.80 it has 1,207
+     tokens = 10 tiles -> 120 blocks = 3 waves. One config lands on whole waves: card 1 at 1,536 tokens = 12 tiles =
+     144 blocks = 3 waves, i.e. `LINGBOT_SPLIT_TOK=0.7454` (n0 = 4,496). Run it (3 warm, copy-free on, SMS 48) vs
+     29.8-29.9 FPS. If it still loses, capture the 0.80 run (`LINGBOT_WORKER_NSYS=1`) and read card 1's GEMM grids
+     with `tools/nsys_to_perfetto.py` (click a GEMM: grid, waves). Decides whether card 1's idle ~26 % is reachable.
+- [x] **Copy-free q|k|v assembly** (`LINGBOT_SPLIT_ZEROCOPY=1`): +0.85 % (29.50 -> 29.75 FPS), 43 dB vs off
+  (cross-process band). Keep on. Was: built, untested. Drops the pre-attention `cat`
+  and the send-side `.contiguous()`; the output-side cat only moved into a compiled stage. Gate: bit-identical to
+  `=0` in one worker, then 3 warm runs.
+- [ ] **Make the decoder interfere less: prefer Triton convolutions, fuse its elementwise kernels.** Card 1's DiT
+  kernels slow by which decoder kernel overlaps them (40-SM capture): Triton conv +9 % (GEMM) / +11 % (Sage), cuDNN
+  conv +23 / +27 %, Triton fused elementwise/norm +44 / +35 %. Memory-bandwidth contention: the most memory-bound
+  kernels hurt most. cuDNN convs are 32 % of decoder time; restricting the decoder's autotune to Triton conv
+  templates is a config change. The decoder has ~165 ms of slack per chunk to absorb a slower kernel.
+- [x] **Fused Sage V prep (`LINGBOT_SAGE_PREQ=1`): no gain** (29.78 vs 29.90 FPS) and its last chunk diverges
+  (18.8 dB): a correctness bug; dropped. **9:3 heads with card 1 DiT on 56 / 64 SMs: a loss** (28.1 / 28.4 FPS vs
+  29.9 at 10:2). **Remaining gaps after copy-free: 14 ms per chunk** on card 0 (critical path: card 0's kernels 519
+  of 541 ms). The split is now kernel-bound on card 0.
+- [ ] **Spread the decoder** (fewer SMs, no burst): the decoder overlaps 4 of 5 forwards and slows card 1's DiT
+  kernels 10-17 % (shared L2 / DRAM bandwidth; green contexts split only SMs). Worth it only if card 1 still makes
+  card 0 wait at 48 SMs: check the 48-SM capture (`traces/split_sms48_warm.sqlite`) first.
+- [ ] **Head chunking (HCMS, arXiv 2607.01817)**: overlap the q|k|v transfer with attention on the first head
+  group; 6.8 % end to end on Wan2.2 in the paper. Our transfers cost ~28 ms per chunk on card 0's critical path.
+- [ ] **CUDA graphs per layer stage for the split** (`LINGBOT_SPLIT_GRAPH=pp|all`, the vLLM piecewise
+  pattern). Written, never run. First: `pp` must give frames bit-identical to the eager split; then
+  `all` (Sage in graphs is deterministic but not bit-identical to eager Sage); then FPS with and without
+  the three switches. Watch: capture cost (each `torch.cuda.graph` syncs and collects; graphs are
+  dropped and recaptured every generate()), graph memory, the "running eager" warning.
+- [ ] **One process per card** (`LINGBOT_SPLIT_MP=1`, `lingbot/parallel/split_mp.py`, CUDA IPC exchange).
+  Written, never run. Catch: green contexts can't partition a card between two processes, so card 1's
+  DiT share and the decoder would time-slice. Test with `--decoder_gpu 0` and `1`; if it helps, move the
+  decoder into the helper process (learnings, open question 7).
+- [x] **MXFP8 instead of rowwise FP8 for the DiT linears: measured, dropped** (learning 18). Slower in the
+  model (B1 20.04 vs 24.19 FPS) and more drift; FFN-only -1.5 % with a quality cost. Only worth another look
+  with quantization fused into the producing kernel.
+- [x] **B3-balanced (split + decoder on card 1): measured, loses to B1** even with the SageAttention
+  stream patch and DiT priority (best: 10:2 at 0.622 vs 0.579 s per chunk; learnings 13-14). Revisit only
+  where the decoder can get its own SMs (MPS or CUDA green contexts, needs a VM or bare metal).
+- [ ] **Upstream the SageAttention stream fix** (`patches/sageattention-current-stream.patch`): all 21
+  launches ignore the current stream, so Sage is wrong on any non-default stream. Report to thu-ml.
+- [x] **Head-group overlap (#3): measured, a loss** (3.89-4.12 ms per layer with 9:3). Fewer heads per
+  SageAttention call leave SMs idle. Pipelining each message in pieces is the overlap that pays.
+- B2 (even split, decoder after the DiT) is dropped: ~19.5 FPS, slower than B1.
+- [ ] **Deferred: lossless 8-bit q/k exchange.** The version that dequantizes on the receiver is not
+  lossless: +10-14 % attention error with q, k in 8 bits, +36-47 % with v too (learning 9). A lossless
+  version would quantize once with SageAttention's own quantizer on the sender and feed the int8 values
+  straight into Sage's pre-quantized kernel, with an int8 KV cache. Worth ~+1 FPS inside B3-balanced;
+  revisit only after overlap.
+- [ ] **Report NCCL's all-to-all drop on SHM** (10 GB/s at 4-10 MB, 25 GB/s above; NCCL 2.27.3 to
+  2.32.3, every protocol/algorithm/channel setting) upstream with `tools/linkbench/nccl.py`.
+- [ ] **Rerun `tools/linkbench/run.sh` on every new 2-GPU pod** (topology can differ: `PIX`, `NODE`, `SYS`).
+- [ ] **RTX PRO pair: check P2P on RunPod** (`torch.cuda.can_device_access_peer`) before planning on it.
+- Not feasible on a rented pod: the patched P2P driver (host kernel module), and it measures slower
+  (26/51 GB/s) than this host-memory path (45/65 GB/s). NCCL's copy-engine collectives are NVLink-only.
+
 ## Benchmark other engines that run this model (apples-to-apples FPS on one RTX 5090)
 
 Goal: put our 16.2 FPS "as played" (4 steps, 832×464, original Wan decoder) next to every other

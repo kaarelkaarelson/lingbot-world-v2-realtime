@@ -1,0 +1,169 @@
+torch 2.8.0+cu128, NVIDIA GeForce RTX 5090, sm_120
+shape	format	ms	TFLOP/s
+square 8192	BF16	4.847	227
+square 8192	FP8 tensorwise	2.400	458
+square 8192	FP8 rowwise (ours)	2.378	462
+square 8192	INT8 (_int_mm)	1.638	671
+square 8192	MXFP8	1.717	640
+square 8192	MXFP4	unsupported: RuntimeError: For BlockWise scaling: Expected scale_a size to be 1048576 but got 2097152
+square 8192	NVFP4	0.927	1186
+q|k|v proj	BF16	0.484	176
+q|k|v proj	FP8 tensorwise	0.222	385
+q|k|v proj	FP8 rowwise (ours)	0.228	375
+q|k|v proj	INT8 (_int_mm)	0.159	537
+q|k|v proj	MXFP8	0.154	554
+q|k|v proj	MXFP4	unsupported: RuntimeError: For BlockWise scaling: Expected scale_a size to be 147456 but got 294912
+q|k|v proj	NVFP4	0.080	1064
+FFN up	BF16	0.726	229
+FFN up	FP8 tensorwise	0.372	446
+FFN up	FP8 rowwise (ours)	0.386	430
+FFN up	INT8 (_int_mm)	0.290	573
+FFN up	MXFP8	0.286	580
+FFN up	MXFP4	unsupported: RuntimeError: For BlockWise scaling: Expected scale_a size to be 147456 but got 294912
+FFN up	NVFP4	0.150	1106
+FFN down	BF16	0.831	200
+FFN down	FP8 tensorwise	0.391	425
+FFN down	FP8 rowwise (ours)	0.427	389
+FFN down	INT8 (_int_mm)	0.256	648
+FFN down	MXFP8	0.277	599
+FFN down	MXFP4	unsupported: RuntimeError: For BlockWise scaling: Expected scale_a size to be 860160 but got 1720320
+FFN down	NVFP4	0.140	1188
+/workspace/repo/reference/wan/modules/vae2_1.py:649: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+source /workspace/runs/a2a8/fast1.mp4: 157 frames 464x832 -> latents (16, 40, 58, 104)
+AUTOTUNE convolution(1x384x116x208, 192x384x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3616 seconds and 0.0004 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x384x232x416, 192x384x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3614 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x192x464x832, 96x192x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3635 seconds and 0.0004 seconds precompiling for 8 choices
+AUTOTUNE convolution(2x384x116x208, 192x384x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3529 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(4x384x232x416, 192x384x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.7576 seconds and 0.0002 seconds precompiling for 8 choices
+AUTOTUNE convolution(4x192x464x832, 96x192x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.4917 seconds and 0.0002 seconds precompiling for 8 choices
+full Wan VAE: 366.2 ms per 4-latent chunk (16 frames), steady median
+AUTOTUNE convolution(1x16x3x58x104, 96x16x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.1825 seconds and 0.0004 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x96x3x58x104, 96x96x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.2375 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE addmm(6032x288, 6032x96, 96x288)
+SingleProcess AUTOTUNE benchmarking takes 0.4253 seconds and 0.0003 seconds precompiling for 21 choices
+AUTOTUNE addmm(6032x96, 6032x96, 96x96)
+SingleProcess AUTOTUNE benchmarking takes 0.4071 seconds and 0.0004 seconds precompiling for 21 choices
+AUTOTUNE convolution(1x96x116x208, 48x96x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.1806 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x48x3x116x208, 96x48x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.2145 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x96x3x116x208, 96x96x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.2649 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x48x1x116x208, 96x48x1x1x1)
+SingleProcess AUTOTUNE benchmarking takes 0.1709 seconds and 0.0003 seconds precompiling for 9 choices
+AUTOTUNE convolution(1x96x232x416, 48x96x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.6778 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x48x3x232x416, 48x48x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.2815 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x48x464x832, 24x48x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.2425 seconds and 0.0002 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x24x3x464x832, 24x24x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3310 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x24x3x464x832, 3x24x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.2695 seconds and 0.0002 seconds precompiling for 7 choices
+AUTOTUNE convolution(1x96x3x58x104, 192x96x3x1x1)
+SingleProcess AUTOTUNE benchmarking takes 0.1788 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(2x96x116x208, 48x96x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.1902 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x48x4x116x208, 96x48x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.2681 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x96x4x116x208, 96x96x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3315 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x48x2x116x208, 96x48x1x1x1)
+SingleProcess AUTOTUNE benchmarking takes 0.1745 seconds and 0.0003 seconds precompiling for 9 choices
+AUTOTUNE convolution(1x96x4x116x208, 192x96x3x1x1)
+SingleProcess AUTOTUNE benchmarking takes 0.2005 seconds and 0.0002 seconds precompiling for 8 choices
+AUTOTUNE convolution(4x96x232x416, 48x96x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3377 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x48x6x232x416, 48x48x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3440 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(4x48x464x832, 24x48x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3426 seconds and 0.0002 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x24x6x464x832, 24x24x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.3532 seconds and 0.0003 seconds precompiling for 8 choices
+AUTOTUNE convolution(1x24x6x464x832, 3x24x3x3x3)
+SingleProcess AUTOTUNE benchmarking takes 0.8322 seconds and 0.0002 seconds precompiling for 7 choices
+LightVAE (dim 24): 39.8 ms per 4-latent chunk (16 frames), steady median
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=AlexNet_Weights.IMAGENET1K_V1`. You can also use `weights=AlexNet_Weights.DEFAULT` to get the most up-to-date weights.
+LightVAE vs full VAE (same latents): PSNR 31.27 dB, LPIPS 0.0997
+full VAE vs source video:            PSNR 34.91 dB, LPIPS 0.0167
+LightVAE vs source video:            PSNR 30.51 dB, LPIPS 0.1224
+NEXT DONE
+== H0=10 GC=0
+10:2 split alone: 3.14 ms per layer
+10:2 split with the decoder running on card 1: 5.05 ms per layer (+61%)
+  card 1 DiT kernel time per layer while decoding: 2.43 ms (alone ~1.01)
+  decoder progress in the 53.8 ms window: kernels 0..118 of 571 = 12.0% of a chunk's work -> 447 ms per chunk while sharing (alone 354)
+chunk: 0.640 s (decoder finishes after 89 of 150 passes); B1 DiT-bound chunk on this pod: 0.579 s
+== H0=10 GC=32
+card 1 partitioned: 32 SMs for the DiT share, 138 for the decoder
+10:2 split alone: 3.35 ms per layer
+10:2 split with the decoder running on card 1: 3.53 ms per layer (+5%)
+  card 1 DiT kernel time per layer while decoding: 3.27 ms (alone ~1.01)
+  decoder progress in the 43.3 ms window: kernels 0..112 of 571 = 9.7% of a chunk's work -> 447 ms per chunk while sharing (alone 355)
+chunk: 0.526 s (decoder finishes after 126 of 150 passes); B1 DiT-bound chunk on this pod: 0.579 s
+== H0=10 GC=40
+card 1 partitioned: 40 SMs for the DiT share, 130 for the decoder
+10:2 split alone: 3.28 ms per layer
+10:2 split with the decoder running on card 1: 3.32 ms per layer (+1%)
+  card 1 DiT kernel time per layer while decoding: 3.00 ms (alone ~1.01)
+  decoder progress in the 41.1 ms window: kernels 0..109 of 571 = 8.5% of a chunk's work -> 482 ms per chunk while sharing (alone 355)
+chunk: 0.497 s (decoder finishes after 145 of 150 passes); B1 DiT-bound chunk on this pod: 0.579 s
+== H0=10 GC=48
+card 1 partitioned: 48 SMs for the DiT share, 122 for the decoder
+10:2 split alone: 3.16 ms per layer
+10:2 split with the decoder running on card 1: 3.18 ms per layer (+1%)
+  card 1 DiT kernel time per layer while decoding: 2.18 ms (alone ~1.01)
+  decoder progress in the 38.5 ms window: kernels 0..105 of 571 = 7.2% of a chunk's work -> 532 ms per chunk while sharing (alone 356)
+chunk: 0.532 s (decoder never finishes inside the DiT time: decode-bound); B1 DiT-bound chunk on this pod: 0.579 s
+== H0=10 GC=64
+card 1 partitioned: 64 SMs for the DiT share, 106 for the decoder
+10:2 split alone: 3.14 ms per layer
+10:2 split with the decoder running on card 1: 3.16 ms per layer (+1%)
+  card 1 DiT kernel time per layer while decoding: 1.98 ms (alone ~1.01)
+  decoder progress in the 37.8 ms window: kernels 0..105 of 571 = 7.3% of a chunk's work -> 521 ms per chunk while sharing (alone 356)
+chunk: 0.521 s (decoder never finishes inside the DiT time: decode-bound); B1 DiT-bound chunk on this pod: 0.579 s
+== H0=9 GC=0
+9:3 split alone: 3.01 ms per layer
+9:3 split with the decoder running on card 1: 4.68 ms per layer (+56%)
+  card 1 DiT kernel time per layer while decoding: 2.51 ms (alone ~1.01)
+  decoder progress in the 51.7 ms window: kernels 0..115 of 571 = 10.9% of a chunk's work -> 475 ms per chunk while sharing (alone 356)
+chunk: 0.621 s (decoder finishes after 101 of 150 passes); B1 DiT-bound chunk on this pod: 0.579 s
+== H0=9 GC=32
+card 1 partitioned: 32 SMs for the DiT share, 138 for the decoder
+9:3 split alone: 4.61 ms per layer
+9:3 split with the decoder running on card 1: 5.21 ms per layer (+13%)
+  card 1 DiT kernel time per layer while decoding: 5.05 ms (alone ~1.01)
+  decoder progress in the 62.9 ms window: kernels 0..123 of 571 = 14.2% of a chunk's work -> 442 ms per chunk while sharing (alone 355)
+chunk: 0.743 s (decoder finishes after 85 of 150 passes); B1 DiT-bound chunk on this pod: 0.579 s
+== H0=9 GC=40
+card 1 partitioned: 40 SMs for the DiT share, 130 for the decoder
+9:3 split alone: 4.08 ms per layer
+9:3 split with the decoder running on card 1: 4.40 ms per layer (+8%)
+  card 1 DiT kernel time per layer while decoding: 4.04 ms (alone ~1.01)
+  decoder progress in the 53.0 ms window: kernels 0..115 of 571 = 10.9% of a chunk's work -> 486 ms per chunk while sharing (alone 356)
+chunk: 0.647 s (decoder finishes after 111 of 150 passes); B1 DiT-bound chunk on this pod: 0.579 s
+== H0=9 GC=48
+card 1 partitioned: 48 SMs for the DiT share, 122 for the decoder
+9:3 split alone: 3.79 ms per layer
+9:3 split with the decoder running on card 1: 3.93 ms per layer (+4%)
+  card 1 DiT kernel time per layer while decoding: 3.24 ms (alone ~1.01)
+  decoder progress in the 48.0 ms window: kernels 0..112 of 571 = 9.7% of a chunk's work -> 495 ms per chunk while sharing (alone 356)
+chunk: 0.587 s (decoder finishes after 126 of 150 passes); B1 DiT-bound chunk on this pod: 0.579 s
+== H0=9 GC=64
+card 1 partitioned: 64 SMs for the DiT share, 106 for the decoder
+9:3 split alone: 3.73 ms per layer
+9:3 split with the decoder running on card 1: 3.80 ms per layer (+2%)
+  card 1 DiT kernel time per layer while decoding: 2.92 ms (alone ~1.01)
+  decoder progress in the 46.2 ms window: kernels 0..109 of 571 = 8.5% of a chunk's work -> 541 ms per chunk while sharing (alone 355)
+chunk: 0.569 s (decoder finishes after 143 of 150 passes); B1 DiT-bound chunk on this pod: 0.579 s
+SWEEP DONE

@@ -1,4 +1,4 @@
-"""LINGBOT_* environment presets shared by generate.py and `lingbot play`.
+"""LINGBOT_* environment presets shared by `python -m lingbot.generate` and `lingbot play`.
 
 Presets are applied as environment defaults before `wan` is imported, because the fused DiT
 and the attention backend are chosen at import time. Explicitly exported LINGBOT_* variables
@@ -17,10 +17,10 @@ PRESETS = {
         "LINGBOT_ATTN": "sage", "LINGBOT_VAE_FUSED": "1",
         "LINGBOT_VAE_SUBPIXEL": "1", "LINGBOT_VAE_WARM": "1",
     },
-    # Same, with the DiT bit-identical to the stock bf16 model (14.8 FPS):
-    # the one-row time-embedding MLP is expanded back to L rows.
+    # Same, with the time-embedding MLP on L rows as in the paper (14.8 FPS). Still FP8 +
+    # SageAttention, so not bit-identical; that needs LINGBOT_FP8=0 LINGBOT_ATTN= LINGBOT_TORCH_COMPILE=.
     "exact": {"LINGBOT_DIT_FUSION_EXACT_T": "1"},
-    # Upstream code path, no optimisation (5.5 FPS): for A/B comparisons.
+    # The paper's code in reference/, unmodified: for A/B comparisons (lingbot.generate only).
     "stock": {},
 }
 PRESETS["exact"] = {**PRESETS["fast"], **PRESETS["exact"]}

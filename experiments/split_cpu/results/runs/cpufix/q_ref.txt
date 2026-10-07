@@ -1,0 +1,13 @@
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=AlexNet_Weights.IMAGENET1K_V1`. You can also use `weights=AlexNet_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+xg_warm:split3_e2e	frames 157	per-chunk PSNR 43.1 43.2 43.2 44.0 44.1 44.0 44.6 44.6 44.5 18.2
+xg_warm:b1_e2e	frames 157	per-chunk PSNR 30.4 27.9 25.9 23.9 25.4 25.6 25.6 24.8 24.7 13.3
+split3_e2e:b1_e2e	frames 157	per-chunk PSNR 30.4 27.9 25.9 23.9 25.4 25.6 25.6 24.8 24.7 24.1
+b1g_warm:b1_e2e	frames 157	per-chunk PSNR 29.9 28.0 26.3 24.2 25.0 24.6 25.8 25.4 24.2 9.2
+pair	frames	psnr_chunk1	lpips_chunk1	psnr_clip	meandiff_clip_255	lpips_clip	psnr_last_chunk	lpips_last_chunk	sharp_chunk1	sharp_chunk1_ref	sharp_clip	sharp_clip_ref	flicker	flicker_ref
+xg_warm:split3_e2e	157	43.11	0.0020	41.36	6.73	0.0636	18.24	0.6084	907	907	512	535	7.60	7.36
+xg_warm:b1_e2e	157	30.43	0.0175	24.75	10.88	0.1100	13.29	0.6222	907	901	512	527	7.60	7.33
+split3_e2e:b1_e2e	157	30.43	0.0175	25.84	5.70	0.0555	24.13	0.0762	907	901	535	527	7.36	7.33
+b1g_warm:b1_e2e	157	29.91	0.0181	24.26	13.46	0.1314	9.24	0.8196	910	901	504	527	9.33	7.33

@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 16:52:51,629] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:03,  2.90it/s] 20%|##        | 2/10 [00:00<00:02,  2.88it/s] 30%|###       | 3/10 [00:01<00:02,  2.55it/s] 40%|####      | 4/10 [00:01<00:02,  2.29it/s] 50%|#####     | 5/10 [00:02<00:02,  2.11it/s] 60%|######    | 6/10 [00:02<00:01,  2.01it/s] 70%|#######   | 7/10 [00:03<00:01,  1.95it/s] 80%|########  | 8/10 [00:03<00:01,  1.92it/s] 90%|######### | 9/10 [00:04<00:00,  1.89it/s]100%|##########| 10/10 [00:04<00:00,  1.88it/s]100%|##########| 10/10 [00:04<00:00,  2.04it/s]
+[2026-10-06 16:52:57,257] INFO: Saving generated video to /workspace/runs/zc/zc0_2.mp4
+BENCH_E2E trial 1: 29.50 FPS (interval p50 542.3 ms, p95 542.8, p99 542.9; 5 steady chunks), first frame 990 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 29.50 FPS, 11.39 MPPS, interval p95 542.8 ms, first frame 990 ms (cold: includes compile)
+[worker] run took 7.5 s
+

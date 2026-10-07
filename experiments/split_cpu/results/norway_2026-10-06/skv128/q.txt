@@ -1,0 +1,11 @@
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/workspace/repo/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=AlexNet_Weights.IMAGENET1K_V1`. You can also use `weights=AlexNet_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+o2_1:b1_1	frames 157	per-chunk PSNR 27.3 24.1 23.5 23.1 23.1 23.4 23.9 23.5 23.5 18.5
+o1_1:b1_1	frames 157	per-chunk PSNR 30.9 26.2 25.7 27.5 24.7 24.1 23.8 23.3 23.4 18.5
+o2_1:o1_1	frames 157	per-chunk PSNR 26.2 22.5 22.6 22.8 22.0 21.9 23.5 23.0 23.9 27.2
+pair	frames	psnr_chunk1	lpips_chunk1	psnr_clip	meandiff_clip_255	lpips_clip	psnr_last_chunk	lpips_last_chunk	sharp_chunk1	sharp_chunk1_ref	sharp_clip	sharp_clip_ref	flicker	flicker_ref
+o2_1:b1_1	157	27.30	0.0233	23.38	8.59	0.1610	18.54	0.8946	886	894	887	745	9.20	8.92
+o1_1:b1_1	157	30.87	0.0148	24.80	8.01	0.1556	18.53	0.8943	907	894	895	745	9.02	8.92
+o2_1:o1_1	157	26.17	0.0269	23.55	8.00	0.0821	27.20	0.0465	886	907	887	895	9.20	9.02

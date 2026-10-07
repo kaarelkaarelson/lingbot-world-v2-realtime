@@ -1,0 +1,6 @@
+# MXFP8 vs rowwise FP8, Vast m:150233 (2x RTX 5090, 500 W cap), --preset fast, example 03, seed 42, 10 chunks, one rollout each.
+# Quality: first chunk vs the rowwise-FP8 --bench run (score_pairs.py); "noise" row = two rowwise-FP8 runs.
+config	LINGBOT_FP8	steady_s_per_chunk_1card	e2e_fps_1card	e2e_fps_B1	psnr_chunk1	lpips_chunk1	lpips_clip	sharp_chunk1	flicker
+rowwise FP8 (noise pair)	1	0.666	15.71	24.19	27.37	0.0303	0.0970	880	7.48
+MXFP8 all 420 linears	mx	0.895	15.11	20.04	27.01	0.0401	0.1858	879	7.58
+MXFP8 FFN only (60), rowwise rest	mx_ffn	0.656	-	-	26.37	0.0329	0.1806	877	7.97

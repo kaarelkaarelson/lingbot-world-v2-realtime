@@ -1,0 +1,33 @@
+base_cold: 19.07 FPS (interval p50 838.9 ms 
+base_1: 19.04 FPS (interval p50 840.3 ms 
+base_2: 18.81 FPS (interval p50 850.8 ms 
+base_3: 18.95 FPS (interval p50 844.5 ms 
+base_4: 18.83 FPS (interval p50 849.7 ms 
+cpp_cold: 21.39 FPS (interval p50 748.2 ms 
+cpp_1: 20.38 FPS (interval p50 785.0 ms 
+cpp_2: 22.43 FPS (interval p50 713.3 ms 
+cpp_3: 22.65 FPS (interval p50 706.5 ms 
+cpp_4: 22.60 FPS (interval p50 707.9 ms 
+skip_cold: 18.65 FPS (interval p50 858.0 ms 
+skip_1: 19.49 FPS (interval p50 821.1 ms 
+skip_2: 16.76 FPS (interval p50 954.8 ms 
+skip_3: 17.74 FPS (interval p50 902.0 ms 
+skip_4: 17.38 FPS (interval p50 920.8 ms 
+p2_cold: 19.66 FPS (interval p50 813.9 ms 
+p2_1: 19.61 FPS (interval p50 816.0 ms 
+p2_2: 19.47 FPS (interval p50 821.7 ms 
+p2_3: 19.27 FPS (interval p50 830.2 ms 
+p2_4: 18.98 FPS (interval p50 842.9 ms 
+all3_cold: 24.84 FPS (interval p50 644.1 ms 
+all3_1: 24.42 FPS (interval p50 655.1 ms 
+all3_2: 25.03 FPS (interval p50 639.2 ms 
+all3_3: 25.79 FPS (interval p50 620.3 ms 
+all3_4: 25.74 FPS (interval p50 621.7 ms 
+stopped lingbot-worker-ddb8c245205b.sock
+pair	frames	psnr_chunk1	lpips_chunk1	psnr_clip	meandiff_clip_255	lpips_clip	psnr_last_chunk	lpips_last_chunk	sharp_chunk1	sharp_chunk1_ref	sharp_clip	sharp_clip_ref	flicker	flicker_ref
+cpp_2:base_2	157	43.03	0.0021	45.20	1.08	0.0032	58.16	0.0038	907	907	526	525	7.72	7.72
+skip_2:base_2	157	43.12	0.0020	44.97	1.05	0.0032	54.35	0.0039	907	907	525	525	7.72	7.72
+p2_2:base_2	157	43.02	0.0021	45.20	1.08	0.0032	58.23	0.0040	907	907	526	525	7.72	7.72
+all3_2:base_2	157	43.11	0.0020	44.97	1.05	0.0031	54.30	0.0040	907	907	525	525	7.72	7.72
+base_3:base_2	157	148.13	0.0000	148.13	0.00	0.0000	148.13	0.0000	907	907	525	525	7.72	7.72
+KNOBS DONE

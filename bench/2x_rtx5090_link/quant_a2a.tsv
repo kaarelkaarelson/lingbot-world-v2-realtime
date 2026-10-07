@@ -1,0 +1,21 @@
+what	us
+bf16 activation (today)	161.3
+int8 values	122.8
+fp8 values	130.3
+scales only	96.9
+int8 values + scales	220.1
+quantize int8 (torch eager, 1 tensor)	96.6
+quantize int8 (torch.compile, 1 tensor)	61.8
+cast to fp8 (1 tensor)	7.7
+per layer today (6 x bf16)	968
+per layer q,k,v in 8 bits (3 x int8+scales, 3 x bf16)	1144
+per layer all 6 in 8 bits (upper bound)	1321
+per chunk (150 layer passes): today 145 ms, qkv-8bit 172 ms, all-8bit 198 ms
+data check: ok; int8 per-block relative error 0.0102 (the same rounding Sage applies after the exchange)
+
+packed	us
+q|k|v packed, bf16 (one message)	437.9
+q|k|v packed, int8 + scales (one message)	229.0
+per layer packed bf16 (1 x qkv + 3 x bf16)	922
+per layer packed 8-bit qkv (1 x qkv8 + 3 x bf16)	713
+per chunk: today 145 ms, packed bf16 138 ms, packed 8-bit 107 ms

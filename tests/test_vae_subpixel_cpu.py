@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""CPU fp32 check of the sub-pixel upsample rewrite (LINGBOT_VAE_SUBPIXEL=1 in wan/modules/vae2_1_fused.py):
+"""CPU fp32 check of the sub-pixel upsample rewrite (LINGBOT_VAE_SUBPIXEL=1 in lingbot/models/lingbot_world/vae.py):
 each upsample `Resample` alone vs the stock nearest-exact + 3x3 conv, the whole fused decoder with and
 without the flag on the harness of test_vae_fused_cpu.py, and the conv FLOPs at the real shapes.
 Run: ~/lingbot-world-bench/.venv/bin/python tests/test_vae_subpixel_cpu.py
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_vae_fused_cpu import build, check, fused, stock_decode  # noqa: E402  (sets the OMP env, loads wan.modules.*)
+from test_vae_fused_cpu import build, check, fused, stock_decode  # noqa: E402  (sets the OMP env, loads the VAE modules)
 import torch  # noqa: E402
 from torch.utils.flop_counter import FlopCounterMode  # noqa: E402
 

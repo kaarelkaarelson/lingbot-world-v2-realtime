@@ -1,0 +1,3 @@
+22.77 FPS (interval p50 702.6 ms
+22.74 FPS (interval p50 703.6 ms
+22.74 FPS (interval p50 703.7 ms

@@ -10,7 +10,7 @@ Attention FLOPs are analytic (4 * q * kv * heads * head_dim per forward, 30 laye
 the profiler does not count custom kernels. Bytes from the tracer are an upper bound on DRAM traffic
 (a fused kernel that keeps a tile in shared memory reads less), so the intensities are lower bounds.
 
-  LINGBOT_ROOFLINE=/workspace/roofline_fast python generate.py --preset fast --bench --frame_num 193 ...
+  LINGBOT_ROOFLINE=/workspace/roofline_fast python -m lingbot.generate --preset fast --bench --frame_num 193 ...
   python tools/roofline.py /workspace/roofline_fast   # prints the table, writes roofline.json next to it
 """
 import argparse, collections, gzip, json, os, re, sys

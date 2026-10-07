@@ -1,0 +1,5 @@
+# Warm bench worker (lingbot.worker) vs direct lingbot.generate runs, same pod and config.
+run	wall_s	result	direct_run_result
+cold (new worker)	106	0.667 s/chunk	0.666 s/chunk (direct run ~150 s wall)
+warm repeat	14	0.675 s/chunk	0.666 s/chunk
+warm B1 --bench_e2e --decoder_gpu 1	38	24.04 FPS	24.19 FPS

@@ -1,0 +1,3 @@
+e5ce51739d90:5646:5646 [0] NCCL INFO NCCL version 2.27.3+cuda12.9
+e5ce51739d90:5647:5647 [1] NCCL INFO NCCL version 2.27.3+cuda12.9
+e5ce51739d90:5647:5669 [1] NCCL INFO Channel 00 : 1[1] -> 0[0] via SHM/direct/direct

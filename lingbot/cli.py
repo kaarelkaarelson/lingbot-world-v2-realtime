@@ -32,17 +32,20 @@ def _env():
 
 
 def cmd_clip(argv: list[str]) -> int:
-    """generate.py with run.sh's defaults; any generate.py flag may follow (later flags win)."""
+    """lingbot.generate with the example's defaults; any of its flags may follow (later flags win)."""
     if argv[:1] in (["-h"], ["--help"]):
-        print("usage: lingbot clip [generate.py flags]\n\nDefaults: " + " ".join(CLIP_DEFAULTS[:4] + ["--prompt", "<lakeside prompt>", "--save_dir", "outputs"])
-              + "\nExamples:\n  lingbot clip --frame_num 361 --bench\n  lingbot clip --image me.jpg --action_path my_poses/ --prompt \"...\" --preset exact\n")
-        return subprocess.call([sys.executable, "generate.py", "--help"], cwd=REPO, env=_env())
-    return subprocess.call([sys.executable, "generate.py", *CLIP_DEFAULTS, *argv], cwd=REPO, env=_env())
+        print("usage: lingbot clip [lingbot.generate flags]\n\nDefaults: " + " ".join(CLIP_DEFAULTS[:4] + ["--prompt", "<lakeside prompt>", "--save_dir", "outputs"])
+              + "\nExamples:\n  lingbot clip --frame_num 157 --bench\n  lingbot clip --image me.jpg --action_path my_poses/ --prompt \"...\" --preset exact\n")
+        return subprocess.call([sys.executable, "-m", "lingbot.generate", "--help"], cwd=REPO, env=_env())
+    return subprocess.call([sys.executable, "-m", "lingbot.generate", *CLIP_DEFAULTS, *argv], cwd=REPO, env=_env())
 
 
 def cmd_bench(argv: list[str]) -> int:
-    """`./run.sh --frame_num 361 --bench`: a 22 s clip from examples/03, printing s/chunk and the FPS as played."""
-    return cmd_clip(["--frame_num", "361", "--bench", *argv])
+    """The minimal run that measures steady-state speed: 10 chunks of examples/03 (`--frame_num 157`: 5 that
+    compile and fill the KV window, 5 steady), printing s/chunk and the FPS as played. Add `--bench_e2e` in
+    place of the default `--bench` for frame-ready throughput and first-frame latency (docs/BENCHMARKING.md)."""
+    mode = [] if "--bench_e2e" in argv else ["--bench"]
+    return cmd_clip(["--frame_num", "157", *mode, *argv])
 
 
 def _play_parser() -> argparse.ArgumentParser:
@@ -52,10 +55,11 @@ def _play_parser() -> argparse.ArgumentParser:
     p.add_argument("--image", default=None, help="first frame (default: the scene's image.jpg)")
     p.add_argument("--action_path", default=None, help="directory with intrinsics.npy (default: the scene's; poses.npy is replaced by the keys)")
     p.add_argument("--prompt", default=None, help="default: the scene's prompt.txt")
-    p.add_argument("--preset", default="fast", choices=["fast", "exact", "stock"], help="generate.py preset (env defaults)")
+    p.add_argument("--preset", default="fast", choices=["fast", "exact"], help="runtime preset (env defaults); the paper's code has no live hooks")
     p.add_argument("--frame_num", type=int, default=361, help="frames per rollout; the world restarts from the image after that (or on R)")
     p.add_argument("--chunk_size", type=int, default=4, help="latents per chunk (4 = 16 frames = 1 s of input per chunk)")
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--decoder_gpu", type=int, default=None, help="decode on this GPU, overlapped with the DiT on GPU 0")
     p.add_argument("--ckpt_dir", default=_R(CKPT_DIR))
     p.add_argument("--assets_dir", default=_R(ASSETS_DIR))
     p.add_argument("--input-mode", choices=["history", "hold"], default="history",
@@ -101,7 +105,7 @@ def cmd_play(argv: list[str]) -> int:
         img = Image.open(args.image).convert("RGB")
         width, height = output_size(*img.size)
         t0 = time.monotonic()
-        pipe = build_pipe(args.ckpt_dir, args.assets_dir, preset=args.preset)
+        pipe = build_pipe(args.ckpt_dir, args.assets_dir, preset=args.preset, decoder_device_id=args.decoder_gpu)
         logging.info("pipeline built in %.1f s", time.monotonic() - t0)
         src = LiveSource(pipe, img, args.action_path, args.prompt, frame_num=args.frame_num, chunk_size=args.chunk_size,
                          seed=args.seed, timing_tsv=args.timing_tsv, width=width, height=height, loop=True, control=control)
@@ -129,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
         print("usage: lingbot <command> [flags]\n\n"
               "  play   open a window on the world model; WASD / arrows drive it (lingbot play --help)\n"
               "         lingbot play [" + "|".join(sorted(SCENES)) + "]  (default lake)\n"
-              "  bench  ./run.sh --frame_num 361 --bench: a 22 s clip from examples/03, s/chunk and FPS as played\n"
+              "  bench  10 chunks of examples/03 (5 warm-up, 5 steady), s/chunk and FPS as played; --bench_e2e for latency\n"
               "  clip   offline generation with run.sh's flags (lingbot clip --help)")
         return 0
     cmd = COMMANDS.get(argv[0])

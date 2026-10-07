@@ -1,0 +1,32 @@
+GPU 0: 170 SMs, 1360 warp slots at 8 warps/SM
+   6 heads:  0.885 ms  warps  1152  waves 0.85 (runs as 1)  ms per head 0.148
+   7 heads:  0.912 ms  warps  1344  waves 0.99 (runs as 1)  ms per head 0.130
+   8 heads:  1.363 ms  warps  1536  waves 1.13 (runs as 2)  ms per head 0.170
+   9 heads:  1.379 ms  warps  1728  waves 1.27 (runs as 2)  ms per head 0.153
+  10 heads:  1.395 ms  warps  1920  waves 1.41 (runs as 2)  ms per head 0.140
+  11 heads:  1.771 ms  warps  2112  waves 1.55 (runs as 2)  ms per head 0.161
+  12 heads:  1.793 ms  warps  2304  waves 1.69 (runs as 2)  ms per head 0.149
+t(10)/t(7) = 1.53  (no tail ~1.43, full tail ~2.0) -> NO MEANINGFUL TAIL
+     10 REG:208
+      2 REG:210
+     10 REG:211
+      2 REG:213
+      4 REG:219
+      4 REG:220
+      4 REG:222
+      6 REG:226
+     10 REG:228
+      6 REG:229
+      6 REG:230
+      2 REG:237
+      2 REG:239
+      4 REG:244
+      4 REG:246
+     10 REG:248
+      4 REG:249
+      4 REG:250
+      2 REG:251
+      4 REG:252
+      6 REG:253
+      6 REG:254
+    112 REG:255

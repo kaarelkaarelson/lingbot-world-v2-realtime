@@ -1,0 +1,30 @@
+date	pod	layout	config	warm_fps_runs	fps_median	quality_vs_ref	notes
+2026-10-05	vast 54397113 (2x5090, 500 W, no P2P)	one card	--preset fast	-	15.7	reference	DiT 0.666 s/chunk
+2026-10-05	vast 54397113	B1 pipeline (decoder on card 1)	--decoder_gpu 1	-	24.04	byte-identical to one card	warm worker
+2026-10-05	vast 54397113	classic split 6:6, decoder after DiT on card 0	LINGBOT_SPLIT=6:6 --decoder_gpu 0	-	14.04	31.0 dB / LPIPS 0.017 first chunk vs B1	
+2026-10-05	vast 54397113	split 10:2 + green contexts	LINGBOT_SPLIT=10:2	-	17.64	30.4 dB / 0.017 first chunk vs B1	CPU-bound
+2026-10-05	vast 54397113	split 10:2 + GC	+ reused exchange buffers	19.04/18.81/18.95	18.95	43 dB vs previous split	
+2026-10-05	vast 54397113	split 10:2 + GC	+ LINGBOT_SPLIT_CPPWRAP=1	20.38/22.43/22.65	22.43	43.0 dB / 0.002 vs base	
+2026-10-05	vast 54397113	split 10:2 + GC	+ LINGBOT_SPLIT_SKIPGUARD=50	19.49/16.76/17.74	17.74	43.1 dB / 0.002 vs base	no gain alone
+2026-10-05	vast 54397113	split 10:2 + GC	+ LINGBOT_SPLIT_PIECES=2	19.61/19.47/19.27	19.47	43.0 dB / 0.002 vs base	
+2026-10-05	vast 54397113	split 10:2 + GC	+ all three	24.42/25.03/25.79	25.03	43.1 dB / 0.002 vs base	best; beats B1
+2026-10-05	vast 54397113	split 10:2 + GC	+ decoder CUDA graph (reverted)	17.00/16.74	-	last chunk wrong (9-18 dB)	reverted
+2026-10-05	vast 54397113	B1	+ decoder CUDA graph (reverted)	23.77	-	last chunk wrong	reverted
+2026-10-05	vast 54397113	split 10:2 + GC	worker pinned to socket of card 0 / card 1 / any	16.9-17.1 / 17.3-18.7 / 16.3-18.7	-	-	pinning no effect
+2026-10-06	vast 54497707 (EPYC 9454, 575 W, PCIe5 x16)	B1	torch 2.8 cu128	25.32/25.25/25.18	25.25	reference	fast CPU pod
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches	torch 2.8 cu128	27.77/27.73/27.71	27.73	30.9 dB / 0.015 first chunk vs B1	GPU-bound on card 0
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches	torch 2.14 cu130 + flash 2.8.3	27.17/27.12/27.05	27.12	30.8 dB / 0.017 vs B1	cu130 -2.2%
+2026-10-06	vast 54497707	B1, multi_kernel off	torch 2.8 cu128	25.01/24.98/24.83	24.98	29.8 dB vs B1 mk on	
+2026-10-06	vast 54497707	B1, multi_kernel off	torch 2.14 cu130 + flash 2.8.3	25.24/25.16/25.11	25.16	28.0 dB vs cu128 same config	multi_kernel on crashes on cu130
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches + host-sync fix	SMS 40, torch 2.8	27.88/27.85/27.80	27.85	43 dB vs before (cross-process)	
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches + host-sync fix	SMS 48, torch 2.8	29.26/29.21/29.09	29.21	30.9 dB / 0.015 first chunk vs B1	best
+2026-10-06	vast 54497707	split 10:2 + GC + 3 switches + host-sync fix	SMS 56, torch 2.8	29.12/29.16/29.09	29.12	30.9 dB / 0.015 vs B1	plateau
+2026-10-06	vast 54497707	split 10:2, SMS 48, copy-free off / on	torch 2.8	29.57/29.50/29.47 | 29.86/29.75/29.73	29.50 | 29.75	43 dB on vs off	copy-free kept
+2026-10-06	vast 54497707	split 10:2 + copy-free, fused Sage V prep	torch 2.8	29.82/29.78/29.73 (off 29.93/29.90/29.77)	29.78	last chunk 18.8 dB vs off	dropped (bug)
+2026-10-06	vast 54497707	split 9:3 + copy-free, SMS 56 / 64	torch 2.8	28.14/28.08/28.07 | 28.39/28.43/28.40	28.08 | 28.40	32.8 dB vs B1	loss
+2026-10-06	vast 54497707	split 10:2 + copy-free, Sage split-KV off/2/3 (d1a57a5 wheel)	torch 2.14 cu130	28.54/28.48/28.44 | 30.07/29.98/29.94 | 29.50/29.36/29.40	28.48 | 29.98 | 29.40	S2 vs B1 32.4 dB / 0.015	cu130 only
+2026-10-06	vast 54497707	split 10:2 + copy-free, Sage split-KV off/2 (d1a57a5 wheel)	torch 2.8 cu128	29.87/29.77/29.77 | 29.63/29.55/29.57	29.77 | 29.55	S2 vs B1 27.3 dB / 0.023	no gain on cu128
+2026-10-06	vast 54546858 (NL, EPYC 9654, SYS)	B1	torch 2.8	25.26/25.19/25.17	25.19	reference	
+2026-10-06	vast 54546858	split 10:2 best (copy-free, SMS 48)	torch 2.8	29.81/29.73/29.67	29.73		same as Norway
+2026-10-06	vast 54546858	split 10:2, token share 0.7454	torch 2.8	22.77/22.74/22.74	22.74	29.8 dB vs head ratio	-23.5 %
+2026-10-06	vast 54546858	classic split 6:6, all fixes, decoder on card 0	torch 2.8	20.06/20.02/20.12	20.06		was 14.0 with first code

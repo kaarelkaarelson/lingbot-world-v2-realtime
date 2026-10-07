@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 16:09:19,062] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:03,  2.92it/s] 20%|##        | 2/10 [00:00<00:02,  2.83it/s] 30%|###       | 3/10 [00:01<00:02,  2.52it/s] 40%|####      | 4/10 [00:01<00:02,  2.27it/s] 50%|#####     | 5/10 [00:02<00:02,  2.09it/s] 60%|######    | 6/10 [00:02<00:02,  1.99it/s] 70%|#######   | 7/10 [00:03<00:01,  1.93it/s] 80%|########  | 8/10 [00:03<00:01,  1.90it/s] 90%|######### | 9/10 [00:04<00:00,  1.88it/s]100%|##########| 10/10 [00:04<00:00,  1.86it/s]100%|##########| 10/10 [00:04<00:00,  2.02it/s]
+[2026-10-06 16:09:24,741] INFO: Saving generated video to /workspace/runs/cand/sms48_1.mp4
+BENCH_E2E trial 1: 29.26 FPS (interval p50 546.7 ms, p95 548.7, p99 549.1; 5 steady chunks), first frame 997 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 29.26 FPS, 11.30 MPPS, interval p95 548.7 ms, first frame 997 ms (cold: includes compile)
+[worker] run took 7.5 s
+

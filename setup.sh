@@ -60,4 +60,4 @@ echo "== warm-up (compiles the DiT and the VAE decoder once; cached in .inductor
 lingbot clip --frame_num 49 --bench
 echo
 echo "READY.  Play:   lingbot play      (WASD / arrows in the window, R reset, Esc quit)"
-echo "        Bench:  lingbot bench     (22 s clip from examples/03, s/chunk and FPS as played)"
+echo "        Bench:  lingbot bench     (10 chunks of examples/03, s/chunk and FPS as played)"

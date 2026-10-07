@@ -1,0 +1,407 @@
+[worker] stopping lingbot-worker-7856bd72a975.sock (different code hash)
+[worker] starting worker 041999437700 (cold start: load + compile on first run); log /tmp/lingbot-worker-041999437700.log
+[2026-10-06 15:50:39,260] INFO: loading weights/lingbot-world-v2-14b-causal-fast/Wan2.1_VAE.pth
+[2026-10-06 15:50:39,659] INFO: loading weights/lingbot-world-v2-14b-causal-fast/Wan2.1_VAE.pth
+[2026-10-06 15:50:40,178] INFO: Fused decoder on cuda:1 (compile=max-autotune-no-cudagraphs)
+[2026-10-06 15:50:40,178] INFO: Loading WanModelFast from weights/lingbot-world-v2-1.3b-causal-fast
+[2026-10-06 15:50:40,178] INFO: config.json not found in weights/lingbot-world-v2-1.3b-causal-fast; building WanModelFast from the task config and loading safetensors weights.
+[2026-10-06 15:50:41,459] INFO: FP8 rowwise enabled on 420 of 420 Linear layers
+[2026-10-06 15:50:42,148] INFO: DiT split 10:2 across cuda:0/1; card 1: 40 SMs DiT, 130 SMs decoder
+[worker] pipeline built in 3 s (kept for later runs)
+[2026-10-06 15:50:42,303] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s]Autotune Choices Stats:
+{"num_choices": 13, "num_triton_choices": 12, "best_kernel": "triton_convolution3d_9", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4", "best_time": 0.021824000403285027, "best_triton_pos": 0}
+AUTOTUNE convolution(1x16x3x58x104, 384x16x3x3x3)
+strides: [289536, 1, 96512, 1664, 16], [432, 1, 144, 48, 16]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_9 0.0218 ms 100.0% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_8 0.0221 ms 98.7% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_4 0.0242 ms 90.2% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_7 0.0259 ms 84.2% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_1 0.0266 ms 82.0% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_6 0.0280 ms 78.0% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_3 0.0280 ms 77.9% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_0 0.0281 ms 77.6% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_5 0.0281 ms 77.6% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_10 0.0492 ms 44.4% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 0.2572 seconds and 0.0002 seconds precompiling for 13 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "triton_convolution3d_16", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 0.36822399497032166, "best_triton_pos": 0}
+AUTOTUNE convolution(1x384x3x58x104, 384x384x3x3x3)
+strides: [6948864, 1, 2316288, 39936, 384], [10368, 1, 3456, 1152, 384]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_16 0.3682 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_20 0.4021 ms 91.6% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_21 0.4267 ms 86.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  convolution 0.4690 ms 78.5% 
+  triton_convolution3d_18 0.4895 ms 75.2% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_26 0.4921 ms 74.8% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_15 0.4997 ms 73.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_17 0.5028 ms 73.2% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_19 0.5673 ms 64.9% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_12 0.5714 ms 64.4% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.5848 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 22, "num_triton_choices": 21, "best_kernel": "triton_mm_53", "best_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=8", "best_time": 0.036320000886917114, "best_triton_pos": 0}
+AUTOTUNE addmm(6032x1152, 6032x384, 384x1152)
+strides: [0, 1], [384, 1], [1, 384]
+dtypes: torch.float16, torch.float16, torch.float16
+  triton_mm_53 0.0363 ms 100.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=8
+  triton_mm_55 0.0364 ms 99.8% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_59 0.0364 ms 99.8% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_56 0.0364 ms 99.7% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_60 0.0368 ms 98.8% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_57 0.0380 ms 95.5% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_52 0.0384 ms 94.6% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=2, num_warps=4
+  triton_mm_62 0.0409 ms 88.7% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_58 0.0447 ms 81.2% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=4
+  triton_mm_48 0.0470 ms 77.3% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=32, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8
+SingleProcess AUTOTUNE benchmarking takes 1.8407 seconds and 0.0001 seconds precompiling for 22 choices
+Autotune Choices Stats:
+{"num_choices": 22, "num_triton_choices": 21, "best_kernel": "triton_mm_74", "best_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=8", "best_time": 0.01587199978530407, "best_triton_pos": 0}
+AUTOTUNE addmm(6032x384, 6032x384, 384x384)
+strides: [0, 1], [384, 1], [1, 384]
+dtypes: torch.float16, torch.float16, torch.float16
+  triton_mm_74 0.0159 ms 100.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=8
+  triton_mm_73 0.0160 ms 99.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=2, num_warps=4
+  triton_mm_76 0.0180 ms 88.4% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_77 0.0180 ms 88.4% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_80 0.0180 ms 88.4% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_81 0.0180 ms 88.4% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_78 0.0181 ms 87.8% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_69 0.0191 ms 83.1% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=32, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8
+  triton_mm_70 0.0200 ms 79.5% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=32, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8
+  triton_mm_79 0.0221 ms 71.7% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.7735 seconds and 0.0002 seconds precompiling for 22 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "triton_convolution2d_228", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 0.09862399846315384, "best_triton_pos": 0}
+AUTOTUNE convolution(1x384x58x104, 768x384x2x2)
+strides: [0, 1, 39936, 384], [1536, 1, 768, 384]
+dtypes: torch.float16, torch.float16
+  triton_convolution2d_228 0.0986 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_233 0.1052 ms 93.8% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_232 0.1092 ms 90.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  convolution 0.1126 ms 87.6% 
+  triton_convolution2d_230 0.1143 ms 86.3% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_238 0.1174 ms 84.0% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_227 0.1181 ms 83.5% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_229 0.1224 ms 80.6% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_231 0.1311 ms 75.2% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution2d_236 0.1379 ms 71.5% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.3802 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "convolution", "best_time": 0.593887984752655, "best_triton_pos": 1, "best_triton_time": 0.6110079884529114, "best_triton_kernel": "triton_convolution3d_249", "best_triton_kernel_desc": "ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4"}
+AUTOTUNE convolution(1x192x3x116x208, 384x192x3x3x3)
+strides: [13897728, 1, 4632576, 39936, 192], [5184, 1, 1728, 576, 192]
+dtypes: torch.float16, torch.float16
+  convolution 0.5939 ms 100.0% 
+  triton_convolution3d_249 0.6110 ms 97.2% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_247 0.6253 ms 95.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_244 0.6268 ms 94.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_245 0.6284 ms 94.5% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_250 0.6328 ms 93.8% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_248 0.7277 ms 81.6% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_246 0.7370 ms 80.6% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_242 0.8212 ms 72.3% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_255 0.8455 ms 70.2% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.6280 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "convolution", "best_time": 1.171455979347229, "best_triton_pos": 1, "best_triton_time": 1.223680019378662, "best_triton_kernel": "triton_convolution3d_266", "best_triton_kernel_desc": "ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4"}
+AUTOTUNE convolution(1x384x3x116x208, 384x384x3x3x3)
+strides: [27795456, 1, 9265152, 79872, 384], [10368, 1, 3456, 1152, 384]
+dtypes: torch.float16, torch.float16
+  convolution 1.1715 ms 100.0% 
+  triton_convolution3d_266 1.2237 ms 95.7% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_264 1.2326 ms 95.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_262 1.2408 ms 94.4% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_261 1.2506 ms 93.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_267 1.3094 ms 89.5% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_265 1.4408 ms 81.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_272 1.4691 ms 79.7% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_270 1.4756 ms 79.4% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_263 1.4875 ms 78.8% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.7225 seconds and 0.0001 seconds precompiling for 18 choices
+E1006 15:51:34.654000 66613 .venv-cu130/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py:5332] [3/0] Runtime error during autotuning: 
+E1006 15:51:34.654000 66613 .venv-cu130/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py:5332] [3/0] permute(sparse_coo): number of dimensions in the tensor input does not match the length of the desired ordering of dimensions i.e. input.dim() = 5 is not equal to len(dims) = 4. 
+E1006 15:51:34.654000 66613 .venv-cu130/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py:5332] [3/0] Ignoring this choice.
+Autotune Choices Stats:
+{"num_choices": 19, "num_triton_choices": 17, "best_kernel": "triton_convolution3d_279", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=4", "best_time": 0.030208000913262367, "best_triton_pos": 0}
+AUTOTUNE convolution(1x192x1x116x208, 384x192x1x1x1)
+strides: [4632576, 24128, 24128, 208, 1], [192, 1, 1, 1, 1]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_279 0.0302 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=4
+  triton_convolution3d_278 0.0302 ms 99.9% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=8
+  triton_convolution3d_281 0.0303 ms 99.6% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=8
+  triton_convolution3d_282 0.0344 ms 87.7% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=3, num_warps=8
+  triton_convolution3d_276 0.0379 ms 79.7% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=4
+  triton_convolution3d_284 0.0384 ms 78.6% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=4, num_warps=4
+  triton_convolution3d_283 0.0396 ms 76.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=4, num_warps=4
+  triton_convolution3d_285 0.0400 ms 75.5% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=256, BLOCK_N=128, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=8
+  triton_convolution3d_275 0.0409 ms 73.8% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=4
+  triton_convolution3d_286 0.0423 ms 71.4% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=256, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=8
+SingleProcess AUTOTUNE benchmarking takes 0.9174 seconds and 0.0002 seconds precompiling for 19 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "convolution", "best_time": 0.3357439935207367, "best_triton_pos": 1, "best_triton_time": 0.33616000413894653, "best_triton_kernel": "triton_convolution2d_363", "best_triton_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4"}
+AUTOTUNE convolution(1x384x116x208, 768x384x2x2)
+strides: [0, 1, 79872, 384], [1536, 1, 768, 384]
+dtypes: torch.float16, torch.float16
+  convolution 0.3357 ms 100.0% 
+  triton_convolution2d_363 0.3362 ms 99.9% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_365 0.3436 ms 97.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_366 0.3454 ms 97.2% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_364 0.3588 ms 93.6% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_369 0.3768 ms 89.1% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_368 0.3887 ms 86.4% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_374 0.3949 ms 85.0% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_367 0.3969 ms 84.6% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution2d_372 0.4130 ms 81.3% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.5664 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "triton_convolution3d_383", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 1.1189119815826416, "best_triton_pos": 0}
+AUTOTUNE convolution(1x192x3x232x416, 192x192x3x3x3)
+strides: [55590912, 1, 18530304, 79872, 192], [5184, 1, 1728, 576, 192]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_383 1.1189 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_381 1.2254 ms 91.3% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_386 1.2575 ms 89.0% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  convolution 1.4182 ms 78.9% 
+  triton_convolution3d_378 1.4561 ms 76.8% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_382 1.4650 ms 76.4% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_380 1.4828 ms 75.5% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_384 1.5032 ms 74.4% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_385 1.5550 ms 72.0% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_377 1.6926 ms 66.1% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.7297 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "convolution", "best_time": 0.3256320059299469, "best_triton_pos": 1, "best_triton_time": 0.3437120020389557, "best_triton_kernel": "triton_convolution2d_485", "best_triton_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4"}
+AUTOTUNE convolution(1x192x232x416, 384x192x2x2)
+strides: [0, 1, 79872, 192], [768, 1, 384, 192]
+dtypes: torch.float16, torch.float16
+  convolution 0.3256 ms 100.0% 
+  triton_convolution2d_485 0.3437 ms 94.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_482 0.3540 ms 92.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_483 0.3540 ms 92.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_488 0.3860 ms 84.4% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_487 0.4096 ms 79.5% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_486 0.4123 ms 79.0% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution2d_484 0.4460 ms 73.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_480 0.4461 ms 73.0% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_479 0.4892 ms 66.6% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.6032 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 17, "num_triton_choices": 16, "best_kernel": "convolution", "best_time": 1.4254080057144165, "best_triton_pos": 1, "best_triton_time": 1.4742399454116821, "best_triton_kernel": "triton_convolution3d_499", "best_triton_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4"}
+AUTOTUNE convolution(1x96x3x464x832, 96x96x3x3x3)
+strides: [111181824, 1, 37060608, 79872, 96], [2592, 1, 864, 288, 96]
+dtypes: torch.float16, torch.float16
+  convolution 1.4254 ms 100.0% 
+  triton_convolution3d_499 1.4742 ms 96.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_501 1.4896 ms 95.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_502 1.5019 ms 94.9% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_500 1.5227 ms 93.6% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_496 1.5882 ms 89.7% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_497 1.8289 ms 77.9% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_507 1.9855 ms 71.8% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_503 2.0350 ms 70.0% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_504 2.1084 ms 67.6% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.6657 seconds and 0.0002 seconds precompiling for 17 choices
+Autotune Choices Stats:
+{"num_choices": 16, "num_triton_choices": 15, "best_kernel": "triton_convolution3d_596", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 0.3447679877281189, "best_triton_pos": 0}
+AUTOTUNE convolution(1x96x3x464x832, 3x96x3x3x3)
+strides: [111181824, 1, 37060608, 79872, 96], [2592, 1, 864, 288, 96]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_596 0.3448 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  convolution 0.3457 ms 99.7% 
+  triton_convolution3d_595 0.3499 ms 98.5% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_602 0.3663 ms 94.1% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_599 0.3683 ms 93.6% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_597 0.3745 ms 92.1% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_598 0.3745 ms 92.1% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_603 0.4083 ms 84.4% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_604 0.4130 ms 83.5% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_605 0.4560 ms 75.6% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 0.6341 seconds and 0.0001 seconds precompiling for 16 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "triton_convolution3d_835", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 0.07734400033950806, "best_triton_pos": 0}
+AUTOTUNE convolution(1x384x3x58x104, 768x384x3x1x1)
+strides: [6948864, 1, 2316288, 39936, 384], [1152, 1, 384, 384, 384]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_835 0.0773 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_839 0.0835 ms 92.6% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_840 0.0846 ms 91.4% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  convolution 0.0860 ms 89.9% 
+  triton_convolution3d_834 0.0877 ms 88.2% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_838 0.0891 ms 86.8% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_836 0.0897 ms 86.3% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_837 0.0953 ms 81.1% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_845 0.1122 ms 69.0% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_843 0.1142 ms 67.7% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.5040 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "triton_convolution2d_852", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 0.18636800348758698, "best_triton_pos": 0}
+AUTOTUNE convolution(2x384x58x104, 768x384x2x2)
+strides: [2316288, 1, 39936, 384], [1536, 1, 768, 384]
+dtypes: torch.float16, torch.float16
+  triton_convolution2d_852 0.1864 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_851 0.1900 ms 98.1% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_854 0.1901 ms 98.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_856 0.1966 ms 94.8% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_853 0.1973 ms 94.5% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_857 0.2064 ms 90.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_855 0.2140 ms 87.1% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  convolution 0.2171 ms 85.9% 
+  triton_convolution2d_862 0.2291 ms 81.4% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_860 0.2444 ms 76.3% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.6642 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "convolution", "best_time": 1.0670080184936523, "best_triton_pos": 1, "best_triton_time": 1.12608003616333, "best_triton_kernel": "triton_convolution3d_871", "best_triton_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4"}
+AUTOTUNE convolution(1x192x4x116x208, 384x192x3x3x3)
+strides: [18530304, 1, 4632576, 39936, 192], [5184, 1, 1728, 576, 192]
+dtypes: torch.float16, torch.float16
+  convolution 1.0670 ms 100.0% 
+  triton_convolution3d_871 1.1261 ms 94.8% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_868 1.1445 ms 93.2% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_869 1.2049 ms 88.6% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_873 1.2212 ms 87.4% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_872 1.3124 ms 81.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_874 1.3155 ms 81.1% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_866 1.4179 ms 75.3% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_870 1.4957 ms 71.3% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_877 1.7128 ms 62.3% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.8565 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "convolution", "best_time": 2.1084160804748535, "best_triton_pos": 1, "best_triton_time": 2.229248046875, "best_triton_kernel": "triton_convolution3d_888", "best_triton_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4"}
+AUTOTUNE convolution(1x384x4x116x208, 384x384x3x3x3)
+strides: [37060608, 1, 9265152, 79872, 384], [10368, 1, 3456, 1152, 384]
+dtypes: torch.float16, torch.float16
+  convolution 2.1084 ms 100.0% 
+  triton_convolution3d_888 2.2292 ms 94.6% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_885 2.2556 ms 93.5% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_886 2.3501 ms 89.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_890 2.4177 ms 87.2% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_891 2.5702 ms 82.0% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_889 2.6081 ms 80.8% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_894 2.6143 ms 80.7% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_896 2.6491 ms 79.6% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_883 2.8027 ms 75.2% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 2.0441 seconds and 0.0001 seconds precompiling for 18 choices
+E1006 15:52:46.071000 66613 .venv-cu130/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py:5332] [3/1] Runtime error during autotuning: 
+E1006 15:52:46.071000 66613 .venv-cu130/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py:5332] [3/1] permute(sparse_coo): number of dimensions in the tensor input does not match the length of the desired ordering of dimensions i.e. input.dim() = 5 is not equal to len(dims) = 4. 
+E1006 15:52:46.071000 66613 .venv-cu130/lib/python3.12/site-packages/torch/_inductor/select_algorithm.py:5332] [3/1] Ignoring this choice.
+Autotune Choices Stats:
+{"num_choices": 19, "num_triton_choices": 17, "best_kernel": "triton_convolution3d_905", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=8", "best_time": 0.052928000688552856, "best_triton_pos": 0}
+AUTOTUNE convolution(1x192x2x116x208, 384x192x1x1x1)
+strides: [9265152, 48256, 24128, 208, 1], [192, 1, 1, 1, 1]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_905 0.0529 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=8
+  triton_convolution3d_902 0.0548 ms 96.5% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=8
+  triton_convolution3d_903 0.0548 ms 96.5% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=4
+  triton_convolution3d_900 0.0570 ms 92.8% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=4
+  triton_convolution3d_906 0.0625 ms 84.7% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=3, num_warps=8
+  triton_convolution3d_909 0.0651 ms 81.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=256, BLOCK_N=128, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=8
+  triton_convolution3d_904 0.0712 ms 74.3% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=8
+  triton_convolution3d_899 0.0734 ms 72.1% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=2, num_warps=4
+  triton_convolution3d_908 0.0737 ms 71.8% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=4, num_warps=4
+  triton_convolution3d_907 0.0753 ms 70.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=1, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=True, num_stages=4, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.0496 seconds and 0.0001 seconds precompiling for 19 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "triton_convolution3d_987", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 0.5059199929237366, "best_triton_pos": 0}
+AUTOTUNE convolution(1x384x4x116x208, 768x384x3x1x1)
+strides: [37060608, 1, 9265152, 79872, 384], [1152, 1, 384, 384, 384]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_987 0.5059 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  convolution 0.5079 ms 99.6% 
+  triton_convolution3d_989 0.5161 ms 98.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_990 0.5177 ms 97.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_988 0.5485 ms 92.2% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_992 0.5709 ms 88.6% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_991 0.5731 ms 88.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_984 0.6001 ms 84.3% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_998 0.6201 ms 81.6% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_985 0.6202 ms 81.6% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=1, KERNEL_W=1, PADDING_D=0, PADDING_H=0, PADDING_W=0, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.6712 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "triton_convolution2d_1004", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 1.3137919902801514, "best_triton_pos": 0}
+AUTOTUNE convolution(4x384x116x208, 768x384x2x2)
+strides: [9265152, 1, 79872, 384], [1536, 1, 768, 384]
+dtypes: torch.float16, torch.float16
+  triton_convolution2d_1004 1.3138 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  convolution 1.3230 ms 99.3% 
+  triton_convolution2d_1006 1.3460 ms 97.6% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_1007 1.3551 ms 97.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_1005 1.3588 ms 96.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_1001 1.4439 ms 91.0% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_1009 1.5124 ms 86.9% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_1008 1.5370 ms 85.5% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution2d_1010 1.5800 ms 83.1% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_1015 1.6210 ms 81.0% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.8252 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "triton_convolution3d_1024", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 4.317183971405029, "best_triton_pos": 0}
+AUTOTUNE convolution(1x192x6x232x416, 192x192x3x3x3)
+strides: [111181824, 1, 18530304, 79872, 192], [5184, 1, 1728, 576, 192]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_1024 4.3172 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1022 4.6387 ms 93.1% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1019 4.9521 ms 87.2% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1027 5.0452 ms 85.6% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  convolution 5.6013 ms 77.1% 
+  triton_convolution3d_1021 5.7047 ms 75.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1023 5.8470 ms 73.8% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1025 6.1307 ms 70.4% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_1026 6.4174 ms 67.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_1018 6.4338 ms 67.1% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 2.6147 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 18, "num_triton_choices": 17, "best_kernel": "triton_convolution2d_1126", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 1.3363200426101685, "best_triton_pos": 0}
+AUTOTUNE convolution(4x192x232x416, 384x192x2x2)
+strides: [18530304, 1, 79872, 192], [768, 1, 384, 192]
+dtypes: torch.float16, torch.float16
+  triton_convolution2d_1126 1.3363 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_1123 1.3384 ms 99.8% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  convolution 1.3844 ms 96.5% 
+  triton_convolution2d_1124 1.4182 ms 94.2% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_1128 1.5900 ms 84.0% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_1121 1.6568 ms 80.7% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_1127 1.6600 ms 80.5% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution2d_1125 1.7193 ms 77.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution2d_1129 1.7517 ms 76.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=64, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution2d_1120 1.8176 ms 73.5% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=256, GROUPS=1, KERNEL_H=2, KERNEL_W=2, PADDING_H=1, PADDING_W=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.9379 seconds and 0.0001 seconds precompiling for 18 choices
+Autotune Choices Stats:
+{"num_choices": 17, "num_triton_choices": 16, "best_kernel": "convolution", "best_time": 5.606400012969971, "best_triton_pos": 1, "best_triton_time": 5.693439960479736, "best_triton_kernel": "triton_convolution3d_1140", "best_triton_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4"}
+AUTOTUNE convolution(1x96x6x464x832, 96x96x3x3x3)
+strides: [222363648, 1, 37060608, 79872, 96], [2592, 1, 864, 288, 96]
+dtypes: torch.float16, torch.float16
+  convolution 5.6064 ms 100.0% 
+  triton_convolution3d_1140 5.6934 ms 98.5% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1143 5.7979 ms 96.7% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1142 5.8235 ms 96.3% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1137 5.9341 ms 94.5% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1141 5.9474 ms 94.3% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1138 6.2945 ms 89.1% ALLOW_TF32=False, BLOCK_K=16, BLOCK_M=256, BLOCK_N=64, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1148 7.7066 ms 72.7% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1144 8.1633 ms 68.7% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_1145 8.2145 ms 68.2% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 2.4727 seconds and 0.0001 seconds precompiling for 17 choices
+Autotune Choices Stats:
+{"num_choices": 16, "num_triton_choices": 15, "best_kernel": "triton_convolution3d_1236", "best_kernel_desc": "ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4", "best_time": 1.2707840204238892, "best_triton_pos": 0}
+AUTOTUNE convolution(1x96x6x464x832, 3x96x3x3x3)
+strides: [222363648, 1, 37060608, 79872, 96], [2592, 1, 864, 288, 96]
+dtypes: torch.float16, torch.float16
+  triton_convolution3d_1236 1.2708 ms 100.0% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  convolution 1.2831 ms 99.0% 
+  triton_convolution3d_1238 1.2916 ms 98.4% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=256, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1237 1.2995 ms 97.8% ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1243 1.3981 ms 90.9% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1239 1.4288 ms 88.9% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+  triton_convolution3d_1240 1.4582 ms 87.1% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=4, num_warps=4
+  triton_convolution3d_1242 1.5446 ms 82.3% ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=256, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1244 1.5903 ms 79.9% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=2, num_warps=4
+  triton_convolution3d_1245 1.7053 ms 74.5% ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=128, BLOCK_N=16, GROUPS=1, KERNEL_D=3, KERNEL_H=3, KERNEL_W=3, PADDING_D=0, PADDING_H=1, PADDING_W=1, STRIDE_D=1, STRIDE_H=1, STRIDE_W=1, UNROLL=False, num_stages=3, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 0.7232 seconds and 0.0001 seconds precompiling for 16 choices
+ 10%|#         | 1/10 [03:02<27:26, 182.97s/it] 20%|##        | 2/10 [03:03<10:04, 75.57s/it]  30%|###       | 3/10 [03:03<04:48, 41.28s/it] 40%|####      | 4/10 [03:04<02:31, 25.20s/it] 50%|#####     | 5/10 [03:04<01:21, 16.32s/it] 60%|######    | 6/10 [03:05<00:43, 10.97s/it] 70%|#######   | 7/10 [03:06<00:22,  7.58s/it] 80%|########  | 8/10 [03:06<00:10,  5.35s/it] 90%|######### | 9/10 [03:07<00:03,  3.87s/it]100%|##########| 10/10 [03:07<00:00,  2.85s/it]100%|##########| 10/10 [03:07<00:00, 18.79s/it]
+[2026-10-06 15:53:57,724] INFO: Saving generated video to /workspace/runs/c0/s_cold.mp4
+BENCH_E2E trial 1: 27.08 FPS (interval p50 590.8 ms, p95 592.0, p99 592.0; 5 steady chunks), first frame 190233 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 27.08 FPS, 10.46 MPPS, interval p95 592.0 ms, first frame 190233 ms (cold: includes compile)
+[worker] run took 197.4 s
+

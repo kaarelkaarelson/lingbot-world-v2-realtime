@@ -1,0 +1,1973 @@
+{
+ "rows": [
+  {
+   "i": 0,
+   "kernel": "fused norm/quant",
+   "start": 0.0,
+   "ready": 0.0,
+   "wait_ms": 0.0,
+   "dur_ms": 0.015424,
+   "alone_ms": 0.005441,
+   "grid": [
+    1508,
+    1,
+    1
+   ],
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.20140799999999998,
+     "start": -0.18876800537109376
+    }
+   ]
+  },
+  {
+   "i": 1,
+   "kernel": "fused norm/quant",
+   "start": 4.692054992675781,
+   "ready": 0.01542401123046875,
+   "wait_ms": 4.676630981445313,
+   "dur_ms": 0.011872,
+   "alone_ms": 0.0034879999999999998,
+   "grid": [
+    1508,
+    1,
+    1
+   ],
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.708823000000001,
+     "start": 0.01584002685546875
+    }
+   ]
+  },
+  {
+   "i": 2,
+   "kernel": "FP8 GEMM",
+   "start": 4.710679016113281,
+   "ready": 4.703927001953125,
+   "wait_ms": 0.00675201416015625,
+   "dur_ms": 0.0544,
+   "alone_ms": 0.040672,
+   "grid": [
+    12,
+    27,
+    1
+   ],
+   "block": [
+    384,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.708823000000001,
+     "start": 0.01584002685546875
+    },
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      193024,
+      1,
+      1
+     ],
+     "dur_ms": 0.393887,
+     "start": 4.72706298828125
+    }
+   ]
+  },
+  {
+   "i": 3,
+   "kernel": "fused elementwise",
+   "start": 5.1159580078125,
+   "ready": 4.765079040527343,
+   "wait_ms": 0.3508789672851563,
+   "dur_ms": 0.027072,
+   "alone_ms": 0.005791999999999999,
+   "grid": [
+    10179,
+    1,
+    1
+   ],
+   "block": [
+    256,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      193024,
+      1,
+      1
+     ],
+     "dur_ms": 0.393887,
+     "start": 4.72706298828125
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.20227099999999998,
+     "start": 5.130230041503906
+    }
+   ]
+  },
+  {
+   "i": 4,
+   "kernel": "fused norm/quant",
+   "start": 5.321268981933594,
+   "ready": 5.143030029296875,
+   "wait_ms": 0.17823895263671874,
+   "dur_ms": 0.012161,
+   "alone_ms": 0.003552,
+   "grid": [
+    1508,
+    1,
+    1
+   ],
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.20227099999999998,
+     "start": 5.130230041503906
+    }
+   ]
+  },
+  {
+   "i": 5,
+   "kernel": "FP8 GEMM",
+   "start": 10.047276000976563,
+   "ready": 7.241010009765625,
+   "wait_ms": 2.8062659912109376,
+   "dur_ms": 0.051712,
+   "alone_ms": 0.02096,
+   "grid": [
+    9,
+    12,
+    1
+   ],
+   "block": [
+    384,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.729814,
+     "start": 5.3380059814453125
+    },
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      1544192,
+      1,
+      1
+     ],
+     "dur_ms": 0.752479,
+     "start": 10.070380004882812
+    }
+   ]
+  },
+  {
+   "i": 6,
+   "kernel": "fused elementwise",
+   "start": 10.820075012207031,
+   "ready": 10.098987976074218,
+   "wait_ms": 0.7210870361328126,
+   "dur_ms": 0.004896,
+   "alone_ms": 0.001824,
+   "grid": [
+    1697,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      1544192,
+      1,
+      1
+     ],
+     "dur_ms": 0.752479,
+     "start": 10.070380004882812
+    }
+   ]
+  },
+  {
+   "i": 7,
+   "kernel": "copy/place",
+   "start": 11.598281005859375,
+   "ready": 10.824971008300782,
+   "wait_ms": 0.7733099975585938,
+   "dur_ms": 0.010944,
+   "alone_ms": 0.001984,
+   "grid": [
+    1131,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused elementwise",
+     "grid": [
+      868608,
+      1,
+      1
+     ],
+     "dur_ms": 0.7747179999999999,
+     "start": 10.825322998046875
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.178528,
+     "start": 11.6014169921875
+    }
+   ]
+  },
+  {
+   "i": 8,
+   "kernel": "copy/place",
+   "start": 11.770760986328124,
+   "ready": 11.609224975585937,
+   "wait_ms": 0.1615360107421875,
+   "dur_ms": 0.013023999999999999,
+   "alone_ms": 0.0019199999999999998,
+   "grid": [
+    1131,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.178528,
+     "start": 11.6014169921875
+    },
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.698423,
+     "start": 11.781449035644531
+    }
+   ]
+  },
+  {
+   "i": 9,
+   "kernel": "copy/place",
+   "start": 16.44767999267578,
+   "ready": 11.783784973144531,
+   "wait_ms": 4.66389501953125,
+   "dur_ms": 0.008256,
+   "alone_ms": 0.001888,
+   "grid": [
+    1131,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.698423,
+     "start": 11.781449035644531
+    }
+   ]
+  },
+  {
+   "i": 10,
+   "kernel": "copy/place",
+   "start": 16.456960021972655,
+   "ready": 16.455935974121093,
+   "wait_ms": 0.0010240478515625,
+   "dur_ms": 0.009151999999999999,
+   "alone_ms": 0.005664,
+   "grid": [
+    3393,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.698423,
+     "start": 11.781449035644531
+    }
+   ]
+  },
+  {
+   "i": 11,
+   "kernel": "copy/place",
+   "start": 16.467168029785157,
+   "ready": 16.466111999511718,
+   "wait_ms": 0.0010560302734375,
+   "dur_ms": 0.006143,
+   "alone_ms": 0.00544,
+   "grid": [
+    3393,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.698423,
+     "start": 11.781449035644531
+    }
+   ]
+  },
+  {
+   "i": 12,
+   "kernel": "copy/place",
+   "start": 16.475359985351563,
+   "ready": 16.47331103515625,
+   "wait_ms": 0.0020489501953125,
+   "dur_ms": 0.005791999999999999,
+   "alone_ms": 0.005952,
+   "grid": [
+    3393,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.698423,
+     "start": 11.781449035644531
+    }
+   ]
+  },
+  {
+   "i": 13,
+   "kernel": "Sage K mean",
+   "start": 16.84227099609375,
+   "ready": 16.481151977539064,
+   "wait_ms": 0.3611190185546875,
+   "dur_ms": 0.27123200000000003,
+   "alone_ms": 0.032096,
+   "grid": [
+    3,
+    425,
+    1
+   ],
+   "block": [
+    32,
+    4,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      193024,
+      1,
+      1
+     ],
+     "dur_ms": 0.378047,
+     "start": 16.481504028320312
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.190336,
+     "start": 16.862751037597658
+    },
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.7078940000000005,
+     "start": 17.05510302734375
+    }
+   ]
+  },
+  {
+   "i": 14,
+   "kernel": "Sage quantize",
+   "start": 21.726260986328125,
+   "ready": 17.113502990722655,
+   "wait_ms": 4.6127579956054685,
+   "dur_ms": 0.008288,
+   "alone_ms": 0.0024,
+   "grid": [
+    192,
+    3,
+    1
+   ],
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.7078940000000005,
+     "start": 17.05510302734375
+    }
+   ]
+  },
+  {
+   "i": 15,
+   "kernel": "Sage quantize",
+   "start": 21.735829040527342,
+   "ready": 21.73454901123047,
+   "wait_ms": 0.001280029296875,
+   "dur_ms": 0.02096,
+   "alone_ms": 0.01024,
+   "grid": [
+    425,
+    3,
+    1
+   ],
+   "block": [
+    1024,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.7078940000000005,
+     "start": 17.05510302734375
+    }
+   ]
+  },
+  {
+   "i": 16,
+   "kernel": "Sage transpose V",
+   "start": 21.7581650390625,
+   "ready": 21.7567890625,
+   "wait_ms": 0.0013759765625,
+   "dur_ms": 0.042624,
+   "alone_ms": 0.037536,
+   "grid": [
+    425,
+    3,
+    1
+   ],
+   "block": [
+    1024,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.7078940000000005,
+     "start": 17.05510302734375
+    },
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      1544192,
+      1,
+      1
+     ],
+     "dur_ms": 0.950686,
+     "start": 21.794804992675783
+    }
+   ]
+  },
+  {
+   "i": 17,
+   "kernel": "Sage V scale",
+   "start": 22.72680303955078,
+   "ready": 21.8007890625,
+   "wait_ms": 0.9260139770507813,
+   "dur_ms": 0.092192,
+   "alone_ms": 0.009087999999999999,
+   "grid": [
+    3,
+    1,
+    128
+   ],
+   "block": [
+    256,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      1544192,
+      1,
+      1
+     ],
+     "dur_ms": 0.950686,
+     "start": 21.794804992675783
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.1992,
+     "start": 22.747986999511717
+    }
+   ]
+  },
+  {
+   "i": 18,
+   "kernel": "Sage attention",
+   "start": 22.936531005859376,
+   "ready": 22.818995056152342,
+   "wait_ms": 0.11753594970703125,
+   "dur_ms": 1.081982,
+   "alone_ms": 0.5233909999999999,
+   "grid": [
+    48,
+    3,
+    1
+   ],
+   "block": [
+    32,
+    4,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.1992,
+     "start": 22.747986999511717
+    },
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.981782,
+     "start": 22.95006701660156
+    }
+   ]
+  },
+  {
+   "i": 19,
+   "kernel": "copy/place",
+   "start": 27.897385009765625,
+   "ready": 24.01851300048828,
+   "wait_ms": 3.8788720092773437,
+   "dur_ms": 0.012704,
+   "alone_ms": 0.0031680000000000002,
+   "grid": [
+    3393,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.981782,
+     "start": 22.95006701660156
+    }
+   ]
+  },
+  {
+   "i": 20,
+   "kernel": "copy/place",
+   "start": 27.911432983398438,
+   "ready": 27.91008898925781,
+   "wait_ms": 0.001343994140625,
+   "dur_ms": 0.005216,
+   "alone_ms": 0.002049,
+   "grid": [
+    1131,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.981782,
+     "start": 22.95006701660156
+    }
+   ]
+  },
+  {
+   "i": 21,
+   "kernel": "copy/place",
+   "start": 27.920617004394533,
+   "ready": 27.916648986816405,
+   "wait_ms": 0.003968017578125,
+   "dur_ms": 0.005984,
+   "alone_ms": 0.0045119999999999995,
+   "grid": [
+    3393,
+    1,
+    1
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.981782,
+     "start": 22.95006701660156
+    }
+   ]
+  },
+  {
+   "i": 22,
+   "kernel": "fused norm/quant",
+   "start": 27.92919299316406,
+   "ready": 27.926601013183593,
+   "wait_ms": 0.00259197998046875,
+   "dur_ms": 0.0038399999999999997,
+   "alone_ms": 0.0034879999999999998,
+   "grid": [
+    1508,
+    1,
+    1
+   ],
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.981782,
+     "start": 22.95006701660156
+    }
+   ]
+  },
+  {
+   "i": 23,
+   "kernel": "FP8 GEMM",
+   "start": 28.29661602783203,
+   "ready": 27.933033020019533,
+   "wait_ms": 0.3635830078125,
+   "dur_ms": 0.031808,
+   "alone_ms": 0.021633,
+   "grid": [
+    12,
+    12,
+    1
+   ],
+   "block": [
+    384,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      193024,
+      1,
+      1
+     ],
+     "dur_ms": 0.361375,
+     "start": 27.93492102050781
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.202239,
+     "start": 28.298345031738283
+    }
+   ]
+  },
+  {
+   "i": 24,
+   "kernel": "fused norm/quant",
+   "start": 28.487656005859375,
+   "ready": 28.328424011230467,
+   "wait_ms": 0.15923199462890625,
+   "dur_ms": 0.025472,
+   "alone_ms": 0.007647,
+   "grid": [
+    1508,
+    1,
+    1
+   ],
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.202239,
+     "start": 28.298345031738283
+    },
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.732310999999999,
+     "start": 28.50522399902344
+    }
+   ]
+  },
+  {
+   "i": 25,
+   "kernel": "FP8 GEMM",
+   "start": 33.21775903320312,
+   "ready": 29.447429992675783,
+   "wait_ms": 3.770329040527344,
+   "dur_ms": 0.054238999999999996,
+   "alone_ms": 0.022112,
+   "grid": [
+    12,
+    12,
+    1
+   ],
+   "block": [
+    384,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "sm80_xmma_fprop_implicit_gem",
+     "grid": [
+      3,
+      12064,
+      1
+     ],
+     "dur_ms": 4.732310999999999,
+     "start": 28.50522399902344
+    },
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      1544192,
+      1,
+      1
+     ],
+     "dur_ms": 0.7530220000000001,
+     "start": 33.24025500488281
+    }
+   ]
+  },
+  {
+   "i": 26,
+   "kernel": "FP8 GEMM",
+   "start": 33.99218902587891,
+   "ready": 33.271998046875,
+   "wait_ms": 0.7201909790039063,
+   "dur_ms": 0.037984000000000004,
+   "alone_ms": 0.030591999999999998,
+   "grid": [
+    12,
+    1,
+    12
+   ],
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      1544192,
+      1,
+      1
+     ],
+     "dur_ms": 0.7530220000000001,
+     "start": 33.24025500488281
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      868608,
+      1,
+      1
+     ],
+     "dur_ms": 0.782175,
+     "start": 33.99676501464844
+    }
+   ]
+  },
+  {
+   "i": 27,
+   "kernel": "fused norm/quant",
+   "start": 34.77740399169922,
+   "ready": 34.03017303466797,
+   "wait_ms": 0.74723095703125,
+   "dur_ms": 0.013919,
+   "alone_ms": 0.003584,
+   "grid": [
+    1508,
+    1,
+    1
+   ],
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused elementwise",
+     "grid": [
+      868608,
+      1,
+      1
+     ],
+     "dur_ms": 0.782175,
+     "start": 33.99676501464844
+    },
+    {
+     "name": "decoder conv",
+     "grid": [
+      6032,
+      1,
+      1
+     ],
+     "dur_ms": 1.2584929999999999,
+     "start": 34.78255603027344
+    }
+   ]
+  },
+  {
+   "i": 28,
+   "kernel": "FP8 GEMM",
+   "start": 35.98767303466797,
+   "ready": 34.79132299804687,
+   "wait_ms": 1.1963500366210937,
+   "dur_ms": 0.08227200000000001,
+   "alone_ms": 0.02208,
+   "grid": [
+    12,
+    12,
+    1
+   ],
+   "block": [
+    384,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "decoder conv",
+     "grid": [
+      6032,
+      1,
+      1
+     ],
+     "dur_ms": 1.2584929999999999,
+     "start": 34.78255603027344
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.15552000000000002,
+     "start": 36.04399304199219
+    }
+   ]
+  },
+  {
+   "i": 29,
+   "kernel": "fused norm/quant",
+   "start": 36.19122503662109,
+   "ready": 36.06994500732422,
+   "wait_ms": 0.121280029296875,
+   "dur_ms": 0.02736,
+   "alone_ms": 0.007679999999999999,
+   "grid": [
+    1508,
+    1,
+    1
+   ],
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused elementwise",
+     "grid": [
+      72384,
+      1,
+      1
+     ],
+     "dur_ms": 0.15552000000000002,
+     "start": 36.04399304199219
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      2262,
+      1,
+      1
+     ],
+     "dur_ms": 0.015359999999999999,
+     "start": 36.204217041015625
+    }
+   ]
+  },
+  {
+   "i": 30,
+   "kernel": "FP8 GEMM",
+   "start": 36.22472900390625,
+   "ready": 36.21858502197266,
+   "wait_ms": 0.00614398193359375,
+   "dur_ms": 0.09907099999999999,
+   "alone_ms": 0.099232,
+   "grid": [
+    12,
+    70,
+    1
+   ],
+   "block": [
+    384,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused elementwise",
+     "grid": [
+      2262,
+      1,
+      1
+     ],
+     "dur_ms": 0.015359999999999999,
+     "start": 36.204217041015625
+    },
+    {
+     "name": "copy/place",
+     "grid": [
+      189,
+      1,
+      1
+     ],
+     "dur_ms": 0.002848,
+     "start": 36.222393005371096
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      283,
+      1,
+      1
+     ],
+     "dur_ms": 0.005023,
+     "start": 36.303768981933594
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      377,
+      1,
+      1
+     ],
+     "dur_ms": 0.002784,
+     "start": 36.31013702392578
+    }
+   ]
+  },
+  {
+   "i": 31,
+   "kernel": "fused norm/quant",
+   "start": 36.32652001953125,
+   "ready": 36.32379998779297,
+   "wait_ms": 0.00272003173828125,
+   "dur_ms": 0.033951999999999996,
+   "alone_ms": 0.02544,
+   "grid": [
+    1508,
+    1,
+    1
+   ],
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "decoder conv",
+     "grid": [
+      48,
+      3,
+      1
+     ],
+     "dur_ms": 0.036544,
+     "start": 36.31423303222656
+    },
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      6032,
+      1,
+      1
+     ],
+     "dur_ms": 0.008705000000000001,
+     "start": 36.35314398193359
+    }
+   ]
+  },
+  {
+   "i": 32,
+   "kernel": "FP8 GEMM",
+   "start": 36.3718330078125,
+   "ready": 36.36047204589844,
+   "wait_ms": 0.0113609619140625,
+   "dur_ms": 0.109439,
+   "alone_ms": 0.106976,
+   "grid": [
+    12,
+    12,
+    1
+   ],
+   "block": [
+    384,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "fused norm/quant",
+     "grid": [
+      6032,
+      1,
+      1
+     ],
+     "dur_ms": 0.008705000000000001,
+     "start": 36.35314398193359
+    },
+    {
+     "name": "fused elementwise",
+     "grid": [
+      9048,
+      1,
+      1
+     ],
+     "dur_ms": 0.007713,
+     "start": 36.36344799804687
+    },
+    {
+     "name": "decoder conv",
+     "grid": [
+      95,
+      6,
+      1
+     ],
+     "dur_ms": 0.567743,
+     "start": 36.37432800292969
+    }
+   ]
+  },
+  {
+   "i": 33,
+   "kernel": "fused elementwise",
+   "start": 36.48424798583984,
+   "ready": 36.481272033691404,
+   "wait_ms": 0.0029759521484375,
+   "dur_ms": 0.010208,
+   "alone_ms": 0.0032,
+   "grid": [
+    4524,
+    1,
+    1
+   ],
+   "block": [
+    256,
+    1,
+    1
+   ],
+   "blocking": [
+    {
+     "name": "decoder conv",
+     "grid": [
+      95,
+      6,
+      1
+     ],
+     "dur_ms": 0.567743,
+     "start": 36.37432800292969
+    }
+   ]
+  }
+ ],
+ "card0_gaps": [
+  {
+   "after": "copy/place",
+   "before": "copy/place",
+   "at": 7.13768603515625,
+   "gap_ms": 20.87270098876953
+  }
+ ],
+ "dec_lane": [
+  {
+   "name": "fused elementwise",
+   "start": -4.177815979003906,
+   "dur": 0.600863,
+   "grid": [
+    289536,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "decoder conv",
+   "start": -3.5559929809570314,
+   "dur": 2.9610819999999998,
+   "grid": [
+    12064,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused norm/quant",
+   "start": -0.5926709594726562,
+   "dur": 0.401727,
+   "grid": [
+    193024,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": -0.18876800537109376,
+   "dur": 0.20140799999999998,
+   "grid": [
+    72384,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "sm80_xmma_fprop_implicit_gem",
+   "start": 0.01584002685546875,
+   "dur": 4.708823000000001,
+   "grid": [
+    3,
+    12064,
+    1
+   ]
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 4.72706298828125,
+   "dur": 0.393887,
+   "grid": [
+    193024,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 5.130230041503906,
+   "dur": 0.20227099999999998,
+   "grid": [
+    72384,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "sm80_xmma_fprop_implicit_gem",
+   "start": 5.3380059814453125,
+   "dur": 4.729814,
+   "grid": [
+    3,
+    12064,
+    1
+   ]
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 10.070380004882812,
+   "dur": 0.752479,
+   "grid": [
+    1544192,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 10.825322998046875,
+   "dur": 0.7747179999999999,
+   "grid": [
+    868608,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 11.6014169921875,
+   "dur": 0.178528,
+   "grid": [
+    72384,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "sm80_xmma_fprop_implicit_gem",
+   "start": 11.781449035644531,
+   "dur": 4.698423,
+   "grid": [
+    3,
+    12064,
+    1
+   ]
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 16.481504028320312,
+   "dur": 0.378047,
+   "grid": [
+    193024,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 16.862751037597658,
+   "dur": 0.190336,
+   "grid": [
+    72384,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "sm80_xmma_fprop_implicit_gem",
+   "start": 17.05510302734375,
+   "dur": 4.7078940000000005,
+   "grid": [
+    3,
+    12064,
+    1
+   ]
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 21.794804992675783,
+   "dur": 0.950686,
+   "grid": [
+    1544192,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 22.747986999511717,
+   "dur": 0.1992,
+   "grid": [
+    72384,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "sm80_xmma_fprop_implicit_gem",
+   "start": 22.95006701660156,
+   "dur": 4.981782,
+   "grid": [
+    3,
+    12064,
+    1
+   ]
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 27.93492102050781,
+   "dur": 0.361375,
+   "grid": [
+    193024,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 28.298345031738283,
+   "dur": 0.202239,
+   "grid": [
+    72384,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "sm80_xmma_fprop_implicit_gem",
+   "start": 28.50522399902344,
+   "dur": 4.732310999999999,
+   "grid": [
+    3,
+    12064,
+    1
+   ]
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 33.24025500488281,
+   "dur": 0.7530220000000001,
+   "grid": [
+    1544192,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 33.99676501464844,
+   "dur": 0.782175,
+   "grid": [
+    868608,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "decoder conv",
+   "start": 34.78255603027344,
+   "dur": 1.2584929999999999,
+   "grid": [
+    6032,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 36.04399304199219,
+   "dur": 0.15552000000000002,
+   "grid": [
+    72384,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 36.204217041015625,
+   "dur": 0.015359999999999999,
+   "grid": [
+    2262,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "copy/place",
+   "start": 36.222393005371096,
+   "dur": 0.002848,
+   "grid": [
+    189,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 36.303768981933594,
+   "dur": 0.005023,
+   "grid": [
+    283,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 36.31013702392578,
+   "dur": 0.002784,
+   "grid": [
+    377,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "decoder conv",
+   "start": 36.31423303222656,
+   "dur": 0.036544,
+   "grid": [
+    48,
+    3,
+    1
+   ]
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 36.35314398193359,
+   "dur": 0.008705000000000001,
+   "grid": [
+    6032,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "fused elementwise",
+   "start": 36.36344799804687,
+   "dur": 0.007713,
+   "grid": [
+    9048,
+    1,
+    1
+   ]
+  },
+  {
+   "name": "decoder conv",
+   "start": 36.37432800292969,
+   "dur": 0.567743,
+   "grid": [
+    95,
+    6,
+    1
+   ]
+  }
+ ],
+ "dit1_lane": [
+  {
+   "name": "fused norm/quant",
+   "start": 0.0,
+   "dur": 0.015424
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 4.692054992675781,
+   "dur": 0.011872
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 4.710679016113281,
+   "dur": 0.0544
+  },
+  {
+   "name": "fused elementwise",
+   "start": 5.1159580078125,
+   "dur": 0.027072
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 5.321268981933594,
+   "dur": 0.012161
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 10.047276000976563,
+   "dur": 0.051712
+  },
+  {
+   "name": "fused elementwise",
+   "start": 10.820075012207031,
+   "dur": 0.004896
+  },
+  {
+   "name": "copy/place",
+   "start": 11.598281005859375,
+   "dur": 0.010944
+  },
+  {
+   "name": "copy/place",
+   "start": 11.770760986328124,
+   "dur": 0.013023999999999999
+  },
+  {
+   "name": "copy/place",
+   "start": 16.44767999267578,
+   "dur": 0.008256
+  },
+  {
+   "name": "copy/place",
+   "start": 16.456960021972655,
+   "dur": 0.009151999999999999
+  },
+  {
+   "name": "copy/place",
+   "start": 16.467168029785157,
+   "dur": 0.006143
+  },
+  {
+   "name": "copy/place",
+   "start": 16.475359985351563,
+   "dur": 0.005791999999999999
+  },
+  {
+   "name": "Sage K mean",
+   "start": 16.84227099609375,
+   "dur": 0.27123200000000003
+  },
+  {
+   "name": "Sage quantize",
+   "start": 21.726260986328125,
+   "dur": 0.008288
+  },
+  {
+   "name": "Sage quantize",
+   "start": 21.735829040527342,
+   "dur": 0.02096
+  },
+  {
+   "name": "Sage transpose V",
+   "start": 21.7581650390625,
+   "dur": 0.042624
+  },
+  {
+   "name": "Sage V scale",
+   "start": 22.72680303955078,
+   "dur": 0.092192
+  },
+  {
+   "name": "Sage attention",
+   "start": 22.936531005859376,
+   "dur": 1.081982
+  },
+  {
+   "name": "copy/place",
+   "start": 27.897385009765625,
+   "dur": 0.012704
+  },
+  {
+   "name": "copy/place",
+   "start": 27.911432983398438,
+   "dur": 0.005216
+  },
+  {
+   "name": "copy/place",
+   "start": 27.920617004394533,
+   "dur": 0.005984
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 27.92919299316406,
+   "dur": 0.0038399999999999997
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 28.29661602783203,
+   "dur": 0.031808
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 28.487656005859375,
+   "dur": 0.025472
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 33.21775903320312,
+   "dur": 0.054238999999999996
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 33.99218902587891,
+   "dur": 0.037984000000000004
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 34.77740399169922,
+   "dur": 0.013919
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 35.98767303466797,
+   "dur": 0.08227200000000001
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 36.19122503662109,
+   "dur": 0.02736
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 36.22472900390625,
+   "dur": 0.09907099999999999
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 36.32652001953125,
+   "dur": 0.033951999999999996
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 36.3718330078125,
+   "dur": 0.109439
+  },
+  {
+   "name": "fused elementwise",
+   "start": 36.48424798583984,
+   "dur": 0.010208
+  }
+ ],
+ "card0_lane": [
+  {
+   "name": "copy/place",
+   "start": 5.465971008300781,
+   "dur": 0.00544
+  },
+  {
+   "name": "copy/place",
+   "start": 5.4732360229492185,
+   "dur": 0.005696
+  },
+  {
+   "name": "copy/place",
+   "start": 5.481458984375,
+   "dur": 0.005953
+  },
+  {
+   "name": "Sage K mean",
+   "start": 5.491315002441406,
+   "dur": 0.050753
+  },
+  {
+   "name": "Sage quantize",
+   "start": 5.542900024414062,
+   "dur": 0.007679999999999999
+  },
+  {
+   "name": "Sage quantize",
+   "start": 5.553106994628906,
+   "dur": 0.038145000000000005
+  },
+  {
+   "name": "Sage transpose V",
+   "start": 5.59202001953125,
+   "dur": 0.10265600000000001
+  },
+  {
+   "name": "Sage V scale",
+   "start": 5.696468017578125,
+   "dur": 0.034783999999999995
+  },
+  {
+   "name": "Sage attention",
+   "start": 5.73333203125,
+   "dur": 1.3903699999999999
+  },
+  {
+   "name": "copy/place",
+   "start": 7.126101989746093,
+   "dur": 0.003296
+  },
+  {
+   "name": "copy/place",
+   "start": 7.1300700073242185,
+   "dur": 0.0076159999999999995
+  },
+  {
+   "name": "copy/place",
+   "start": 28.01038702392578,
+   "dur": 0.004288
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 28.01560302734375,
+   "dur": 0.008608000000000001
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 28.02789099121094,
+   "dur": 0.060704
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 28.089363037109376,
+   "dur": 0.022688
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 28.116018981933593,
+   "dur": 0.061503999999999996
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 28.179475036621092,
+   "dur": 0.087008
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 28.267539001464844,
+   "dur": 0.008608000000000001
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 28.279794982910158,
+   "dur": 0.058272
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 28.33918701171875,
+   "dur": 0.020640000000000002
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 28.36376300048828,
+   "dur": 0.28528
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 28.650483032226564,
+   "dur": 0.07699299999999999
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 28.732434997558595,
+   "dur": 0.310497
+  },
+  {
+   "name": "fused elementwise",
+   "start": 29.043700012207033,
+   "dur": 0.018047999999999998
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 29.065044006347655,
+   "dur": 0.014592
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 29.080564025878907,
+   "dur": 0.008608000000000001
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 29.092851989746094,
+   "dur": 0.040672
+  },
+  {
+   "name": "fused elementwise",
+   "start": 29.135892028808595,
+   "dur": 0.0057599999999999995
+  },
+  {
+   "name": "fused norm/quant",
+   "start": 29.144052001953124,
+   "dur": 0.008832000000000001
+  },
+  {
+   "name": "FP8 GEMM",
+   "start": 29.159476013183593,
+   "dur": 0.115713
+  },
+  {
+   "name": "fused elementwise",
+   "start": 29.278835998535158,
+   "dur": 0.011231999999999999
+  },
+  {
+   "name": "copy/place",
+   "start": 29.293619995117187,
+   "dur": 0.007073
+  },
+  {
+   "name": "copy/place",
+   "start": 29.30385998535156,
+   "dur": 0.007456000000000001
+  },
+  {
+   "name": "copy/place",
+   "start": 29.314580993652342,
+   "dur": 0.006912
+  }
+ ],
+ "layer_ms": 36.494455993652345
+}

@@ -9,7 +9,7 @@ A 1.3B world model running at **<!-- n:fps_ours -->16.1<!-- /n --> FPS on one RT
 
 ![lingbot play dragon at 16 fps](docs/dragon_16fps.gif)
 
-## Performance vs other engines
+## 1× RTX 5090: performance vs other engines
 
 <!-- table:engines -->
 | Engine | s / chunk | FPS | Ours vs it |
@@ -24,6 +24,58 @@ A 1.3B world model running at **<!-- n:fps_ours -->16.1<!-- /n --> FPS on one RT
 ![the same clip at each engine's measured cadence](docs/engines_same_clip_cadence.gif)
 
 Measured with `lingbot bench` on a stock RunPod RTX 5090 (2026-09-17).
+
+## 2× RTX 5090: pipeline and sequence parallelism
+
+Frames per second with the decoder streaming, one Vast pod (2× RTX 5090, 500 W cap, PCIe, no P2P),
+median of 3 warm runs. Not tensor parallelism: the cards split the pipeline (DiT on one, decoder on the
+other) or the sequence (each card takes a share of the tokens and attention heads). Full log:
+[`experiments/split_cpu/results/fps_log_2026-10-05.tsv`](experiments/split_cpu/results/fps_log_2026-10-05.tsv).
+
+| Layout | FPS |
+|---|---|
+| One card | 15.7 |
+| Classic split 6:6, decoder after the DiT on card 0 (first split code) | 14.0 |
+| **Pipeline (B1): DiT on card 0, decoder on card 1** | **24.0** |
+| Sequence split 10:2 + green contexts, decoder on card 1 | 17.6 |
+| … + reused transfer buffers | 19.0 |
+| … + Inductor `cpp_wrapper` | 22.4 |
+| **… + guard skipping + 2 transfer pieces** | **25.0** |
+
+On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
+
+| Layout | FPS |
+|---|---|
+| Pipeline (B1) | 25.3 |
+| Sequence split 10:2, all of the above | 27.7 |
+| … + no host sync per forward + 48 SMs for card 1's DiT share | 29.2 |
+| **… + copy-free q\|k\|v assembly (`LINGBOT_SPLIT_ZEROCOPY=1`)** | **29.8** |
+
+### The three layouts at a glance
+
+| Layout | Card 0 | Card 1 | Measured | FPS |
+|---|---|---|---|---|
+| Classic split 6:6 | 1/2 of the attention heads + VAE decoder | 1/2 of the attention heads | fast-CPU pod | 20.1 |
+| Pipeline (B1) | full DiT | VAE decoder\* | fast-CPU pod | 25.3 |
+| **Split 10:2 (best)** | 5/6 of the attention heads | 1/6 of the attention heads + VAE decoder\* | fast-CPU pod | **29.8** |
+
+\* The VAE decoder is one chunk behind, meaning it turns chunk n into frames while the DiT is generating chunk n+1.
+
+Run the best layout: `LINGBOT_SPLIT=10:2 LINGBOT_SPLIT_CPPWRAP=1 LINGBOT_SPLIT_SKIPGUARD=50 LINGBOT_SPLIT_PIECES=2 LINGBOT_SPLIT_ZEROCOPY=1 lingbot … --decoder_gpu 1`
+
+Classic split 6:6
+
+![Classic split 6:6: both cards run the DiT, then card 0 decodes while card 1 waits](docs/img/layout_classic_6_6.svg)
+
+Pipeline (B1)
+
+![B1: card 0 runs the DiT back to back, card 1 decodes the previous chunk](docs/img/layout_b1.svg)
+
+Split 10:2 (best)
+
+![Split 10:2: both cards run the DiT of the same chunk; card 1 also decodes the previous chunk on its own SMs](docs/img/layout_split_10_2.svg)
+
+Bars are to scale from each layout's measured chunk time.
 
 ## How the world model works
 
@@ -90,7 +142,7 @@ The first start compiles for about 2.5 min, later starts take 35 s.
 | `lingbot play [scene]` | a window on the world; scenes: `lake` (default), `wall`, `stonehenge`, `alley`, `castle`, `dragon` |
 | `lingbot play --image me.jpg --prompt "..."` | your own world from any image |
 | `SDL_VIDEODRIVER=dummy lingbot play --headless-seconds 120` | no display (a cloud pod): same model, no window, taps `W` and prints the HUD summary |
-| `lingbot bench` | the 22 s clip to `outputs/`, prints s/chunk and FPS |
+| `lingbot bench` | the minimal speed run: 10 chunks (5 warm-up, 5 steady), prints s/chunk and FPS; `--bench_e2e` adds first-frame latency |
 | `lingbot clip --image me.jpg --action_path my_poses/ --prompt "..."` | offline generation from a camera path, `poses.npy` and `intrinsics.npy` as in `examples/` |
 
 ## Requirements
@@ -166,6 +218,19 @@ What's left runs in four library kernels, three of them near the RTX 5090's peak
 
 `OPTIMIZATIONS.md` is the full log. It has every experiment with its measurement, the profiles, and the levers that were tried and rejected.
 
+## Two GPUs (2× RTX 5090, PCIe, no P2P)
+
+What worked. Details and the negative results: [`2X_RTX5090_LEARNINGS.md`](2X_RTX5090_LEARNINGS.md).
+
+| Result | Change | Measured |
+|---|---|---|
+| **Decoder on card 1** (pipeline parallelism, B1) | DiT on card 0, decoder on card 1, 0.77 MB of latents per chunk between them | 16.8 → **25.69 FPS** (1.52×), byte-identical to one card |
+| DiT split 9:3 (sequence parallelism) | card 0: 75 % of tokens and 9 heads; card 1 the rest; q/k/v and outputs exchanged per layer through host memory in 4 pipelined pieces | 3.86 → **3.05 ms per layer** (−21 %), one real layer, DiT only |
+| Green contexts on card 1 | card 1's SMs split 40 / 130 between its DiT share (10:2) and the decoder, so the decoder can't block the DiT's kernels | 0.579 → **0.497 s per chunk** (−14 %), one real layer, 12 deep |
+| SageAttention stream fix | all 21 kernel launches use the current stream ([`patches/`](patches/sageattention-current-stream.patch)), so the DiT can run at high priority | kernel wait-to-start 31.35 → **2.31 ms** per layer; same output |
+| **Split 10:2 + green contexts, full pipeline** | card 1's SMs split 48 / 122 between its DiT share and the decoder; CPU-side fixes; copy-free exchange | **29.8 FPS** (B1 on the same pod: 25.3); quality inside the noise band |
+| Warm bench worker | `python -m lingbot.worker run -- …` keeps weights and compiled model per code hash | repeat run **14 s** instead of ~150 s, same numbers |
+
 ## Presets
 
 | `--preset` | What runs | s / chunk | FPS |
@@ -176,11 +241,25 @@ What's left runs in four library kernels, three of them near the RTX 5090's peak
 
 ## Tests
 
-`pytest tests/` runs on the CPU, no GPU needed. It checks the fused decoder and DiT against the stock modules and runs `lingbot play --dry` on a stand in model.
+`pytest tests/` runs on the CPU, no GPU needed. It checks the fused DiT and decoder against the paper's modules and against golden outputs recorded before the restructure (bit for bit), runs the whole generation loop with a tiny DiT and mock VAE to check the wiring, and runs `lingbot play --dry` on a stand-in model.
+
+## Repository layout
+
+| Path | What it is |
+|---|---|
+| `lingbot/models/lingbot_world/` | the model: fused DiT (`transformer.py`), fused decoder (`vae.py`), text encoder |
+| `lingbot/layers/` | building blocks shared by any model: attention backends, FP8 linear, KV cache |
+| `lingbot/pipelines/` | the generation loop, chunk by chunk |
+| `lingbot/parallel/`, `lingbot/configs/hardware.py` | multi-GPU layout, and the default layout per GPU model and count |
+| `lingbot/registry.py`, `lingbot/presets.py` | which model to build; `fast` / `exact` / `stock` runtime presets |
+| `lingbot/generate.py`, `lingbot/cli.py`, `lingbot/play/` | offline generation, the `lingbot` command, the live player |
+| `reference/` | the paper's code, unmodified: the `stock` baseline and the shared primitives |
+| `experiments/` | code from experiments that did not ship (see its README and `OPTIMIZATIONS.md`) |
+| `tests/`, `tools/` | CPU tests and golden outputs; README tables, roofline, pod checks |
 
 ## License and credit
 
-This repository is derived from [LingBot-World 2.0](https://github.com/Robbyant/lingbot-world-v2) by the Robbyant team, whose [paper](https://arxiv.org/abs/2607.07534) is by Zelin Gao and others. The model, the sampler and the examples are theirs. The [weights](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast) are theirs too and are not redistributed here. Upstream is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), and so is this repository, see `LICENSE.txt`. That means non commercial use, attribution, and the same license for anything built on it. It is provided as is, without warranty. My changes are the inference patches listed under Optimizations and the `lingbot` CLI, applied on upstream commit `1895d30`. The `wan/` directory is upstream's copy of [Wan2.2](https://github.com/Wan-Video/Wan2.2), which is Apache 2.0. The kernels used are [SageAttention](https://github.com/thu-ml/SageAttention), [torchao](https://github.com/pytorch/ao) and [FlashAttention](https://github.com/Dao-AILab/flash-attention).
+This repository is derived from [LingBot-World 2.0](https://github.com/Robbyant/lingbot-world-v2) by the Robbyant team, whose [paper](https://arxiv.org/abs/2607.07534) is by Zelin Gao and others. The model, the sampler and the examples are theirs. The [weights](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast) are theirs too and are not redistributed here. Upstream is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), and so is this repository, see `LICENSE.txt`. That means non commercial use, attribution, and the same license for anything built on it. It is provided as is, without warranty. My changes are the inference patches listed under Optimizations and the `lingbot` CLI, applied on upstream commit `1895d30`. The `reference/wan/` directory is upstream's copy of [Wan2.2](https://github.com/Wan-Video/Wan2.2), which is Apache 2.0. The kernels used are [SageAttention](https://github.com/thu-ml/SageAttention), [torchao](https://github.com/pytorch/ao) and [FlashAttention](https://github.com/Dao-AILab/flash-attention).
 
 ```bibtex
 @article{lingbot-world-v2,

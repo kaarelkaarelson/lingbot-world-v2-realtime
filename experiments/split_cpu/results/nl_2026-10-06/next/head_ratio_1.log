@@ -1,0 +1,8 @@
+[worker] warm: reusing loaded weights and compiled model
+[2026-10-06 22:28:44,661] INFO: Generating video ...
+  0%|          | 0/10 [00:00<?, ?it/s] 10%|#         | 1/10 [00:00<00:03,  2.64it/s] 20%|##        | 2/10 [00:00<00:02,  2.70it/s] 30%|###       | 3/10 [00:01<00:02,  2.49it/s] 40%|####      | 4/10 [00:01<00:02,  2.28it/s] 50%|#####     | 5/10 [00:02<00:02,  2.11it/s] 60%|######    | 6/10 [00:02<00:01,  2.02it/s] 70%|#######   | 7/10 [00:03<00:01,  1.97it/s] 80%|########  | 8/10 [00:03<00:01,  1.93it/s] 90%|######### | 9/10 [00:04<00:00,  1.91it/s]100%|##########| 10/10 [00:04<00:00,  1.89it/s]100%|##########| 10/10 [00:04<00:00,  2.04it/s]
+[2026-10-06 22:28:50,361] INFO: Saving generated video to /workspace/runs/next/head_ratio_1.mp4
+BENCH_E2E trial 1: 29.81 FPS (interval p50 536.7 ms, p95 537.2, p99 537.3; 5 steady chunks), first frame 1076 ms
+BENCH_E2E preset=fast gpus=2 832x464, 1 rollout: 29.81 FPS, 11.51 MPPS, interval p95 537.2 ms, first frame 1076 ms (cold: includes compile)
+[worker] run took 8.0 s
+

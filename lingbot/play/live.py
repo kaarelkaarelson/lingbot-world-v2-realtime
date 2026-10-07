@@ -1,7 +1,7 @@
 """LiveSource: the real model as a frame source for the window.
 
-Runs `WanI2VCausal.generate` in a background thread with the `fast` preset and receives each
-decoded latent through the `frame_sink` hook in wan/image2video.py: the hook enqueues, on the VAE
+Runs `LingBotWorldPipeline.generate` in a background thread with the `fast` preset and receives each
+decoded latent through the `frame_sink` hook in lingbot/pipelines/lingbot_world.py: the hook enqueues, on the VAE
 side stream, the float->uint8 HWC conversion and a non-blocking copy into a pinned host buffer,
 records one CUDA event per call and returns. A host thread waits on the event (blocking only
 itself), stamps `t_ready`, hands the frames to the ChunkQueue and returns the pinned buffer to the
@@ -42,7 +42,7 @@ def to_uint8_hwc(fr):
 
 
 def output_size(img_w: int, img_h: int, max_area: int = 480 * 832, vae_stride: int = 8, patch: int = 2) -> tuple[int, int]:
-    """(width, height) of the generated frames for an input image, as WanI2VCausal computes it."""
+    """(width, height) of the generated frames for an input image, as LingBotWorldPipeline computes it."""
     ar = img_h / img_w
     lat_h = round(math.sqrt(max_area * ar) // vae_stride // patch * patch)
     lat_w = round(math.sqrt(max_area / ar) // vae_stride // patch * patch)
@@ -76,7 +76,7 @@ class LiveSource:
                  chunk_size: int = 4, max_area: int = 480 * 832, shift: float = 5.0, seed: int = 42,
                  pool_chunks: int = 4, max_chunks_queued: int = 2, timing_tsv: str | None = None,
                  width: int = 832, height: int = 464, loop: bool = False, control=None):
-        """pipe: a WanI2VCausal (see build_pipe) with the `frame_sink` hook.
+        """pipe: a LingBotWorldPipeline (see build_pipe) with the `frame_sink` hook.
         img: PIL image. action_path: dir with poses.npy/intrinsics.npy."""
         self.torch = torch
         self.width, self.height = width, height
@@ -256,26 +256,24 @@ class LiveSource:
             self._timing_f.close()
 
 
-def build_pipe(ckpt_dir: str, assets_dir: str | None, preset: str = "fast", task: str = "i2v-1.3B",
-               local_attn_size: int = 18, sink_size: int = 6, device_id: int = 0):
-    """Mirrors generate.py's run_causal() (single process, rank 0, no FSDP) with the preset's env plus
-    PLAY_ENV, applied before `wan` is imported (the attention backend is chosen at import time)."""
+def build_pipe(ckpt_dir: str, assets_dir: str | None, preset: str = "fast", local_attn_size: int = 18,
+               sink_size: int = 6, device_id: int = 0, decoder_device_id: int | None = None):
+    """lingbot.generate's pipeline (single process, rank 0) with the preset's env plus PLAY_ENV, applied
+    before the pipeline is imported (the attention backend is chosen at import time)."""
     from ..presets import apply_preset
+    from ..registry import DEFAULT_MODEL, MODELS, pipeline_class
     apply_preset(preset)
     for k, v in PLAY_ENV.items():
         os.environ.setdefault(k, v)
-    import wan
     from wan.configs import WAN_CONFIGS
-    cfg = WAN_CONFIGS[task]
-    pipe = wan.WanI2VCausal(config=cfg, checkpoint_dir=ckpt_dir, device_id=device_id, rank=0,
-                            t5_fsdp=False, dit_fsdp=False, use_sp=False, t5_cpu=False,
-                            convert_model_dtype=False, local_attn_size=local_attn_size,
-                            sink_size=sink_size, infer_mode="causal_fast", assets_dir=assets_dir)
-    return pipe
+    cfg = WAN_CONFIGS[MODELS[DEFAULT_MODEL]["task"]]
+    return pipeline_class(DEFAULT_MODEL)(config=cfg, checkpoint_dir=ckpt_dir, device_id=device_id, rank=0,
+                                         local_attn_size=local_attn_size, sink_size=sink_size, assets_dir=assets_dir,
+                                         decoder_device_id=decoder_device_id)
 
 
 class DryPipe:
-    """Stand-in for WanI2VCausal on CPU: drives frame_sink with the real call
+    """Stand-in for LingBotWorldPipeline on CPU: drives frame_sink with the real call
     pattern (chunk N's frames handed over at the start of chunk N+1, the last
     one after the loop) so LiveSource's plumbing runs end-to-end without a GPU."""
 
