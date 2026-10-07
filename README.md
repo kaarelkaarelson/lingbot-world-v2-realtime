@@ -35,7 +35,7 @@ other) or the sequence (each card takes a share of the tokens and attention head
 | Layout | FPS |
 |---|---|
 | One card | 15.7 |
-| Classic split 6:6, decoder after the DiT on card 0 | 14.0 |
+| Classic split 6:6, decoder after the DiT on card 0 (first split code) | 14.0 |
 | **Pipeline (B1): DiT on card 0, decoder on card 1** | **24.0** |
 | Sequence split 10:2 + green contexts, decoder on card 1 | 17.6 |
 | … + reused transfer buffers | 19.0 |
@@ -60,6 +60,8 @@ On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
 | **Split 10:2 (best)** | 5/6 of the attention heads | 1/6 of the attention heads + VAE decoder\* | fast-CPU pod | **29.8** |
 
 \* The VAE decoder is one chunk behind, meaning it turns chunk n into frames while the DiT is generating chunk n+1.
+
+Run the best layout: `LINGBOT_SPLIT=10:2 LINGBOT_SPLIT_CPPWRAP=1 LINGBOT_SPLIT_SKIPGUARD=50 LINGBOT_SPLIT_PIECES=2 LINGBOT_SPLIT_ZEROCOPY=1 lingbot … --decoder_gpu 1`
 
 Classic split 6:6
 
@@ -226,7 +228,7 @@ What worked. Details and the negative results: [`2X_RTX5090_LEARNINGS.md`](2X_RT
 | DiT split 9:3 (sequence parallelism) | card 0: 75 % of tokens and 9 heads; card 1 the rest; q/k/v and outputs exchanged per layer through host memory in 4 pipelined pieces | 3.86 → **3.05 ms per layer** (−21 %), one real layer, DiT only |
 | Green contexts on card 1 | card 1's SMs split 40 / 130 between its DiT share (10:2) and the decoder, so the decoder can't block the DiT's kernels | 0.579 → **0.497 s per chunk** (−14 %), one real layer, 12 deep |
 | SageAttention stream fix | all 21 kernel launches use the current stream ([`patches/`](patches/sageattention-current-stream.patch)), so the DiT can run at high priority | kernel wait-to-start 31.35 → **2.31 ms** per layer; same output |
-| **Split 10:2 + green contexts, full pipeline** | the split above with the decoder on card 1's 130-SM partition; Inductor `cpp_wrapper`, guard skipping after warm-up, 2 transfer pieces, reused transfer buffers | 17.64 → **25.03 FPS** (B1 on the same pod: 24.04); quality inside the noise band |
+| **Split 10:2 + green contexts, full pipeline** | card 1's SMs split 48 / 122 between its DiT share and the decoder; CPU-side fixes; copy-free exchange | **29.8 FPS** (B1 on the same pod: 25.3); quality inside the noise band |
 | Warm bench worker | `python -m lingbot.worker run -- …` keeps weights and compiled model per code hash | repeat run **14 s** instead of ~150 s, same numbers |
 
 ## Presets
