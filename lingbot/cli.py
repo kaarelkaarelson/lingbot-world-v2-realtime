@@ -1,7 +1,7 @@
 """`lingbot` console script: play (local window), bench, clip.
 
-`bench` and `clip` run generate.py in a subprocess from the repository root with run.sh's
-environment, so their output is exactly `./run.sh`'s. `play` builds the pipeline in-process.
+`bench` and `clip` run generate.py in a subprocess from the repository root with the same
+environment (Inductor cache, CUDA on PATH). `play` builds the pipeline in-process.
 """
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def cmd_play(argv: list[str]) -> int:
     else:
         from PIL import Image
         from .play.live import LiveSource, build_pipe, output_size
-        os.environ.update(_env())   # run.sh's TORCHINDUCTOR_CACHE_DIR and cuda PATH
+        os.environ.update(_env())   # TORCHINDUCTOR_CACHE_DIR and cuda PATH
         img = Image.open(args.image).convert("RGB")
         width, height = output_size(*img.size)
         t0 = time.monotonic()
@@ -134,7 +134,7 @@ def main(argv: list[str] | None = None) -> int:
               "  play   open a window on the world model; WASD / arrows drive it (lingbot play --help)\n"
               "         lingbot play [" + "|".join(sorted(SCENES)) + "]  (default lake)\n"
               "  bench  10 chunks of examples/03 (5 warm-up, 5 steady), s/chunk and FPS as played; --bench_e2e for latency\n"
-              "  clip   offline generation with run.sh's flags (lingbot clip --help)")
+              "  clip   offline generation (lingbot clip --help)")
         return 0
     cmd = COMMANDS.get(argv[0])
     if cmd is None:

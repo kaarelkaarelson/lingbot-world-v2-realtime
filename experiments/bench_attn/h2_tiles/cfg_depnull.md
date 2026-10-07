@@ -5,7 +5,7 @@
 ## Why this exists
 
 `cfg_fixedmax` (C5) is 8.7% faster than `cfg_base` (1.577 vs 1.726-1.741 ms kernel-only, pod 16,
-`OPTIMIZATIONS.md` #20). `cfg_fixedmax_dep` tried to split that into "serial dependency" vs
+`docs/OPTIMIZATIONS.md` #20). `cfg_fixedmax_dep` tried to split that into "serial dependency" vs
 "removed ALU work" by putting a *surrogate* dependency back in front of C5's exp2: a 2-shuffle
 chain seeded from one S fragment (`RS[fq][0][k*2+0]`), ~6 instructions deep, seeded and biased into
 the exp2 argument via `bias + dummy * 0.0f`. It measured 1.627 ms (33/67 split), and its red-team
@@ -13,7 +13,7 @@ the exp2 argument via `bias + dummy * 0.0f`. It measured 1.627 ms (33/67 split),
 real max (which reduces over every `num_tiles_k` fragment, not just `fk=0`) and is a different
 number of dependent instructions deep (~6 against ~20); the control also restructures the loop
 nest relative to `cfg_base`. `SAGE_H2_DEP_CONTROL=0` therefore does not isolate the dependency
-from the restructuring. `OPTIMIZATIONS.md` records the split as retracted and names the follow-up
+from the restructuring. `docs/OPTIMIZATIONS.md` records the split as retracted and names the follow-up
 this patch builds: "the same restructuring with the dummy chain present but not feeding the exp."
 
 ## What the patch does
@@ -88,7 +88,7 @@ What it fixes relative to the rejected control:
 - **Same depth.** The chain is `update_mdo`'s actual `~2-3 fmaxf per fk` times `num_tiles_k`,
   chained through the running `m_temp` accumulator, then the real `exp_offset` fmaf, then the real
   two shuffles -- the same instruction count and dependency depth as `cfg_base`'s real chain
-  (`OPTIMIZATIONS.md`'s red-team put this at ~20; `cfg_fixedmax_dep`'s surrogate was ~6).
+  (`docs/OPTIMIZATIONS.md`'s red-team put this at ~20; `cfg_fixedmax_dep`'s surrogate was ~6).
 - **Does not restructure `apply_fixed_max`'s loop nest.** The exp2/P computation is untouched from
   `cfg_fixedmax`; the real-max computation is a wholly separate, data-independent addition, not a
   rewrite of the exp2 path the way `cfg_fixedmax_dep` rewrote it into two passes with the dependency

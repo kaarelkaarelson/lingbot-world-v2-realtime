@@ -42,7 +42,7 @@ loop: `LINGBOT_FP8=0 LINGBOT_ATTN= LINGBOT_TORCH_COMPILE= LINGBOT_INDUCTOR_TUNE=
 
 # Optimization experiments — LingBot-World 2.0 (1.3B) on one RTX 5090
 
-Each experiment is one modular patch under `patch/`, applied on top of the previous ones, and measured with one run of the same clip. The baseline is never edited; it lives in [BENCHMARK.md](BENCHMARK.md).
+Each experiment is one modular patch under `patch/`, applied on top of the previous ones, and measured with one run of the same clip. The baseline is never edited; it lives in [BENCHMARK.md](BENCHMARKING.md).
 
 ## Baseline (from BENCHMARK.md, run B)
 

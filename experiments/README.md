@@ -3,9 +3,9 @@
 Code from experiments that did not ship, kept for reference. Nothing here is imported by `lingbot/`;
 it targets the code as it was before the restructure, so run it from the `pre-cleanup` tag
 (`git checkout pre-cleanup`). Every experiment, its measurement and the reason it was rejected are
-in [OPTIMIZATIONS.md](../OPTIMIZATIONS.md).
+in [docs/OPTIMIZATIONS.md](../docs/OPTIMIZATIONS.md).
 
-| Path | What it is | OPTIMIZATIONS.md |
+| Path | What it is | docs/OPTIMIZATIONS.md |
 |---|---|---|
 | `bench_attn/` | SageAttention studies: hypotheses H1-H7, tile configs, SpargeAttention, FP4 (SageAttention 3), INT8 calibration | §19, §20, §22, §23 |
 | `bench_window/` | KV-window sweeps, attention ablation, block sparsity | §21 |

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Is the KV window's content redundant, block by block? A causal, measured certificate.
 
-Sibling of `attn_ablate.py`. §21b of OPTIMIZATIONS.md ablated the KV window by TRUNCATING it
+Sibling of `attn_ablate.py`. §21b of docs/OPTIMIZATIONS.md ablated the KV window by TRUNCATING it
 (dropping the oldest latents) and found the model uses the whole thing: 13 % mean / 30 % worst-
 layer output change at window 12, smooth decay, no plateau. That kills truncation. But block
 sparsity is a different kind of change: it keeps the WHOLE window and skips only the key BLOCKS
@@ -24,7 +24,7 @@ path) actually does — this is not a leave-one-block-out ablation, it is the re
 operation, evaluated at a sweep of sparsity fractions.
 
 Key blocks use `--block_size` (64 or 128 are the interesting ones: SageAttention's CTA_K tiling,
-`OPTIMIZATIONS.md` section 19). Query rows are grouped into `--q_block`-sized blocks (128, matching
+`docs/OPTIMIZATIONS.md` section 19). Query rows are grouped into `--q_block`-sized blocks (128, matching
 CTA_Q) at `--n_qblocks` positions spread across the query range, so the script can also answer
 whether the surviving block SET is stable across query blocks and layers (a static mask would be
 cheap; a scattered, query-dependent set is what SpargeAttn computes per step, at a cost).
@@ -52,7 +52,7 @@ ap.add_argument("--sparsity_fracs", default="0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9
                  help="comma list of key-BLOCK drop fractions to evaluate")
 ap.add_argument("--error_budgets", default="0.01,0.02,0.05", help="comma list of error budgets to report")
 ap.add_argument("--stability_frac", type=float, default=0.5, help="drop fraction used for the stability check")
-ap.add_argument("--attn_s_per_chunk", type=float, default=0.288, help="measured attention s/chunk, OPTIMIZATIONS.md sec 18-21")
+ap.add_argument("--attn_s_per_chunk", type=float, default=0.288, help="measured attention s/chunk, docs/OPTIMIZATIONS.md sec 18-21")
 ap.add_argument("--chunk_s", type=float, default=0.980, help="measured total s/chunk, baseline window 18")
 ap.add_argument("--frames_per_chunk", type=int, default=16)
 ap.add_argument("--device", default="cpu", help="cuda makes this seconds instead of many minutes")
@@ -183,7 +183,7 @@ for b in budgets:
     print(f"largest sparsity fraction with mean output change <= {b*100:.0f}%: "
           f"{'none (even 10% exceeds it)' if frac is None else f'{frac*100:.0f}%'}")
 
-# --- FPS arithmetic: attention linear in retained keys (OPTIMIZATIONS.md sec 19, h3) ---
+# --- FPS arithmetic: attention linear in retained keys (docs/OPTIMIZATIONS.md sec 19, h3) ---
 print(f"\nFPS arithmetic (theoretical, attn={a.attn_s_per_chunk:.3f}s of {a.chunk_s:.3f}s/chunk, "
       f"{a.frames_per_chunk} frames/chunk, cost linear in retained keys):")
 print(f"  {'drop%':>6}  {'theor. attn s':>13}  {'theor. chunk s':>14}  {'theor. FPS':>10}  {'vs baseline':>11}")

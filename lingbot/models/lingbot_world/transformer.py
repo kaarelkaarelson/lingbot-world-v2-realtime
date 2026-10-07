@@ -1,6 +1,6 @@
 """The causal DiT of LingBot-World 2.0, fused for speed (one compiled graph, no host syncs).
 
-Same maths as the paper's `reference/wan/modules/model_fast.py`; see OPTIMIZATIONS.md exp. 10 and 15.
+Same maths as the paper's `reference/wan/modules/model_fast.py`; see docs/OPTIMIZATIONS.md exp. 10 and 15.
 Some of the functions are borrowed from SelfForcing (https://github.com/guandeh17/Self-Forcing).
 """
 import math

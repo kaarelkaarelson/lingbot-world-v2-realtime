@@ -4,7 +4,7 @@ State (2026-10-06): best split 29.8-29.9 FPS vs B1 25.3 on Vast 54497707 (EPYC 9
 Config: `LINGBOT_SPLIT=10:2 LINGBOT_SPLIT_SMS=48 LINGBOT_SPLIT_CPPWRAP=1 LINGBOT_SPLIT_SKIPGUARD=50
 LINGBOT_SPLIT_PIECES=2 LINGBOT_SPLIT_ZEROCOPY=1`, torch 2.8 + cu128 (`.venv`), `--decoder_gpu 1`. Card 0's kernels
 set the chunk time (519 of 541 ms); card 1 is ~26 % idle. What was tried and why it failed: learnings 21-28 in
-`2X_RTX5090_LEARNINGS.md`.
+`docs/2X_RTX5090_LEARNINGS.md`.
 
 ## 1. Bring a pod up (instance 54497707 was destroyed on 2026-10-06: start from a new one, ~20-30 min)
 

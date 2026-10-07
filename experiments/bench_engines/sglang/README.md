@@ -37,7 +37,7 @@ Chunk 0 decodes to 13 frames (1 + 3 × 4), every later chunk to 16. `chunk0_fram
 
 ## Settings, and where they differ from our metric
 
-Our metric (`BENCHMARK.md` / `OPTIMIZATIONS.md`): 832×464, chunk 4 latents = 16 frames, 4 steps, sink 6, window 18, Wan 2.1 VAE, 16 fps, flash_attn 2.8.3, torch 2.8 cu128.
+Our metric (`BENCHMARK.md` / `docs/OPTIMIZATIONS.md`): 832×464, chunk 4 latents = 16 frames, 4 steps, sink 6, window 18, Wan 2.1 VAE, 16 fps, flash_attn 2.8.3, torch 2.8 cu128.
 
 | Setting | This setup | Same as ours? | How it is set |
 |---|---|---|---|
