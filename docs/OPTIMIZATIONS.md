@@ -724,7 +724,7 @@ Reading: every lever above the kernel is at its floor (each ≤ 1.3 % of the chu
 | 6 | K/V re-quantised on every call (`TransposePad` / `MeanScale` / `QuantInt8`, 0.039 s per chunk) | exp. 15d, `LINGBOT_ATTN=sage_kvq` | +0.015 s per chunk | — | **refuted** (§15d) |
 | 7 | The clock drops under sustained INT8 load below the 2 407 MHz the 838 TOPS figure assumes | `nvidia-smi` at 100 ms during 20 s of `sageattn()` (`h7_clock_sampler.py`, `results/h7_sage.json`) | at the 600 W power cap (588 W mean, `sw_power_cap` active in 194 of 197 busy samples) the card holds a median **2 677 MHz**, above spec; peak at that clock ≈ 932 TOPS | the first run (a `torch._int_mm` load at 28 % of peak) was not representative; the Sage-load sample is | **refuted as a cause; changes the denominator**: 578 TOPS is 62 % of what this card delivers, not 69 % |
 
-**Reading.** Nothing outside the kernel explains the gap: not L2, not the accumulate mode, not the clock (occupancy is unresolved, see the retraction below). The gap is inside one CTA's instruction stream, and it splits into the softmax (13 %, measured by removal) and the rest of the non-mma work plus the last wave (~10 %). This agrees with the literature: nobody reports beating ~70 % of the INT8/FP8 peak with `mma.sync` — SageAttention's own best is ~71 % on a 4090, SageAttention 3 reports 62 % of the FP4 peak on the 5090, FlashAttention-4 reaches 71 % on a B200 even with wgmma/tcgen05 and exp emulation — while BF16 attention on the same 5090 reaches 94–97 % (gau-nernst's write-up, cuDNN, FA2). At BF16 the mma is slow enough to hide the fixed-cost softmax; at 8-bit it is not. Our 62 % is the state of the art for this hardware class, not a defect (`bench/attn/` literature review, 2026-09-22; sources in TODO.md).
+**Reading.** Nothing outside the kernel explains the gap: not L2, not the accumulate mode, not the clock (occupancy is unresolved, see the retraction below). The gap is inside one CTA's instruction stream, and it splits into the softmax (13 %, measured by removal) and the rest of the non-mma work plus the last wave (~10 %). This agrees with the literature: nobody reports beating ~70 % of the INT8/FP8 peak with `mma.sync` — SageAttention's own best is ~71 % on a 4090, SageAttention 3 reports 62 % of the FP4 peak on the 5090, FlashAttention-4 reaches 71 % on a B200 even with wgmma/tcgen05 and exp emulation — while BF16 attention on the same 5090 reaches 94–97 % (gau-nernst's write-up, cuDNN, FA2). At BF16 the mma is slow enough to hide the fixed-cost softmax; at 8-bit it is not. Our 62 % is the state of the art for this hardware class, not a defect (`bench/attn/` literature review, 2026-09-22).
 
 **Retraction, 2026-09-22: the occupancy row above does not support its verdict.** The register cap was
 applied to `cfg_a`, which also changes the tiling (CTA_Q 128 to 64, WARP_Q 32 to 16), and the result was
@@ -1003,7 +1003,7 @@ produces a coherent DIFFERENT one. Per-frame sharpness and MUSIQ cannot separate
 we had n = 1 per candidate. This is the general lesson: **for any lever that changes what the model
 attends to, measure the mechanism, not the pixels.**
 
-**What the literature said** (all URLs in TODO.md): the default 18 has no published justification
+**What the literature said**: the default 18 has no published justification
 and is inherited from upstream; FlashDreams ships 14/6 for this exact checkpoint; attention sinks
 provably carry NO semantic memory (StreamingLLM's garbage-linebreak-token experiment), so the
 6-latent sink protects no scene content; Wan 2.1 and Self-Forcing fix the window across BOTH
@@ -1180,7 +1180,7 @@ reproduced on two scenes and three repeat runs.
 | Per-layer windows | — | layers are uniform (all want 15-20 latents), saves 8 % | 21c |
 | Block sparsity / C7 | +3.0 % at a 1 % error budget | our window is already local, the structural sparsity is spent; needs a per-step mask (Jaccard 0.43) | 21d |
 | Decoder fp16 accumulate | −0.13 s estimated | **unreachable**: PyTorch hardcodes `CUDNN_DATA_FLOAT` for half conv | 14b |
-| FP4 DiT weights | −0.126 s | W4A8 gives no speed (we are compute-bound at 94 % of the FP8 peak); W4A4 needs distillation | TODO.md |
+| FP4 DiT weights | −0.126 s | W4A8 gives no speed (we are compute-bound at 94 % of the FP8 peak); W4A4 needs distillation | not pursued |
 | **FP4 attention (Sage 3)** | **0.97x, slower** | wrong shape: wins 1.13-1.24x on large square attention, loses at our 6032-query asymmetric case | 23 |
 | C5 fixed max | −8.7 % kernel | per-head row maxima span 29.6 log2 against a 3.5 log2 fp8 window | 20 |
 | C1 exp emulation, C2 conditional rescale, C3 fused softmax | — | nulls, confirmed in SASS | 20 |

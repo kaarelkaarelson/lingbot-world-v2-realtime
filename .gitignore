@@ -9,3 +9,7 @@ __pycache__/
 
 # large local artefacts from the KV-window quality runs (regenerate with bench/window/)
 bench/window/clips_*/
+
+# local working notes, not published
+docs/TODO.md
+experiments/split_cpu/NEXT_SESSION.md
