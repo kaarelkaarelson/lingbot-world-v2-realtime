@@ -176,7 +176,7 @@ not use it.
 - `cfg_fixedmax.patch` (candidate C5) / `cfg_fixedmax_dep.patch` + `cfg_fixedmax_dep.md` (its retracted
   dependency-vs-ALU-work control) / `cfg_depnull.patch` + `cfg_depnull.md` (the decisive follow-up: the real
   `update_mdo` row max computed and sunk through a volatile-asm barrier so it never feeds C5's exp2) -- this
-  family replaces the online softmax's row max with a constant phi; see `OPTIMIZATIONS.md` #19-#20 for the
+  family replaces the online softmax's row max with a constant phi; see `docs/OPTIMIZATIONS.md` #19-#20 for the
   measurements and `cfg_depnull.md` for the prediction table and build/bench commands.
 - `build.sh <cfg>` -- clone at `d1a57a5` into `/workspace/sage_h2/<cfg>`, apply the patch, build a wheel with
   `TORCH_CUDA_ARCH_LIST=12.0 MAX_JOBS=16`, install it into `/workspace/sage_h2/venv_<cfg>` (a

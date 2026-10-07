@@ -1,5 +1,5 @@
 {
- "_note": "Single source of truth for the result tables in README.md and the write-up (kaarelkaarelson.com/lingbot). Render with tools/tables.py. Sources: OPTIMIZATIONS.md sections in `source`, bench/engines/, lingbot-world-v2-stream/bench_results/. `cite` numbers are the write-up's reference list positions (site only).",
+ "_note": "Single source of truth for the result tables in README.md and the write-up (kaarelkaarelson.com/lingbot). Render with tools/tables.py. Sources: docs/OPTIMIZATIONS.md sections in `source`, bench/engines/, lingbot-world-v2-stream/bench_results/. `cite` numbers are the write-up's reference list positions (site only).",
  "settings": "LingBot-World 2.0 1.3B causal_fast, one RTX 5090, 832x464, 4 steps, 16-frame chunks, Wan 2.1 VAE, steady state after warm-up",
  "engines": {
   "source": "bench/engines/README.md; lingbot-world-v2-stream/bench_results/engines/",
@@ -50,7 +50,7 @@
   ]
  },
  "baseline_vs_ours": {
-  "source": "OPTIMIZATIONS.md \u00a713, \u00a715, \u00a717; --bench of --preset stock and fast on pod 10",
+  "source": "docs/OPTIMIZATIONS.md \u00a713, \u00a715, \u00a717; --bench of --preset stock and fast on pod 10",
   "rows": [
    {
     "metric": "FPS",
@@ -92,7 +92,7 @@
   ]
  },
  "ladder": {
-  "source": "OPTIMIZATIONS.md exp 1, 9, 10, 12, 4, 5, 15; cumulative s/chunk in the order applied, last step closes to the measured total; README sorts the rows by saving, loaded = format the kernel reads from GPU memory, math = multiply inputs \u2192 accumulator (OPTIMIZATIONS.md \u00a74, \u00a75, \u00a79, \u00a712, \u00a719; lingbot/layers/linear.py FP8Linear, experiments/modules/sage_kvq.py)",
+  "source": "docs/OPTIMIZATIONS.md exp 1, 9, 10, 12, 4, 5, 15; cumulative s/chunk in the order applied, last step closes to the measured total; README sorts the rows by saving, loaded = format the kernel reads from GPU memory, math = multiply inputs \u2192 accumulator (docs/OPTIMIZATIONS.md \u00a74, \u00a75, \u00a79, \u00a712, \u00a719; lingbot/layers/linear.py FP8Linear, experiments/modules/sage_kvq.py)",
   "start": 2.68,
   "rows": [
    {
@@ -194,7 +194,7 @@
   }
  },
  "peaks": {
-  "source": "OPTIMIZATIONS.md \u00a717; RTX 5090 peaks from NVIDIA's specification",
+  "source": "docs/OPTIMIZATIONS.md \u00a717; RTX 5090 peaks from NVIDIA's specification",
   "rows": [
    {
     "kernel": "FP8 matmuls",
@@ -224,7 +224,7 @@
   ]
  },
  "quality": {
-  "source": "lingbot-world-v2-stream/quality_summary.tsv (exp15 all4 vs ref), quality_results_exp15.tsv; OPTIMIZATIONS.md \u00a715",
+  "source": "lingbot-world-v2-stream/quality_summary.tsv (exp15 all4 vs ref), quality_results_exp15.tsv; docs/OPTIMIZATIONS.md \u00a715",
   "rows": [
    {
     "metric": "PSNR",
@@ -420,7 +420,7 @@
   }
  },
  "roofline": {
-  "_note": "Per-op roofline of one 16-frame chunk in the How to Scale Your Model form: floor = max(FLOPs/peak, bytes/bandwidth). Everything measured on pod 14 (2026-09-22, healthy RTX 5090: 235 TFLOP/s bf16 matmul, 2.48 GHz under load): kernel times from torch.profiler over chunks 8-10, matmul FLOPs and bytes from the profiler's per-shape records, stock bytes from the dispatch tracer, decoder conv FLOPs from the FLOP counter; attention analytic from the shapes. Tracer bytes are an upper bound (L2-resident intermediates are counted), so intensities are lower bounds; the fast stack's fused elementwise bytes are estimates (time at ~70 % of bandwidth). See OPTIMIZATIONS.md \u00a718.",
+  "_note": "Per-op roofline of one 16-frame chunk in the How to Scale Your Model form: floor = max(FLOPs/peak, bytes/bandwidth). Everything measured on pod 14 (2026-09-22, healthy RTX 5090: 235 TFLOP/s bf16 matmul, 2.48 GHz under load): kernel times from torch.profiler over chunks 8-10, matmul FLOPs and bytes from the profiler's per-shape records, stock bytes from the dispatch tracer, decoder conv FLOPs from the FLOP counter; attention analytic from the shapes. Tracer bytes are an upper bound (L2-resident intermediates are counted), so intensities are lower bounds; the fast stack's fused elementwise bytes are estimates (time at ~70 % of bandwidth). See docs/OPTIMIZATIONS.md \u00a718.",
   "peaks": {
    "INT8": 838,
    "FP8": 419,

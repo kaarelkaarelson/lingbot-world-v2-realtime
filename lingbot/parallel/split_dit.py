@@ -7,7 +7,7 @@ way (the peer's heads of my tokens) and one message back (my heads of the peer's
 memory in pipelined pieces (no P2P on GeForce). Card 1's DiT share runs on a green-context partition of its SMs
 (`LINGBOT_SPLIT_SMS`, default 40) at high priority; the decoder gets the rest (`decoder_stream`).
 
-Same computation as one card up to floating-point order (2X_RTX5090_LEARNINGS.md, learnings 11-15). Needs the
+Same computation as one card up to floating-point order (docs/2X_RTX5090_LEARNINGS.md, learnings 11-15). Needs the
 SageAttention build that launches on the current stream (patches/sageattention-current-stream.patch).
 """
 import copy

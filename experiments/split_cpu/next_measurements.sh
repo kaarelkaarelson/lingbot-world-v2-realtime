@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The three minimal measurements from TODO.md (top item), on the pod, ~20 min. Prints a verdict per measurement.
+# Three minimal measurements of the two-GPU split, on the pod, ~20 min. Prints a verdict per measurement.
 #   bash experiments/split_cpu/next_measurements.sh            # from /workspace/repo, old stack (.venv)
 # 1. Is card 0's SageAttention wave tail real?   (kernel only, ~2 min)
 # 2. Token share 0.7454: card 1's GEMMs land on whole waves (1,536 tokens = 12 tiles = 144 blocks = 3 waves on 48 SMs).

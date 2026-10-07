@@ -1,4 +1,4 @@
-"""8-bit encoding for the sequence-parallel q/k/v exchange (2X_RTX5090_LEARNINGS.md, learning 8).
+"""8-bit encoding for the sequence-parallel q/k/v exchange (docs/2X_RTX5090_LEARNINGS.md, learning 8).
 
 The sender quantizes its half of the tokens; the receiver dequantizes to bf16, so the KV cache and
 SageAttention see bf16 as today. `roundtrip_*` apply both ends on one GPU, which reproduces the

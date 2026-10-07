@@ -14,7 +14,7 @@ Robbyant Team
 [![Tech Report](https://img.shields.io/static/v1?label=Paper&message=PDF&color=red&logo=arxiv)](https://arxiv.org/abs/2607.07534)
 [![Model](https://img.shields.io/static/v1?label=%F0%9F%A4%97%20Model&message=HuggingFace&color=yellow)](https://huggingface.co/collections/robbyant/lingbot-world-v2)
 [![Model](https://img.shields.io/static/v1?label=%F0%9F%A4%96%20Model&message=ModelScope&color=purple)](https://modelscope.cn/collections/Robbyant/LingBot-World-V2)
-[![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-green)](LICENSE.txt)
+[![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-green)](../LICENSE.txt)
 <video src="https://github.com/user-attachments/assets/70bf5b40-df07-4266-b7f9-d3a85d420309" width="100%" controls></video>
 
 </div>
@@ -154,7 +154,7 @@ We do NOT plan to release our deployment code. If you would like to deploy our m
 - [LingBot-World](https://github.com/robbyant/lingbot-world)
 
 ## 📜 License
-This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0). The project is available for non-commercial use only: you may share and adapt it with proper attribution, but derivative works must be distributed under the same license. Please refer to the [LICENSE file](LICENSE.txt) for the full text, including details on rights and restrictions.
+This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0). The project is available for non-commercial use only: you may share and adapt it with proper attribution, but derivative works must be distributed under the same license. Please refer to the [LICENSE file](../LICENSE.txt) for the full text, including details on rights and restrictions.
 
 ## ✨ Acknowledgement
 We would like to express our gratitude to the Wan Team for open-sourcing their code and models. Their contributions have been instrumental to the development of this project.

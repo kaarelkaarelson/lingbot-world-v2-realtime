@@ -113,7 +113,7 @@ def md_roofline(who="ours"):
     # Seven columns, not the ten the blog carries. FLOP/chunk and Bytes/chunk collapse into one
     # "Work" column, because a compute-bound row's floor is set by its FLOPs and a memory-bound
     # row's by its bytes, never both, so two columns left half of each empty. FLOP/B and Ridge are
-    # dropped here and kept in OPTIMIZATIONS.md 18 -- the prose already says every large operation
+    # dropped here and kept in docs/OPTIMIZATIONS.md 18 -- the prose already says every large operation
     # sits well above the ridge. At ten columns the README table wrapped "0.180 s" onto two lines.
     R = DATA["roofline"][who]
     P = DATA["roofline"]["peaks"]

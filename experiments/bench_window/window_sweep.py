@@ -4,7 +4,7 @@
 Baseline (unchanged): local_attn_size=18, sink_size=6 (generate.py / lingbot/play/live.py
 defaults). Both are already plain constructor kwargs / CLI flags on the untouched baseline
 (generate.py --local_attn_size / --sink_size) -- this script does not patch any model code,
-it only drives generate.py (via `lingbot clip --bench`, run.sh's own path) with different
+it only drives generate.py (via `lingbot clip --bench`) with different
 values and prints the arithmetic prediction to check the measurement against.
 
 IMPORTANT (read before running): kv_size = frame_seqlen * local_attn_size is the WHOLE
@@ -44,7 +44,7 @@ if REPO not in sys.path:
 #   at max_area=480*832 (lingbot/play/live.py output_size default) this gives frame_seqlen=1508,
 #   so q = chunk_size * frame_seqlen = 4 * 1508 = 6032 and, at the baseline local_attn_size=18,
 #   kv = frame_seqlen * local_attn_size = 18 * 1508 = 27144 -- both match the measured shapes in
-#   OPTIMIZATIONS.md §18/§19 ("q 6032 x kv 27144, 12 heads x 128") exactly, so frame_seqlen=1508
+#   docs/OPTIMIZATIONS.md §18/§19 ("q 6032 x kv 27144, 12 heads x 128") exactly, so frame_seqlen=1508
 #   is confirmed, not guessed.
 FRAME_SEQLEN = 1508
 CHUNK_LATENTS = 4
@@ -54,7 +54,7 @@ BASE_WINDOW = 18
 BASE_SINK = 6
 BASE_KV = FRAME_SEQLEN * BASE_WINDOW  # 27144
 
-# Measured, not assumed: OPTIMIZATIONS.md §18, "Ours (--preset fast)" table, pod 14, chunks 8-10
+# Measured, not assumed: docs/OPTIMIZATIONS.md §18, "Ours (--preset fast)" table, pod 14, chunks 8-10
 # (KV window already full). Attention measured 0.288 s of a 0.98 s measured chunk (16.1 FPS
 # as-played). h3_l2_working_set.py (§19, hypothesis 3) independently measured attention's
 # per-key-per-head cost as flat (6.5 +/- 0.2 ns) from 4k to 54k keys -- i.e. close to linear in
@@ -128,7 +128,7 @@ def main() -> int:
 
     print(f"# frame_seqlen={FRAME_SEQLEN} chunk_latents={CHUNK_LATENTS} "
           f"baseline: local_attn_size={BASE_WINDOW} sink_size={BASE_SINK} kv={BASE_KV} "
-          f"attn={BASE_ATTN_S}s chunk={BASE_CHUNK_S}s fps={BASE_FPS} (OPTIMIZATIONS.md §18)\n")
+          f"attn={BASE_ATTN_S}s chunk={BASE_CHUNK_S}s fps={BASE_FPS} (docs/OPTIMIZATIONS.md §18)\n")
 
     preds = [predict(w, sink) for w in windows]
     for p in preds:

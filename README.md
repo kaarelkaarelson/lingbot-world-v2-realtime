@@ -174,7 +174,7 @@ in total however many streams share it.
 | **Total** | 6.0&nbsp;FPS&nbsp;→&nbsp;**16.1&nbsp;FPS** | | | **2.68&nbsp;→&nbsp;0.98** |
 <!-- /table:ladder -->
 
-Per chunk, against the paper's code (profiler traces in `OPTIMIZATIONS.md` §13, §17; host syncs counted over three chunks):
+Per chunk, against the paper's code (profiler traces in `docs/OPTIMIZATIONS.md` §13, §17; host syncs counted over three chunks):
 
 <!-- table:baseline -->
 | | Original paper's code | Ours |
@@ -216,11 +216,11 @@ What's left runs in four library kernels, three of them near the RTX 5090's peak
 | DiT latents | Whether our rewritten DiT code matches the paper's bit for bit when both run the same BF16 math (FP8 and SageAttention off) | reference | **bit-identical** |
 <!-- /table:quality -->
 
-`OPTIMIZATIONS.md` is the full log. It has every experiment with its measurement, the profiles, and the levers that were tried and rejected.
+`docs/OPTIMIZATIONS.md` is the full log. It has every experiment with its measurement, the profiles, and the levers that were tried and rejected.
 
 ## Two GPUs (2× RTX 5090, PCIe, no P2P)
 
-What worked. Details and the negative results: [`2X_RTX5090_LEARNINGS.md`](2X_RTX5090_LEARNINGS.md).
+What worked. Details and the negative results: [`docs/2X_RTX5090_LEARNINGS.md`](docs/2X_RTX5090_LEARNINGS.md).
 
 | Result | Change | Measured |
 |---|---|---|
@@ -254,7 +254,7 @@ What worked. Details and the negative results: [`2X_RTX5090_LEARNINGS.md`](2X_RT
 | `lingbot/registry.py`, `lingbot/presets.py` | which model to build; `fast` / `exact` / `stock` runtime presets |
 | `lingbot/generate.py`, `lingbot/cli.py`, `lingbot/play/` | offline generation, the `lingbot` command, the live player |
 | `reference/` | the paper's code, unmodified: the `stock` baseline and the shared primitives |
-| `experiments/` | code from experiments that did not ship (see its README and `OPTIMIZATIONS.md`) |
+| `experiments/` | code from experiments that did not ship (see its README and `docs/OPTIMIZATIONS.md`) |
 | `tests/`, `tools/` | CPU tests and golden outputs; README tables, roofline, pod checks |
 
 ## License and credit

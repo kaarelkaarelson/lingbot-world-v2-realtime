@@ -55,7 +55,7 @@ def _mx_quant(x):
 class MXFP8Linear(torch.nn.Module):
     """MXFP8: FP8 e4m3 with a power-of-two scale per 32 values along K, for weights and activations.
     Same 8-bit class as FP8Linear, finer scaling; cuBLAS runs it ~1.35-1.5x faster on the RTX 5090
-    (2X_RTX5090_LEARNINGS.md, learning 16)."""
+    (docs/2X_RTX5090_LEARNINGS.md, learning 16)."""
 
     def __init__(self, lin):
         super().__init__()

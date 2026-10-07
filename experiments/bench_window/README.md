@@ -54,14 +54,14 @@ LINGBOT_DUMP_LATENTS=/path/to/dumps/w12_s6.pt python3 generate.py --image exampl
 ```
 
 `--bench` (`generate.py:270-297`) prints steady-state s/chunk, denoise-loop FPS, and as-played
-FPS (with VAE decode) directly — this reproduces exactly the numbers OPTIMIZATIONS.md §18 uses
+FPS (with VAE decode) directly — this reproduces exactly the numbers docs/OPTIMIZATIONS.md §18 uses
 ("Ours" table: 0.98 s/chunk, 16.1 FPS), so the sweep's measured rows are directly comparable to
 that table without any extra parsing step.
 
 ## Quality gate (bench-world-model-quality skill)
 
 This lever changes the rollout (shorter memory -> different attention output -> different next
-latent), the same class as FP8 (§4) and SageAttention (§5) in OPTIMIZATIONS.md: **class C,
+latent), the same class as FP8 (§4) and SageAttention (§5) in docs/OPTIMIZATIONS.md: **class C,
 measured quality trade**, trajectory diverges from the first differing chunk, so bit/latent
 identity is the wrong bar. Reuse §4/§5's method, not trajectory identity:
 
@@ -82,7 +82,7 @@ identity is the wrong bar. Reuse §4/§5's method, not trajectory identity:
    what per-bin drift measures and first-chunk PSNR does not.
 4. **This repo has no metrics libtools installed** (no lpips/pyiqa/skimage in `pyproject.toml`,
    no `quality_metrics.py`/`score_run.py` — those live in the `lingbot-world-v2-stream` repo per
-   OPTIMIZATIONS.md's own tooling references). Loading them (or bringing over
+   docs/OPTIMIZATIONS.md's own tooling references). Loading them (or bringing over
    `stream/tools/score_run.py`) is a prerequisite the GPU-side runner needs to do before scoring;
    this script only gets the same latents/video on disk for both arms.
 5. **Sample size.** Go/no-go: n=1, one scene (`ex03`/"lake"), the `--frame_num 193` clip §18
@@ -90,7 +90,7 @@ identity is the wrong bar. Reuse §4/§5's method, not trajectory identity:
 
 ## Predicted numbers (to falsify against the measured `--bench` output)
 
-Baseline measured (OPTIMIZATIONS.md §18, pod 14): q 6032 × kv 27144, attention 0.288 s of a
+Baseline measured (docs/OPTIMIZATIONS.md §18, pod 14): q 6032 × kv 27144, attention 0.288 s of a
 0.98 s chunk, 16.1 FPS as played. Linear-in-kv scaling of the attention term is not an
 assumption of convenience: §19 hypothesis 3 (`bench/attn/h3_l2_working_set.py`) independently
 measured attention's per-key-per-head cost as flat (6.5 ± 0.2 ns) from 4k to 54k keys, i.e. the

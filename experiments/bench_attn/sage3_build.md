@@ -84,7 +84,7 @@ python -c "from sageattention import sageattn; print('sage2 OK')"
 ```
 
 Budget 15–30 minutes: two small `CUDAExtension`s (`fp4attn_cuda`, `fp4quant_cuda`) versus Sage
-2.2's much larger `_qattn_sm80/89/90` + `_fused` build (26 min per `OPTIMIZATIONS.md` §opt5), plus
+2.2's much larger `_qattn_sm80/89/90` + `_fused` build (26 min per `docs/OPTIMIZATIONS.md` §opt5), plus
 the one-time `git clone` of cutlass.
 
 ### If it fails
@@ -110,7 +110,7 @@ Cosine similarity against an fp32 `torch.nn.functional.scaled_dot_product_attent
 our **exact production shape**: `q [1, 6032, 12, 128]`, `k/v [1, 27144, 12, 128]`, bf16, produced
 in NHD `[B, L, H, D]` the way `attention()` receives them, then transposed to HND before the Sage 3
 call (as the patch does). `is_causal=False`. This is the same protocol used for every other
-attention candidate in this repo (`OPTIMIZATIONS.md` §20): **our INT8 baseline measures 0.999246
+attention candidate in this repo (`docs/OPTIMIZATIONS.md` §20): **our INT8 baseline measures 0.999246
 on this exact shape.** Sage 3 must be measured fresh here — do not reuse or compare to:
 
 - **the paper's reported 0.9952** — that is the *attention map* (not the output tensor) against a
@@ -150,7 +150,7 @@ Also verify **synthetic, not-near-uniform inputs** the way `c7_sparge.py` does f
 `randn` gives near-uniform softmax and is not representative of real attention mass; if time
 allows, reuse that harness's clustered-key generator instead of raw `randn` for a second data
 point, but the `randn` number above is the one directly comparable to the 0.999246 baseline
-(which was also measured on `randn`, `OPTIMIZATIONS.md` §20).
+(which was also measured on `randn`, `docs/OPTIMIZATIONS.md` §20).
 
 ### 2. Rollout gate (`bench-world-model-quality` skill)
 
@@ -210,7 +210,7 @@ PY
 
 # --- 4. integration bench: our env flag, on the real model ---
 LINGBOT_ATTN=sage3 LINGBOT_DIT_FUSION=1 LINGBOT_SYNCFREE=1 LINGBOT_VAE_FUSED=1 \
-LINGBOT_FP8=1 LINGBOT_TORCH_COMPILE=1 python bench_perf.py --label sage3_fp4 ...  # match the flags of the current 16.3 FPS baseline row in OPTIMIZATIONS.md
+LINGBOT_FP8=1 LINGBOT_TORCH_COMPILE=1 python bench_perf.py --label sage3_fp4 ...  # match the flags of the current 16.3 FPS baseline row in docs/OPTIMIZATIONS.md
 
 # --- 5. rollout quality (bench-world-model-quality skill; see §2 above for exact protocol) ---
 ```

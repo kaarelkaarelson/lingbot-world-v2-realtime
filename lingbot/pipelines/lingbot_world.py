@@ -2,7 +2,7 @@
 
 Per chunk: 4 denoising passes of the fused DiT, one pass at t=0 that writes the clean chunk into
 the KV cache, then the fused decoder. Moved from the paper's `wan/image2video.py` (`WanI2VCausal`,
-causal_fast mode) with the optimizations of OPTIMIZATIONS.md; the paper's own loop is in
+causal_fast mode) with the optimizations of docs/OPTIMIZATIONS.md; the paper's own loop is in
 `reference/wan/image2video.py`.
 """
 import gc
@@ -254,7 +254,7 @@ class LingBotWorldPipeline:
 
     def set_decoder_device(self, decoder_device_id=None):
         """Decode on this GPU (None: the DiT's). Another GPU overlaps decoding with the DiT
-        (2X_RTX5090_LEARNINGS.md); each chunk's 4 clean latents (0.77 MB) cross over, nothing else does.
+        (docs/2X_RTX5090_LEARNINGS.md); each chunk's 4 clean latents (0.77 MB) cross over, nothing else does.
         Each GPU gets its own fused decoder on first use (it converts its VAE copy to fp16 in place) and
         keeps it, so a benchmark sweep can switch placements inside one process."""
         dev = self.device if decoder_device_id is None else torch.device(f"cuda:{decoder_device_id}")
