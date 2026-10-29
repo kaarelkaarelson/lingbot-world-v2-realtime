@@ -334,6 +334,14 @@ except tensor parallelism's elementwise work, which both cards repeat):
 
 These are predictions from link benchmarks and single-card kernel times; the model runs are next.
 
+## Running the best layout
+
+Split 10:2 with green contexts and all the speed switches (29.8 FPS on the fast-CPU pod, see the layout table in the README):
+
+```
+LINGBOT_SPLIT=10:2 LINGBOT_SPLIT_CPPWRAP=1 LINGBOT_SPLIT_SKIPGUARD=50 LINGBOT_SPLIT_PIECES=2 LINGBOT_SPLIT_ZEROCOPY=1 lingbot … --decoder_gpu 1
+```
+
 ## What others have found
 
 - **A patched driver enables P2P on 5090s, but only on hardware you own.** tinygrad's

@@ -27,30 +27,6 @@ Measured with `lingbot bench` on a stock RunPod RTX 5090 (2026-09-17).
 
 ## 2× RTX 5090: pipeline and sequence parallelism
 
-Frames per second with the decoder streaming, one Vast pod (2× RTX 5090, 500 W cap, PCIe, no P2P),
-median of 3 warm runs. Not tensor parallelism: the cards split the pipeline (DiT on one, decoder on the
-other) or the sequence (each card takes a share of the tokens and attention heads). Full log:
-[`experiments/split_cpu/results/fps_log_2026-10-05.tsv`](experiments/split_cpu/results/fps_log_2026-10-05.tsv).
-
-| Layout | FPS |
-|---|---|
-| One card | 15.7 |
-| Classic split 6:6, decoder after the DiT on card 0 (first split code) | 14.0 |
-| **Pipeline (B1): DiT on card 0, decoder on card 1** | **24.0** |
-| Sequence split 10:2 + green contexts, decoder on card 1 | 17.6 |
-| … + reused transfer buffers | 19.0 |
-| … + Inductor `cpp_wrapper` | 22.4 |
-| **… + guard skipping + 2 transfer pieces** | **25.0** |
-
-On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
-
-| Layout | FPS |
-|---|---|
-| Pipeline (B1) | 25.3 |
-| Sequence split 10:2, all of the above | 27.7 |
-| … + no host sync per forward + 48 SMs for card 1's DiT share | 29.2 |
-| **… + copy-free q\|k\|v assembly (`LINGBOT_SPLIT_ZEROCOPY=1`)** | **29.8** |
-
 ### The three layouts at a glance
 
 | Layout | Card 0 | Card 1 | Measured | FPS |
@@ -60,8 +36,6 @@ On a pod with a faster CPU (EPYC 9454, 575 W, PCIe 5.0 x16), same method:
 | **Split 10:2 (best)** | 5/6 of the attention heads | 1/6 of the attention heads + VAE decoder\* | fast-CPU pod | **29.8** |
 
 \* The VAE decoder is one chunk behind, meaning it turns chunk n into frames while the DiT is generating chunk n+1.
-
-Run the best layout: `LINGBOT_SPLIT=10:2 LINGBOT_SPLIT_CPPWRAP=1 LINGBOT_SPLIT_SKIPGUARD=50 LINGBOT_SPLIT_PIECES=2 LINGBOT_SPLIT_ZEROCOPY=1 lingbot … --decoder_gpu 1`
 
 Classic split 6:6
 
